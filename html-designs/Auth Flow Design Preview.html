@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="spa">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Authentication · Design Preview</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#faf8f4;--surface:#fff;--ink:#23211e;--muted:#6d675f;--line:#ddd7cc;--accent:#4f6b57;--accent-ink:#fff;--err:#a8453b;--ok:#4f6b57;--r:6px;--serif:"Cormorant Garamond",Georgia,serif;--sans:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme-mode="light"]){--bg:#171614;--surface:#1f1d1a;--ink:#f1ede6;--muted:#a39d92;--line:#37332d;--accent-ink:#fff;--err:#e0867b}}
+[data-theme=salon]{--accent:#9a5b4b}[data-theme=barber]{--accent:#2c4259}[data-theme=hotel]{--accent:#7a5c36}
+@media (prefers-color-scheme:dark){[data-theme=spa]{--accent:#7f9c87}[data-theme=salon]{--accent:#c98a78}[data-theme=barber]{--accent:#7d9bbb}[data-theme=hotel]{--accent:#c4a06a}[data-theme]{--accent-ink:#14120f}}
+*,*:before,*:after{box-sizing:inherit}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--ink);font:400 15px/1.55 var(--sans);-webkit-font-smoothing:antialiased}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+.shell{min-height:100%;display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:200px 1fr}
+.art{position:relative;overflow:hidden;background:#cfd8c8}
+.scene,.photo{position:absolute;inset:0;width:100%;height:100%;opacity:0;transition:opacity .7s ease}
+.scene.on{opacity:1}.photo{object-fit:cover;display:none}.photo.on{display:block;opacity:1}
+.art .tint{position:absolute;inset:0;background:rgba(20,18,15,.18);pointer-events:none}
+.cap{position:absolute;left:24px;right:24px;bottom:20px;color:#fff;z-index:2}
+.cap .q{font:500 22px/1.25 var(--serif);max-width:26ch;display:none}
+.cap .b{font:600 11px var(--sans);letter-spacing:.2em;text-transform:uppercase;opacity:.92}
+.panel{display:flex;flex-direction:column;padding:28px 24px 24px;min-width:0}
+.brand{font:600 24px/1 var(--serif);letter-spacing:.02em;display:flex;align-items:center;gap:10px}
+.brand i{width:9px;height:9px;background:var(--accent);display:inline-block;transform:rotate(45deg)}
+.main{flex:1;display:flex;align-items:center;justify-content:center;padding:32px 0}
+.card{width:100%;max-width:400px}
+.view{display:none}.view.active{display:block;animation:in .45s cubic-bezier(.2,.7,.2,1) both}
+@keyframes in{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+h1{font:600 clamp(30px,4vw,40px)/1.1 var(--serif);margin:0 0 8px;letter-spacing:.005em}
+.sub{color:var(--muted);margin:0 0 26px}
+.oauth{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.btn{font:500 15px var(--sans);min-height:48px;padding:0 18px;border-radius:var(--r);border:1px solid var(--accent);background:var(--accent);color:var(--accent-ink);cursor:pointer;width:100%;display:inline-flex;align-items:center;justify-content:center;gap:10px;transition:transform .15s,opacity .2s,background .2s,border-color .2s}
+.btn:hover{opacity:.92}.btn:active{transform:scale(.985)}
+.btn.alt{background:var(--surface);color:var(--ink);border-color:var(--line)}.btn.alt:hover{border-color:var(--ink);opacity:1}
+.btn[disabled]{opacity:.55;cursor:default}
+.btn svg{width:18px;height:18px;flex:none}
+.or{display:flex;align-items:center;gap:14px;color:var(--muted);font-size:12px;letter-spacing:.12em;text-transform:uppercase;margin:22px 0}
+.or:before,.or:after{content:"";flex:1;height:1px;background:var(--line)}
+.f{margin-bottom:16px;position:relative}
+label{display:block;font-size:13px;font-weight:500;margin-bottom:6px}
+.row{display:flex;justify-content:space-between;align-items:baseline}
+input[type=text],input[type=email],input[type=password],input[type=tel]{width:100%;height:48px;padding:0 14px;font:400 16px var(--sans);color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:var(--r);transition:border-color .2s,box-shadow .2s}
+input:hover{border-color:var(--muted)}
+input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 22%,transparent)}
+.f.bad input{border-color:var(--err)}
+.msg{font-size:12.5px;color:var(--err);margin-top:6px;min-height:0;display:none}.f.bad .msg{display:block;animation:in .25s both}
+.eye{position:absolute;right:4px;top:30px;width:40px;height:40px;background:none;border:0;color:var(--muted);cursor:pointer;border-radius:var(--r)}
+.eye:hover{color:var(--ink)}.f.pw input{padding-right:46px}
+a,.link{color:var(--ink);text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:3px;background:none;border:0;padding:0;font:inherit;cursor:pointer;transition:text-decoration-color .2s,color .2s}
+a:hover,.link:hover{text-decoration-color:var(--accent);color:var(--accent)}
+.small{font-size:13px}.muted{color:var(--muted)}
+.chk{display:flex;gap:10px;align-items:flex-start;font-size:13.5px;color:var(--muted);margin:4px 0 20px;cursor:pointer}
+.chk input{appearance:none;flex:none;width:20px;height:20px;margin:0;border:1px solid var(--line);border-radius:4px;background:var(--surface);display:grid;place-content:center;cursor:pointer;transition:.15s}
+.chk input:checked{background:var(--accent);border-color:var(--accent)}
+.chk input:checked:after{content:"";width:9px;height:5px;border-left:2px solid var(--accent-ink);border-bottom:2px solid var(--accent-ink);transform:rotate(-45deg) translate(1px,-1px)}
+.chk input:focus-visible{box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 25%,transparent)}
+.alt-line{text-align:center;margin-top:22px;color:var(--muted)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.meter{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-top:8px}
+.meter b{height:3px;background:var(--line);border-radius:2px;transition:background .3s}
+.meter b.on{background:var(--accent)}.hint{font-size:12.5px;color:var(--muted);margin-top:6px}
+.otp{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin:6px 0 10px}
+.otp input{height:56px;padding:0;text-align:center;font:500 24px var(--serif)}
+.otp.bad input{border-color:var(--err);animation:shake .35s}
+@keyframes shake{25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+.back{display:inline-flex;align-items:center;gap:6px;color:var(--muted);font-size:13.5px;margin-bottom:22px;background:none;border:0;cursor:pointer;padding:0;font-family:inherit}
+.back:hover{color:var(--ink)}
+.badge{width:56px;height:56px;border:1px solid var(--accent);color:var(--accent);border-radius:50%;display:grid;place-items:center;margin-bottom:20px}
+.badge svg{width:26px;height:26px;stroke-dasharray:30;stroke-dashoffset:30;animation:draw .7s .25s ease forwards}
+@keyframes draw{to{stroke-dashoffset:0}}
+.spin{width:16px;height:16px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:sp .7s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.foot{display:flex;flex-wrap:wrap;gap:6px 20px;justify-content:space-between;color:var(--muted);font-size:12.5px}
+.foot a{color:var(--muted)}
+/* preview kit */
+.kit{position:fixed;right:max(16px,env(safe-area-inset-right));bottom:max(16px,env(safe-area-inset-bottom));z-index:20;font-size:13px}
+.kit>button{height:40px;padding:0 14px;border-radius:var(--r);border:1px solid var(--line);background:var(--surface);color:var(--ink);font:500 13px var(--sans);cursor:pointer}
+.kit .pop{display:none;position:absolute;right:0;bottom:48px;width:268px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px;box-shadow:0 8px 24px rgba(0,0,0,.12)}
+.kit.open .pop{display:block;animation:in .25s both}
+.pop h4{margin:0 0 8px;font:600 11px var(--sans);letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
+.chips button{height:32px;padding:0 12px;border:1px solid var(--line);background:none;color:var(--ink);border-radius:var(--r);font:500 12.5px var(--sans);cursor:pointer}
+.chips button.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.up{display:block;text-align:center;border:1px dashed var(--line);padding:9px;border-radius:var(--r);cursor:pointer;color:var(--muted)}
+.up:hover{border-color:var(--accent);color:var(--ink)}
+@media (min-width:640px){.shell{grid-template-rows:260px 1fr}.panel{padding:32px 48px}.cap{left:48px;bottom:28px}}
+@media (min-width:960px){
+ .shell{grid-template-columns:minmax(0,1.05fr) minmax(460px,1fr);grid-template-rows:none;min-height:100vh}
+ .art{position:sticky;top:0;height:100vh;order:0}.panel{padding:40px 64px;min-height:100vh}
+ .cap{left:56px;right:56px;bottom:48px}.cap .q{display:block;font-size:clamp(28px,2.6vw,42px);margin-bottom:16px}
+}
+@media (min-width:1700px){.panel{padding:56px 120px}.card{max-width:440px}}
+@media (max-height:560px) and (min-width:960px){.art{position:relative}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="shell">
+ <aside class="art" aria-hidden="true">
+  <svg class="scene on" data-s="spa" viewBox="0 0 800 1000" preserveAspectRatio="xMidYMid slice"><rect width="800" height="1000" fill="#d3dccb"/><circle cx="540" cy="300" r="150" fill="#e8eddf"/><path d="M0 560C150 480 280 520 400 470s280-40 400 20V1000H0Z" fill="#b6c4ab"/><path d="M0 700C200 640 360 690 520 650s200-20 280 0V1000H0Z" fill="#9fb094"/><rect y="780" width="800" height="220" fill="#c3cfbb"/><ellipse cx="400" cy="870" rx="150" ry="34" fill="#6d7b66"/><ellipse cx="400" cy="822" rx="112" ry="28" fill="#869479"/><ellipse cx="400" cy="782" rx="76" ry="22" fill="#a9b69c"/><ellipse cx="400" cy="752" rx="44" ry="16" fill="#c9d3bd"/><g stroke="#5a6b55" stroke-width="3" fill="none"><path d="M120 1000C120 840 150 720 190 640"/><path d="M680 1000C690 860 660 760 620 690"/></g><g fill="#74866c"><ellipse cx="170" cy="700" rx="26" ry="10" transform="rotate(-50 170 700)"/><ellipse cx="150" cy="760" rx="28" ry="10" transform="rotate(-20 150 760)"/><ellipse cx="190" cy="650" rx="22" ry="9" transform="rotate(-70 190 650)"/><ellipse cx="640" cy="730" rx="26" ry="10" transform="rotate(40 640 730)"/><ellipse cx="660" cy="800" rx="28" ry="10" transform="rotate(20 660 800)"/></g></svg>
+  <svg class="scene" data-s="salon" viewBox="0 0 800 1000" preserveAspectRatio="xMidYMid slice"><rect width="800" height="1000" fill="#ead6cd"/><rect y="760" width="800" height="240" fill="#dcc1b5"/><path d="M250 700V330a150 150 0 0 1 300 0V700Z" fill="#f6ece6" stroke="#a9715f" stroke-width="8"/><path d="M280 680V335a120 120 0 0 1 240 0V680Z" fill="#e4d0c8"/><path d="M300 560l60-120M360 640l100-200" stroke="#f6ece6" stroke-width="10" opacity=".7"/><rect x="190" y="700" width="420" height="16" fill="#a9715f"/><path d="M630 760h90l-10 140h-70Z" fill="#f6ece6"/><g stroke="#7c6a4e" stroke-width="3" fill="none"><path d="M675 760C660 640 640 560 620 500"/><path d="M675 760C690 650 720 580 740 520"/><path d="M675 760C676 680 670 600 680 540"/></g><g fill="#a9715f"><circle cx="620" cy="496" r="12"/><circle cx="740" cy="516" r="14"/><circle cx="682" cy="536" r="12"/></g><circle cx="150" cy="840" r="48" fill="#a9715f"/><rect x="146" y="880" width="8" height="110" fill="#7a4d3f"/></svg>
+  <svg class="scene" data-s="barber" viewBox="0 0 800 1000" preserveAspectRatio="xMidYMid slice"><rect width="800" height="1000" fill="#1f2d3d"/><rect y="800" width="800" height="200" fill="#16212d"/><defs><clipPath id="pc"><rect x="110" y="260" width="84" height="420" rx="6"/></clipPath></defs><g clip-path="url(#pc)"><rect x="110" y="260" width="84" height="420" fill="#f3ede2"/><path d="M90 300l120 -60v60l-120 60zM90 400l120-60v60l-120 60zM90 500l120-60v60l-120 60zM90 600l120-60v60l-120 60z" fill="#9b3d3a"/><path d="M90 350l120-60v50l-120 60zM90 450l120-60v50l-120 60zM90 550l120-60v50l-120 60zM90 650l120-60v50l-120 60z" fill="#4c6a8a"/></g><rect x="100" y="245" width="104" height="16" fill="#b8935a"/><rect x="100" y="680" width="104" height="16" fill="#b8935a"/><ellipse cx="480" cy="380" rx="170" ry="230" fill="#2b3e52" stroke="#b8935a" stroke-width="10"/><ellipse cx="480" cy="380" rx="146" ry="206" fill="#34495f"/><path d="M400 520L560 250" stroke="#41586f" stroke-width="14" opacity=".8"/><rect x="340" y="650" width="280" height="14" fill="#b8935a"/><path d="M400 664l-20 140h40zM560 664l20 140h-40z" fill="#b8935a"/><rect x="380" y="590" width="40" height="60" fill="#41586f"/><rect x="440" y="610" width="30" height="40" fill="#8a6c3f"/></svg>
+  <svg class="scene" data-s="hotel" viewBox="0 0 800 1000" preserveAspectRatio="xMidYMid slice"><rect width="800" height="1000" fill="#dccdb5"/><rect y="800" width="800" height="200" fill="#c7b596"/><g fill="#f3eadb" stroke="#8a6d43" stroke-width="6"><path d="M130 800V340a110 110 0 0 1 220 0V800Z"/><path d="M450 800V340a110 110 0 0 1 220 0V800Z"/></g><g stroke="#8a6d43" stroke-width="4"><path d="M240 230V800M130 500H350M560 230V800M450 500H670"/></g><path d="M130 800V340a110 110 0 0 1 220 0V800Z" fill="#cdd9d6" opacity=".55"/><path d="M450 800V340a110 110 0 0 1 220 0V800Z" fill="#cdd9d6" opacity=".55"/><rect x="60" y="800" width="680" height="14" fill="#8a6d43"/><rect x="620" y="840" width="110" height="150" fill="#a98a5a"/><rect x="660" y="740" width="8" height="100" fill="#6c5430"/><path d="M630 740h88l-20-70h-48Z" fill="#f3eadb"/></svg>
+  <img class="photo" alt="">
+  <div class="tint"></div>
+  <div class="cap"><div class="q" id="quote">Take a quiet moment for yourself.</div><div class="b" id="bname">Sérène Spa</div></div>
+ </aside>
+
+ <section class="panel">
+  <div class="brand"><i></i><span id="brand">Sérène</span></div>
+  <div class="main"><div class="card">
+
+   <!-- SIGN IN -->
+   <form class="view active" data-view="signin" novalidate>
+    <h1>Welcome back</h1><p class="sub">Sign in to manage your bookings and rewards.</p>
+    <div class="oauth"><button type="button" class="btn alt" data-oauth="Google"><svg viewBox="0 0 24 24"><path fill="#4285F4" d="M22.5 12.2c0-.8-.1-1.5-.2-2.2H12v4.2h5.9a5 5 0 0 1-2.2 3.3v2.7h3.5c2.1-1.9 3.3-4.7 3.3-8Z"/><path fill="#34A853" d="M12 23c3 0 5.400-1 7.200-2.700l-3.500-2.700c-1 .7-2.200 1-3.700 1-2.800 0-5.300-1.900-6.100-4.500H2.300v2.800A11 11 0 0 0 12 23Z"/><path fill="#FBBC05" d="M5.900 14.100a6.600 6.600 0 0 1 0-4.200V7.100H2.300a11 11 0 0 0 0 9.800Z"/><path fill="#EA4335" d="M12 5.400c1.600 0 3 .6 4.200 1.600l3.100-3.100A11 11 0 0 0 2.300 7.100l3.600 2.800C6.700 7.300 9.200 5.400 12 5.400Z"/></svg>Google</button>
+    <button type="button" class="btn alt" data-oauth="Apple"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M16.400 12.800c0-2.400 2-3.500 2.100-3.600-1.200-1.700-3-1.900-3.600-2-1.500-.2-3 .9-3.800.9s-2-.9-3.300-.8C6 7.400 4.500 8.400 3.600 9.900c-1.800 3.100-.5 7.700 1.300 10.200.9 1.200 1.900 2.600 3.300 2.500 1.300-.1 1.800-.8 3.400-.8s2 .8 3.400.8c1.400 0 2.300-1.200 3.200-2.500a11 11 0 0 0 1.400-2.900c-.1 0-2.700-1-2.700-4.400ZM14 5.400c.7-.9 1.200-2.100 1.100-3.300-1 0-2.300.7-3 1.600-.7.800-1.200 2-1.100 3.200 1.100.1 2.300-.6 3-1.500Z"/></svg>Apple</button></div>
+    <div class="or">or with email</div>
+    <div class="f"><label for="si-e">Email</label><input id="si-e" type="email" autocomplete="email" placeholder="you@example.com" data-v="email"><div class="msg"></div></div>
+    <div class="f pw"><div class="row"><label for="si-p">Password</label><button type="button" class="link small" data-go="forgot">Forgot password?</button></div><input id="si-p" type="password" autocomplete="current-password" placeholder="Your password" data-v="req"><button type="button" class="eye" aria-label="Show password"></button><div class="msg"></div></div>
+    <label class="chk"><input type="checkbox" checked>Keep me signed in on this device</label>
+    <button class="btn" type="submit"><span>Sign in</span></button>
+    <div class="alt-line small"><button type="button" class="link" data-go="otp" data-mode="login">Email me a sign-in code instead</button></div>
+    <div class="alt-line">New here? <button type="button" class="link" data-go="signup">Create an account</button></div>
+   </form>
+
+   <!-- SIGN UP -->
+   <form class="view" data-view="signup" novalidate>
+    <h1>Create your account</h1><p class="sub">Book faster and keep your preferences in one place.</p>
+    <div class="oauth"><button type="button" class="btn alt" data-oauth="Google">Google</button><button type="button" class="btn alt" data-oauth="Apple">Apple</button></div>
+    <div class="or">or with email</div>
+    <div class="two"><div class="f"><label for="su-f">First name</label><input id="su-f" type="text" autocomplete="given-name" data-v="req"><div class="msg"></div></div><div class="f"><label for="su-l">Last name</label><input id="su-l" type="text" autocomplete="family-name" data-v="req"><div class="msg"></div></div></div>
+    <div class="f"><label for="su-e">Email</label><input id="su-e" type="email" autocomplete="email" placeholder="you@example.com" data-v="email"><div class="msg"></div></div>
+    <div class="f"><label for="su-t">Phone <span class="muted">(optional)</span></label><input id="su-t" type="tel" autocomplete="tel" placeholder="+254 700 000 000"></div>
+    <div class="f pw"><label for="su-p">Password</label><input id="su-p" type="password" autocomplete="new-password" data-v="pw"><button type="button" class="eye" aria-label="Show password"></button><div class="meter"><b></b><b></b><b></b><b></b></div><div class="hint" id="pwhint">Use 8+ characters with a number and a symbol.</div><div class="msg"></div></div>
+    <label class="chk"><input type="checkbox" id="terms">I agree to the <a href="#signup">Terms</a> and <a href="#signup">Privacy Policy</a>.</label>
+    <button class="btn" type="submit"><span>Create account</span></button>
+    <div class="alt-line">Already a member? <button type="button" class="link" data-go="signin">Sign in</button></div>
+   </form>
+
+   <!-- FORGOT -->
+   <form class="view" data-view="forgot" novalidate>
+    <button type="button" class="back" data-go="signin">← Back to sign in</button>
+    <h1>Reset your password</h1><p class="sub">Enter your email and we’ll send a 6-digit code to verify it’s you.</p>
+    <div class="f"><label for="fp-e">Email</label><input id="fp-e" type="email" autocomplete="email" placeholder="you@example.com" data-v="email"><div class="msg"></div></div>
+    <button class="btn" type="submit"><span>Send code</span></button>
+   </form>
+
+   <!-- OTP -->
+   <form class="view" data-view="otp" novalidate>
+    <button type="button" class="back" id="otp-back">← Back</button>
+    <h1>Check your email</h1><p class="sub">We sent a 6-digit code to <strong id="otp-to">your email</strong>. It expires in 10 minutes.</p>
+    <div class="otp" role="group" aria-label="Verification code"></div>
+    <div class="msg" id="otp-msg" style="display:none;color:var(--err);margin:0 0 10px;font-size:12.5px">That code isn’t right. Please try again.</div>
+    <button class="btn" type="submit"><span>Verify</span></button>
+    <div class="alt-line small" id="resend">Didn’t get it? <span id="rs-t">Resend in 30s</span></div>
+    <div class="hint" style="text-align:center">Demo: any 6 digits will work.</div>
+   </form>
+
+   <!-- NEW PASSWORD -->
+   <form class="view" data-view="reset" novalidate>
+    <h1>Choose a new password</h1><p class="sub">Make it one you haven’t used before.</p>
+    <div class="f pw"><label for="rp-p">New password</label><input id="rp-p" type="password" autocomplete="new-password" data-v="pw"><button type="button" class="eye" aria-label="Show password"></button><div class="meter"><b></b><b></b><b></b><b></b></div><div class="hint">Use 8+ characters with a number and a symbol.</div><div class="msg"></div></div>
+    <div class="f pw"><label for="rp-c">Confirm password</label><input id="rp-c" type="password" autocomplete="new-password" data-v="match"><button type="button" class="eye" aria-label="Show password"></button><div class="msg"></div></div>
+    <button class="btn" type="submit"><span>Update password</span></button>
+   </form>
+
+   <!-- SUCCESS -->
+   <div class="view" data-view="done">
+    <div class="badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.500l4.500 4.500L19 7.500"/></svg></div>
+    <h1 id="done-h">You’re all set</h1><p class="sub" id="done-p">Welcome in. Your account is ready.</p>
+    <button class="btn" data-go="signin">Continue</button>
+   </div>
+
+  </div></div>
+  <div class="foot"><span>© 2026 <span class="bn">Sérène Spa</span></span><span><a href="#signin">Help</a> · <a href="#signin">Privacy</a> · <a href="#signin">Terms</a></span></div>
+ </section>
+</div>
+
+<div class="kit" id="kit"><button type="button" aria-expanded="false">Preview options</button>
+ <div class="pop"><h4>Industry</h4><div class="chips" id="themes"><button data-t="spa" class="on">Spa</button><button data-t="salon">Salon</button><button data-t="barber">Barber</button><button data-t="hotel">Hotel</button></div>
+ <h4>Screen</h4><div class="chips" id="screens"><button data-g="signin">Sign in</button><button data-g="signup">Sign up</button><button data-g="forgot">Forgot</button><button data-g="otp">OTP</button><button data-g="reset">New password</button><button data-g="done">Success</button></div>
+ <h4>Your own image</h4><label class="up">Upload a photo<input type="file" id="file" accept="image/*" hidden></label></div></div>
+
+<script>
+const T={spa:["Sérène","Sérène Spa","Take a quiet moment for yourself."],salon:["Maison Rosé","Maison Rosé Salon","Look good. Feel even better."],barber:["Gentry & Co.","Gentry & Co. Barbers","Sharp cuts. Good company."],hotel:["The Aldene","The Aldene Hotels","Your room is waiting."]};
+const $=(s,e=document)=>e.querySelector(s),$$=(s,e=document)=>[...e.querySelectorAll(s)];
+let cur="signin",mode="reset",email="",timer;
+const eyeO='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M2 12s3.500-7 10-7 10 7 10 7-3.500 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>';
+$$(".eye").forEach(b=>{b.innerHTML=eyeO;b.onclick=()=>{const i=b.parentNode.querySelector("input");const s=i.type==="password";i.type=s?"text":"password";b.style.color=s?"var(--accent)":"";b.setAttribute("aria-label",s?"Hide password":"Show password")}});
+
+function go(v){
+ const o=$(".view.active");const n=$(`[data-view=${v}]`);if(!n||o===n)return;
+ o.classList.remove("active");n.classList.add("active");cur=v;
+ if(location.hash!=="#"+v)history.replaceState(null,"","#"+v);
+ const f=$("input:not([type=checkbox]):not([hidden])",n);if(f&&innerWidth>700)setTimeout(()=>f.focus({preventScroll:true}),150);
+ if(v==="otp")startOtp();
+ $$("#screens button").forEach(b=>b.classList.toggle("on",b.dataset.g===v));
+ scrollTo({top:0,behavior:"smooth"});
+}
+document.addEventListener("click",e=>{
+ const g=e.target.closest("[data-go]");if(g){if(g.dataset.mode)mode=g.dataset.mode;go(g.dataset.go)}
+ const o=e.target.closest("[data-oauth]");if(o){const t=o.innerHTML;o.disabled=true;o.innerHTML='<span class="spin"></span>';setTimeout(()=>{o.disabled=false;o.innerHTML=t;finish("login")},1000)}
+});
+
+function fieldErr(f,m){f.classList.toggle("bad",!!m);const x=$(".msg",f);if(x)x.textContent=m||""}
+function check(i){
+ const v=i.value.trim(),k=i.dataset.v,f=i.closest(".f");let m="";
+ if(k==="req"&&!v)m="This field is required.";
+ if(k==="email"&&!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v))m=v?"Please enter a valid email address.":"Email is required.";
+ if(k==="pw"&&score(i.value)<3)m="Password is too weak. Add a number and a symbol.";
+ if(k==="match"&&i.value!==$("#rp-p").value)m="Passwords don’t match.";
+ fieldErr(f,m);return !m;
+}
+const score=p=>[p.length>=8,/[A-Z]/.test(p)&&/[a-z]/.test(p),/\d/.test(p),/[^A-Za-z0-9]/.test(p)].filter(Boolean).length;
+$$("input[data-v]").forEach(i=>{i.addEventListener("blur",()=>i.value&&check(i));i.addEventListener("input",()=>{if(i.closest(".f").classList.contains("bad"))check(i);if(i.dataset.v==="pw"){const s=score(i.value);$$(".meter b",i.closest(".f")).forEach((b,n)=>b.classList.toggle("on",n<s))}})});
+$("#su-p").addEventListener("input",e=>{$("#pwhint").textContent=["Use 8+ characters with a number and a symbol.","Weak. Keep going.","Fair. Almost there.","Good.","Strong. Lovely."][score(e.target.value)]});
+
+function busy(btn,ms,cb){btn.disabled=true;const t=$("span",btn).textContent;$("span",btn).innerHTML='<span class="spin"></span>';setTimeout(()=>{btn.disabled=false;$("span",btn).textContent=t;cb()},ms)}
+function finish(kind){
+ const m={login:["Welcome back","You’re signed in. Redirecting to your dashboard…"],signup:["Account created","Welcome in. Your account is verified and ready."],reset:["Password updated","You can now sign in with your new password."]}[kind];
+ $("#done-h").textContent=m[0];$("#done-p").textContent=m[1];go("done");
+}
+$$("form.view").forEach(f=>f.addEventListener("submit",e=>{
+ e.preventDefault();const v=f.dataset.view,btn=$(".btn:not(.alt)",f);
+ if(v!=="otp"){const bad=$$("input[data-v]",f).filter(i=>!check(i));if(bad.length){bad[0].focus();return}}
+ if(v==="signup"&&!$("#terms").checked){alert("Please accept the Terms to continue.");return}
+ if(v==="signin")return busy(btn,900,()=>finish("login"));
+ if(v==="signup"){email=$("#su-e").value;mode="signup";return busy(btn,900,()=>go("otp"))}
+ if(v==="forgot"){email=$("#fp-e").value;mode="reset";return busy(btn,900,()=>go("otp"))}
+ if(v==="reset")return busy(btn,900,()=>finish("reset"));
+ if(v==="otp"){const c=$$(".otp input").map(i=>i.value).join("");if(c.length<6){bad();return}
+  busy(btn,900,()=>{clearInterval(timer);mode==="reset"?go("reset"):finish(mode==="signup"?"signup":"login")})}
+}));
+
+const wrap=$(".otp");
+for(let n=0;n<6;n++){const i=document.createElement("input");i.type="text";i.inputMode="numeric";i.maxLength=1;i.autocomplete=n?"off":"one-time-code";i.setAttribute("aria-label","Digit "+(n+1));wrap.appendChild(i)}
+const ds=$$("input",wrap);
+function bad(){wrap.classList.remove("bad");void wrap.offsetWidth;wrap.classList.add("bad");$("#otp-msg").style.display="block"}
+ds.forEach((d,n)=>{
+ d.addEventListener("input",()=>{d.value=d.value.replace(/\D/g,"").slice(-1);wrap.classList.remove("bad");$("#otp-msg").style.display="none";if(d.value&&ds[n+1])ds[n+1].focus();if(ds.every(x=>x.value))$(".btn",d.closest("form")).click()});
+ d.addEventListener("keydown",e=>{if(e.key==="Backspace"&&!d.value&&ds[n-1]){ds[n-1].focus();ds[n-1].value=""}if(e.key==="ArrowLeft"&&ds[n-1])ds[n-1].focus();if(e.key==="ArrowRight"&&ds[n+1])ds[n+1].focus()});
+ d.addEventListener("focus",()=>d.select());
+ d.addEventListener("paste",e=>{const t=(e.clipboardData.getData("text")||"").replace(/\D/g,"").slice(0,6);if(!t)return;e.preventDefault();[...t].forEach((c,k)=>ds[k].value=c);ds[Math.min(t.length,5)].focus()});
+});
+function startOtp(){
+ ds.forEach(d=>d.value="");$("#otp-msg").style.display="none";
+ $("#otp-to").textContent=email?email.replace(/^(.).*(@.*)$/,"$1•••$2"):"your email";
+ $("#otp-back").dataset.go=mode==="signup"?"signup":mode==="login"?"signin":"forgot";
+ let s=30;const r=$("#resend");r.innerHTML='Didn’t get it? <span id="rs-t">Resend in 30s</span>';clearInterval(timer);
+ timer=setInterval(()=>{s--;if(s<=0){clearInterval(timer);r.innerHTML='Didn’t get it? <button type="button" class="link" id="rs">Resend code</button>';$("#rs").onclick=startOtp}else $("#rs-t").textContent="Resend in "+s+"s"},1000);
+}
+
+/* theming & preview kit */
+function theme(t){
+ document.documentElement.dataset.theme=t;const d=T[t];
+ $("#brand").textContent=d[0];$("#bname").textContent=d[1];$("#quote").textContent=d[2];$$(".bn").forEach(e=>e.textContent=d[1]);
+ $$(".scene").forEach(s=>s.classList.toggle("on",s.dataset.s===t));
+ $$("#themes button").forEach(b=>b.classList.toggle("on",b.dataset.t===t));
+ $(".photo").classList.remove("on");
+}
+$("#themes").onclick=e=>{const b=e.target.closest("button");if(b)theme(b.dataset.t)};
+$("#screens").onclick=e=>{const b=e.target.closest("button");if(b){if(b.dataset.g==="otp"&&cur!=="otp")mode="signup";go(b.dataset.g)}};
+$("#kit>button").onclick=function(){const k=$("#kit");k.classList.toggle("open");this.setAttribute("aria-expanded",k.classList.contains("open"))};
+$("#file").onchange=e=>{const f=e.target.files[0];if(!f)return;const p=$(".photo");p.src=URL.createObjectURL(f);p.classList.add("on")};
+const h=location.hash.slice(1);if(h&&$(`[data-view=${h}]`)){if(h==="otp")mode="signup";go(h)}
+</script>
+</body>
+</html>
