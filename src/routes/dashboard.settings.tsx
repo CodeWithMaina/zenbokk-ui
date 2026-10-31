@@ -14,7 +14,7 @@ import { errorMessage } from '../lib/api/client'
 import { queryKeys } from '../lib/api/query-client'
 import type { UpdateBusinessRequest } from '../lib/api/types'
 import { ownerApi } from '../lib/dashboard/api'
-import { useOwnerConsole } from '../lib/dashboard/console-context'
+import { useDashboardContext } from '../lib/dashboard/dashboard-context'
 import { MODULE } from '../lib/entitlements'
 import { formatDate } from '../lib/format'
 
@@ -76,7 +76,7 @@ function draftFrom(business: {
 }
 
 function SettingsPage() {
-  const { business, plan, entitlements, hasModule } = useOwnerConsole()
+  const { business, plan, entitlements, hasModule } = useDashboardContext()
   const queryClient = useQueryClient()
   const canEdit = hasModule(MODULE.settings)
 

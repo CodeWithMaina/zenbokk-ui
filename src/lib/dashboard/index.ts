@@ -7,10 +7,25 @@ export {
   isAppointmentCancellable,
   isAppointmentFinal,
 } from './appointment-status'
+export { DashboardProvider } from './DashboardProvider'
+export { DashboardContext, useDashboardContext } from './dashboard-context'
+export type { DashboardContextValue } from './dashboard-context'
+export {
+  DashboardBootstrapError,
+  bootstrapFailureMessage,
+  classifyBootstrapFailure,
+  loadBusinessDashboard,
+} from './bootstrap'
+export type {
+  BootstrapInput,
+  BusinessDashboardBootstrap,
+  DashboardBootstrapFailureKind,
+} from './bootstrap'
+export { useBusinessDashboard } from './use-dashboard-bootstrap'
+export type { DashboardBootstrapState } from './use-dashboard-bootstrap'
 export {
   useCustomerOverview,
   useOwnerAppointments,
-  useOwnerBootstrap,
   useOwnerCustomers,
   useOwnerServices,
   useOwnerStaff,

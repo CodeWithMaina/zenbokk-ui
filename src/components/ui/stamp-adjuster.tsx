@@ -20,6 +20,11 @@ export type StampAdjusterProps = {
   /** Defaults to restoring `savedStamps` through `onValueChange`. */
   onReset?: () => void
   saving?: boolean
+  /**
+   * The API requires a reason for every manual action (`loyalty` module). When
+   * true the field is no longer marked optional and Save waits for it.
+   */
+  reasonRequired?: boolean
   title?: ReactNode
   description?: ReactNode
   reasonLabel?: ReactNode
@@ -43,6 +48,7 @@ export function StampAdjuster({
   onSave,
   onReset,
   saving = false,
+  reasonRequired = false,
   title = 'Adjust stamps',
   description = 'Add or remove stamps by hand. Every change is logged in Activity.',
   reasonLabel = 'Reason',
@@ -58,6 +64,7 @@ export function StampAdjuster({
   const current = clamp(Math.floor(value), 0, total)
   const delta = current - saved
   const dirty = delta !== 0
+  const blockedByReason = reasonRequired && reason.trim().length === 0
 
   const reset = () => {
     if (onReset) onReset()
@@ -125,9 +132,14 @@ export function StampAdjuster({
 
       <Field
         label={reasonLabel}
-        optional
+        optional={!reasonRequired}
         htmlFor={reasonId}
         className="mt-[0.9rem]"
+        error={
+          blockedByReason && dirty
+            ? 'A reason is required for every manual stamp change.'
+            : undefined
+        }
       >
         <Input
           id={reasonId}
@@ -150,7 +162,7 @@ export function StampAdjuster({
         <Button
           variant="primary"
           onClick={onSave}
-          disabled={saving || !dirty}
+          disabled={saving || !dirty || blockedByReason}
           className="max-sm:flex-1"
         >
           {saving ? 'Saving…' : saveLabel}

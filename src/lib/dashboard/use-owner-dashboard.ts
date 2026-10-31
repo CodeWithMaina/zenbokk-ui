@@ -2,16 +2,13 @@ import { useQuery } from '@tanstack/react-query'
 import { queryKeys } from '../api/query-client'
 import { ownerApi } from './api'
 
-/** Owner shell identity: business, entitlements, permissions, plan. */
-export function useOwnerBootstrap() {
-  return useQuery({
-    queryKey: queryKeys.dashboard(),
-    queryFn: ownerApi.bootstrap,
-    staleTime: 5 * 60_000,
-    // A failed bootstrap is a membership/role problem, not a flaky network.
-    retry: false,
-  })
-}
+/**
+ * Owner console reads beyond the bootstrap.
+ *
+ * Identity/business/module access is *not* resolved here — that is the job of
+ * `useBusinessDashboard()` plus `DashboardProvider`, so a page can never end up
+ * deciding business access on its own.
+ */
 
 /** Card/stamp counters. Analytics is a paid module, so the caller gates this. */
 export function useOwnerStats(enabled: boolean) {

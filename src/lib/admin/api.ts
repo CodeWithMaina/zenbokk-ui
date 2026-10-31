@@ -2,6 +2,7 @@ import { apiGet } from '../api/client'
 import type {
   AdminBusinessSummary,
   AdminDashboard,
+  AdminGrowth,
   AdminUserSummary,
   PaginatedResponse,
 } from '../api/types'
@@ -14,6 +15,11 @@ import type {
 export const adminApi = {
   dashboard(): Promise<AdminDashboard> {
     return apiGet<AdminDashboard>('/v1/admin/dashboard')
+  },
+
+  /** Time series per metric, over the server's default period. */
+  growth(period?: '7d' | '30d' | '90d'): Promise<AdminGrowth> {
+    return apiGet<AdminGrowth>('/v1/admin/growth', { period: period ?? null })
   },
 
   businesses(

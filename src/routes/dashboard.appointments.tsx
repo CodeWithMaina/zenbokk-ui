@@ -26,7 +26,7 @@ import {
   appointmentStatusTone,
 } from '../lib/dashboard/appointment-status'
 import type { AppointmentStatus } from '../lib/dashboard/appointment-status'
-import { useOwnerConsole } from '../lib/dashboard/console-context'
+import { useDashboardContext } from '../lib/dashboard/dashboard-context'
 import { useOwnerAppointments } from '../lib/dashboard/use-owner-dashboard'
 import { MODULE } from '../lib/entitlements'
 import { formatDate, formatDay, formatTimeRange } from '../lib/format'
@@ -45,7 +45,7 @@ export const Route = createFileRoute('/dashboard/appointments')({
 })
 
 function AppointmentsPage() {
-  const { hasModule } = useOwnerConsole()
+  const { hasModule } = useDashboardContext()
   const enabled = hasModule(MODULE.appointments)
 
   const [status, setStatus] = useState<StatusFilter>('all')

@@ -17,7 +17,7 @@ import { Switch } from '../components/ui/switch'
 import { errorMessage } from '../lib/api/client'
 import type { ServiceCatalogItem } from '../lib/api/types'
 import { ownerApi } from '../lib/dashboard/api'
-import { useOwnerConsole } from '../lib/dashboard/console-context'
+import { useDashboardContext } from '../lib/dashboard/dashboard-context'
 import { useOwnerServices } from '../lib/dashboard/use-owner-dashboard'
 import { formatDuration, money } from '../lib/format'
 
@@ -46,8 +46,10 @@ function draftFrom(service: ServiceCatalogItem): Draft {
 }
 
 function ServicesPage() {
-  const { hasPermission } = useOwnerConsole()
-  const canManage = hasPermission('services.manage')
+  const { hasPermission } = useDashboardContext()
+  // Permission codes come from `ModuleCatalog` — the service-catalog module's
+  // code is `serviceCatalog.manage`, not `services.manage`.
+  const canManage = hasPermission('serviceCatalog.manage')
   const services = useOwnerServices(true)
   const queryClient = useQueryClient()
 

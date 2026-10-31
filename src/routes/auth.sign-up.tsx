@@ -9,6 +9,7 @@ import { Field, Input } from '../components/ui/field'
 import { ApiError, errorMessage } from '../lib/api/client'
 import { useAuth } from '../lib/auth'
 import { requireAnonymous } from '../lib/auth/guards'
+import { PASSWORD_HINT, passwordSchema } from '../lib/validation/password'
 
 /** Only same-origin paths are accepted as a post-verification destination. */
 function validateSearch(search: Record<string, unknown>): { redirect?: string } {
@@ -28,7 +29,7 @@ const schema = z
   .object({
     fullName: z.string().trim().min(2, 'Enter your full name'),
     email: z.email('Enter a valid email address'),
-    password: z.string().min(8, 'Use at least 8 characters'),
+    password: passwordSchema,
     confirmPassword: z.string().min(1, 'Confirm your password'),
   })
   .refine((values) => values.password === values.confirmPassword, {
@@ -134,7 +135,7 @@ function SignUpPage() {
           label="Password"
           htmlFor="password"
           error={errors.password?.message}
-          hint="At least 8 characters."
+          hint={PASSWORD_HINT}
         >
           <Input
             id="password"

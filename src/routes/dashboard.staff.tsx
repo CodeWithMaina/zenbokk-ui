@@ -18,7 +18,7 @@ import { Skeleton } from '../components/ui/skeleton'
 import { Toolbar } from '../components/ui/toolbar'
 import { errorMessage } from '../lib/api/client'
 import { ownerApi } from '../lib/dashboard/api'
-import { useOwnerConsole } from '../lib/dashboard/console-context'
+import { useDashboardContext } from '../lib/dashboard/dashboard-context'
 import {
   useOwnerStaff,
   useStaffInvitations,
@@ -34,7 +34,7 @@ export const Route = createFileRoute('/dashboard/staff')({
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 function StaffPage() {
-  const { hasModule } = useOwnerConsole()
+  const { hasModule } = useDashboardContext()
   const enabled = hasModule(MODULE.staff)
 
   const [search, setSearch] = useState('')

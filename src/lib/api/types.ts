@@ -92,6 +92,20 @@ export type RegisterRequest = {
 
 export type RegisterResponse = MessageResponse
 
+/**
+ * `PATCH /v1/users/profile` — the profile fields a signed-in user may edit.
+ *
+ * Public registration collects only email, password and full name, so anything
+ * else (a phone number, for instance) is written here after the account exists.
+ */
+export type UpdateProfileRequest = {
+  fullName?: string | null
+  phoneNumber?: string | null
+  avatarUrl?: string | null
+  dateOfBirth?: string | null
+  gender?: string | null
+}
+
 export type VerifyEmailRequest = {
   email: string
   code: string
@@ -232,6 +246,49 @@ export type EligibleStaff = {
 }
 
 // ─────────────────────────────────────────────────────────────
+//  Reviews (public)
+// ─────────────────────────────────────────────────────────────
+
+export type ReviewImageVariant = {
+  url: string
+  width: number
+  height: number
+  format: string
+}
+
+export type ReviewImageMedia = {
+  mediaId: string
+  variants: ReviewImageVariant[]
+}
+
+/**
+ * `GET /v1/reviews/businesses/{businessId}/reviews` — published reviews only.
+ * The server strips customer and appointment identifiers, so a review carries a
+ * display name and nothing that identifies the person behind it.
+ */
+export type PublicReview = {
+  id: string
+  businessId: string
+  rating: number
+  comment: string | null
+  reviewerDisplayName: string | null
+  reviewerAvatar: string | null
+  reviewerAvatarMediaId: string | null
+  imageMediaIds: string[]
+  imageMedia: ReviewImageMedia[]
+  createdAt: string
+  updatedAt: string
+}
+
+/** `GET …/reviews/summary`. `ratingCounts` is keyed by rating ("1"…"5"). */
+export type ReviewSummary = {
+  businessId: string
+  averageRating: number
+  totalCount: number
+  ratingCounts: Record<string, number>
+}
+
+// ─────────────────────────────────────────────────────────────
 //  Availability
 // ─────────────────────────────────────────────────────────────
 
@@ -338,6 +395,45 @@ export type CreateAppointmentRequest = {
 
 /** POST /v1/appointments/{id}/cancel and the owner/staff cancel routes. */
 export type CancelAppointmentRequest = {
+  note?: string | null
+}
+
+/** `GET /v1/payments/appointment/{id}` — server-computed payment summary. */
+export type AppointmentPayment = {
+  id: string
+  type: string
+  method: string
+  provider: string
+  status: string
+  amount: number
+  currency: string
+  reference: string
+  createdAt: string
+  completedAt: string | null
+}
+
+export type AppointmentPaymentSummary = {
+  appointmentId: string
+  serviceTotal: number
+  amountPaid: number
+  balance: number
+  /** `unpaid` | `partially_paid` | `paid`. */
+  paymentStatus: string
+  payments: AppointmentPayment[]
+}
+
+/**
+ * `POST /v1/businesses/me/appointments` — the owner books on a customer's
+ * behalf. `customerId` is required (the customer must already be enrolled), and
+ * `businessId` is the caller's own business, resolved from the dashboard
+ * context rather than hardcoded.
+ */
+export type CreateAppointmentOnBehalfRequest = {
+  businessId: string
+  serviceIds: string[]
+  staffUserId?: string | null
+  scheduledAt: string
+  customerId: string
   note?: string | null
 }
 
@@ -456,6 +552,13 @@ export type StaffOverview = {
 //  Customers (owner view)
 // ─────────────────────────────────────────────────────────────
 
+/**
+ * One roster row from `GET /v1/businesses/me/customers`.
+ *
+ * The roster is anchored on the persisted Customer ↔ Business enrollment, so a
+ * customer who is enrolled but has no loyalty card yet still appears (`cardId`
+ * null, stamp counters at zero).
+ */
 export type BusinessCustomer = {
   userId: string
   fullName: string
@@ -465,11 +568,16 @@ export type BusinessCustomer = {
   gender: string | null
   avatarUrl: string | null
   cardId: string | null
+  /** Persisted enrollment status: `active` | `left` | `blocked`. */
   enrollmentStatus: string
   totalStamps: number
   lifetimeStamps: number
   totalRedemptions: number
   enrolledAt: string
+  /** Last stamp on this business's card; null when the customer never stamped. */
+  lastStampAt: string | null
+  /** Effective reward threshold for this customer's card; null without a card. */
+  stampsRequired: number | null
 }
 
 export type CustomerOverview = {
@@ -481,6 +589,181 @@ export type CustomerOverview = {
   stampsThisWeek: number
   topCustomers: BusinessCustomer[]
   soonToReward: BusinessCustomer[]
+  recentlyActive?: BusinessCustomer[]
+}
+
+/**
+ * `GET /v1/businesses/me/customers/{id}/details` — one aggregated request for
+ * the details Overview shell: identity + status + metrics + loyalty summary.
+ * Appointments and activity stay on their own paginated endpoints.
+ */
+export type CustomerDetailsCustomerBlock = {
+  userId: string
+  fullName: string
+  email: string
+  phoneNumber: string | null
+  dateOfBirth: string | null
+  gender: string | null
+  avatarUrl: string | null
+  enrolledAt: string
+  lastStampAt: string | null
+}
+
+export type CustomerDetailsStatusBlock = {
+  /** `active` | `left` | `blocked`. */
+  enrollmentStatus: string
+  hasLoyaltyCard: boolean
+}
+
+export type CustomerDetailsMetricsBlock = {
+  stampsIn7d: number
+  visitsIn7d: number
+  lifetimeStamps: number
+  totalRedemptions: number
+  totalVisits: number
+  lastVisitAt: string | null
+}
+
+/** The customer's single loyalty card for this business, with its design. */
+export type CustomerDetailsLoyaltySummary = {
+  cardId: string
+  programId: string
+  programName: string
+  totalStamps: number
+  stampsRequired: number
+  rewardDescription: string
+  rewardReady: boolean
+  cardDesignId: string | null
+  cardDesignName: string | null
+  cardDesignIsDefault: boolean
+  /** Server-rendered card markup. Never injected into the DOM as HTML. */
+  cardDesignHtml: string | null
+  rewardValue: number
+  rewardExpirationHours: number
+}
+
+export type CustomerDetailsResponse = {
+  customer: CustomerDetailsCustomerBlock
+  status: CustomerDetailsStatusBlock
+  metrics: CustomerDetailsMetricsBlock
+  loyalty: CustomerDetailsLoyaltySummary | null
+  serverMs: number
+}
+
+/** `GET …/customers/{id}/activity` — one stamp or redemption row. */
+export type CustomerActivityItem = {
+  activityId: string
+  /** `stamp` | `redemption`. */
+  activityType: string
+  stampNumber: number
+  rewardValue: number | null
+  /** Actor for the action; null when the customer acted alone. */
+  staffName: string | null
+  timestamp: string
+}
+
+export type CustomerActivityFeedResponse = {
+  customerId: string
+  customerName: string
+  items: CustomerActivityItem[]
+  page: number
+  pageSize: number
+  total: number
+  totalPages: number
+}
+
+/** `GET …/customers/{id}/stats?period=today|7d|30d|all`. */
+export type CustomerPeriodStats = {
+  period: string
+  stampsInPeriod: number
+  visitsInPeriod: number
+  lastVisitInPeriod: string | null
+}
+
+// ─────────────────────────────────────────────────────────────
+//  Loyalty stamping (manual adjustment + ledger)
+// ─────────────────────────────────────────────────────────────
+
+/** `Domain/Entities/StampAdjustmentReason.cs`, serialised as a string. */
+export type StampAdjustmentReason =
+  | 'VoidMistake'
+  | 'ManualCorrection'
+  | 'Goodwill'
+  | 'SystemFix'
+
+/** `POST /v1/stamps/adjust` — owner-only correction with a reason code. */
+export type StampAdjustmentRequest = {
+  cardId: string
+  /** Non-zero, positive or negative delta. */
+  delta: number
+  reason: StampAdjustmentReason
+  note?: string | null
+}
+
+export type StampAdjustmentResponse = {
+  cardId: string
+  totalStampsBefore: number
+  totalStampsAfter: number
+  delta: number
+  customerName: string
+  stampsRequired: number
+  rewardReady: boolean
+  adjustedAt: string
+}
+
+/** `POST /v1/loyalty/stamps/manual` — ledger-backed manual award/correction. */
+export type ManualStampRequest = {
+  cardId: string
+  /** Non-zero; negative records a correction. */
+  amount: number
+  /** Required by the API for every manual action; max 500 chars. */
+  reason: string
+}
+
+/** One append-only ledger entry (`stamp_transactions`). */
+export type StampTransaction = {
+  id: string
+  businessId: string
+  programId: string
+  programName: string
+  cardId: string
+  customerId: string
+  customerName: string | null
+  /** Always positive; the sign lives in `signedAmount` / `direction`. */
+  amount: number
+  /** `Credit` | `Debit`. */
+  direction: string
+  /** Signed balance effect (+credit / −debit). */
+  signedAmount: number
+  /** APPOINTMENT | SCAN | SERVICE | REFERRAL | MANUAL | ENROLLMENT | REDEMPTION | ADJUSTMENT. */
+  source: string
+  sourceId: string | null
+  earningRuleId: string | null
+  isAutomatic: boolean
+  reason: string | null
+  createdByUserId: string | null
+  createdByName: string | null
+  createdByRole: string | null
+  createdAt: string
+}
+
+export type ManualStampResponse = {
+  cardId: string
+  customerId: string
+  amount: number
+  totalStamps: number
+  stampsRequired: number
+  transaction: StampTransaction
+  unlockedReward: { id: string; rewardName: string } | null
+}
+
+/** `GET /v1/loyalty/stamps/activity` — the business's loyalty audit log. */
+export type LoyaltyActivityPage = {
+  items: StampTransaction[]
+  page: number
+  pageSize: number
+  totalCount: number
+  totalPages: number
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -506,6 +789,24 @@ export type CallerPlanInfo = {
   name: string
   status: string
   endsAt: string | null
+}
+
+/**
+ * `GET /v1/me/modules` — the caller's effective modules and permissions,
+ * resolved server-side against the business the request was made in.
+ *
+ * This is the role-agnostic bootstrap primitive: an owner, a staff member, a
+ * customer and a platform administrator all get an answer (admins get the full
+ * catalog, customers get the customer-facing read modules). The navigation is
+ * built from this payload — never from a hardcoded list in the client.
+ */
+export type MyModules = {
+  /** Explicitly entitled module keys (nav list — no dependency closure). */
+  entitlements: string[]
+  /** Permission codes granted to the caller's role, filtered to entitled modules. */
+  permissions: string[]
+  /** The business's current plan (null for Admin/Customer). */
+  plan: CallerPlanInfo | null
 }
 
 export type DashboardBootstrap = {
@@ -566,6 +867,25 @@ export type UpdateBusinessRequest = {
   description?: string | null
   logoUrl?: string | null
   mpesaNumber?: string | null
+}
+
+/**
+ * `GET /v1/businesses/me/associated` (Customer role) — the businesses a
+ * customer is attached to, and which relationship attaches them.
+ *
+ * The payload carries no slug, so a client that wants to *open* one of these
+ * businesses has to resolve the address through `GET /v1/businesses/{id}`.
+ */
+export type CustomerAssociatedBusiness = {
+  id: string
+  name: string
+  logoUrl: string | null
+  category: string | null
+  location: string | null
+  viaCard: boolean
+  viaAppointment: boolean
+  viaReferral: boolean
+  viaEnrollment: boolean
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -734,11 +1054,20 @@ export type AdminUserSummary = {
   createdAt: string
 }
 
+/**
+ * `GET /v1/admin/growth` — one series per metric. Each point is
+ * `{ date, count }`, mirroring `GrowthDataPoint` on the server.
+ */
 export type AdminGrowthPoint = {
   date: string
-  newCustomers: number
-  newBusinesses: number
-  stamps: number
-  redemptions: number
+  count: number
+}
+
+export type AdminGrowth = {
+  period: string
+  customers: AdminGrowthPoint[]
+  businesses: AdminGrowthPoint[]
+  stamps: AdminGrowthPoint[]
+  redemptions: AdminGrowthPoint[]
 }
 

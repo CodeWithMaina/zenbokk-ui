@@ -8,13 +8,14 @@ import { MetricGrid } from '../components/ui/metric-tile'
 import { PageHeader } from '../components/ui/page-header'
 import { Skeleton } from '../components/ui/skeleton'
 import { useAuth } from '../lib/auth'
-import { useOwnerConsole } from '../lib/dashboard/console-context'
+import { useDashboardContext } from '../lib/dashboard/dashboard-context'
 import {
   appointmentStatusLabel,
   appointmentStatusTone,
 } from '../lib/dashboard/appointment-status'
 import { useOwnerAppointments, useOwnerStats } from '../lib/dashboard/use-owner-dashboard'
 import { MODULE } from '../lib/entitlements'
+import { storefrontPublicUrl } from '../lib/tenant'
 import {
   endOfDayIso,
   firstName,
@@ -38,7 +39,7 @@ function greeting(): string {
 
 function OwnerOverview() {
   const { user } = useAuth()
-  const { business, hasModule, plan, entitlements } = useOwnerConsole()
+  const { business, hasModule, plan, entitlements } = useDashboardContext()
   const hasAnalytics = hasModule(MODULE.analytics)
   const hasAppointments = hasModule(MODULE.appointments)
 
@@ -219,7 +220,7 @@ function OwnerOverview() {
               />
               <span>
                 Your address is{' '}
-                <b className="font-semibold text-fg">punched.app/{business.slug}</b>
+                <b className="font-semibold text-fg">{storefrontPublicUrl(business.slug)}</b>
               </span>
             </p>
           </div>

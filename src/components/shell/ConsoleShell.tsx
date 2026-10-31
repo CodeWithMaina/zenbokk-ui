@@ -4,18 +4,23 @@ import { LogOut, Menu } from 'lucide-react'
 import { useState } from 'react'
 import type { ReactNode } from 'react'
 import { useAuth } from '../../lib/auth'
+import type { NavSection } from '../../lib/navigation'
 import { ThemeControl } from '../../theme'
 import { Avatar } from '../ui/avatar'
 import { Button } from '../ui/button'
 import { Drawer } from '../ui/drawer'
-import type { ConsoleNavItem } from './ConsoleNavList'
 import { ConsoleNavList } from './ConsoleNavList'
 
 export type ConsoleShellProps = {
   brand: string
   brandCaption?: string
   homeTo: LinkProps['to']
-  nav: readonly ConsoleNavItem[]
+  /**
+   * Sidebar for the current caller, already resolved against the business's
+   * module entitlements and the caller's permissions (see `lib/navigation`).
+   * The shell never decides what to show.
+   */
+  nav: readonly NavSection[]
   /** Rendered above the page content — plan notices, impersonation banners… */
   banner?: ReactNode
   children: ReactNode
@@ -95,9 +100,9 @@ export function ConsoleShell({
   return (
     <div className="min-h-svh bg-bg">
       <div className="mx-auto flex w-full max-w-(--container-page-wide)">
-        <aside className="sticky top-0 hidden h-svh w-[15rem] shrink-0 flex-col gap-[1.1rem] border-r border-line bg-surface px-[0.8rem] py-[1rem] lg:flex">
+        <aside className="sticky top-0 hidden h-svh w-[15rem] shrink-0 flex-col gap-[1.1rem] overflow-y-auto border-r border-line bg-surface px-[0.8rem] py-[1rem] lg:flex">
           <Brand name={brand} caption={brandCaption} to={homeTo} />
-          <ConsoleNavList items={nav} />
+          <ConsoleNavList sections={nav} />
           <AccountBlock />
         </aside>
 
@@ -128,7 +133,7 @@ export function ConsoleShell({
         closeLabel="Close menu"
         bodyClassName="flex flex-col"
       >
-        <ConsoleNavList items={nav} onNavigate={() => setNavOpen(false)} />
+        <ConsoleNavList sections={nav} onNavigate={() => setNavOpen(false)} />
         <AccountBlock />
       </Drawer>
     </div>

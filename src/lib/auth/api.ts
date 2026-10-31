@@ -10,6 +10,7 @@ import type {
   RequestEmailVerification,
   ResetPasswordRequest,
   TokenResponse,
+  UpdateProfileRequest,
   UserProfile,
   VerifyEmailRequest,
 } from '../api/types'
@@ -86,6 +87,17 @@ export const authApi = {
 
   profile(): Promise<UserProfile> {
     return apiRequest<UserProfile>('/v1/users/profile')
+  },
+
+  /**
+   * Edit the signed-in user's own profile.
+   *
+   * Public registration only carries email, password and full name, so anything
+   * else an onboarding flow collects (a phone number) is written here once the
+   * account and session exist.
+   */
+  updateProfile(body: UpdateProfileRequest): Promise<UserProfile> {
+    return apiRequest<UserProfile>('/v1/users/profile', { method: 'PATCH', body })
   },
 
   /**

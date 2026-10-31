@@ -7,6 +7,7 @@ import type {
   CancelAppointmentRequest,
   CreateServiceRequest,
   CustomerOverview,
+  CreateAppointmentOnBehalfRequest,
   DashboardBootstrap,
   DashboardBusiness,
   PaginatedResponse,
@@ -79,6 +80,14 @@ export const ownerApi = {
   },
 
   // ── Appointments: state transitions ─────────────────────────────
+  /** Owner books on behalf of an enrolled customer. */
+  createAppointmentOnBehalf(payload: CreateAppointmentOnBehalfRequest): Promise<Appointment> {
+    return apiRequest<Appointment>('/v1/businesses/me/appointments', {
+      method: 'POST',
+      body: payload,
+    })
+  },
+
   confirmAppointment(id: string): Promise<Appointment> {
     return apiRequest<Appointment>(`/v1/businesses/me/appointments/${id}/confirm`, {
       method: 'POST',
@@ -124,9 +133,13 @@ export const ownerApi = {
     })
   },
 
+  /**
+   * `ServiceCatalogController` exposes this as PATCH (`me/{id}`) — a partial
+   * update, not a replacement. Using PUT here returned 405 on every service edit.
+   */
   updateService(id: string, payload: UpdateServiceRequest): Promise<ServiceCatalogItem> {
     return apiRequest<ServiceCatalogItem>(`/v1/services/me/${id}`, {
-      method: 'PUT',
+      method: 'PATCH',
       body: payload,
     })
   },

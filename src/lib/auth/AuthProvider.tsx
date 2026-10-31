@@ -78,6 +78,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   )
 
   /**
+   * Adopt a token pair issued somewhere other than the sign-in screens. Staff
+   * invitation acceptance is the caller: the server returns a full
+   * `AuthResponse` for the identity it just created, and the session shape
+   * belongs here rather than in that page.
+   */
+  const establishSession = useCallback(
+    async (response: AuthResponse) => {
+      setSession(toSession(response))
+      await queryClient.invalidateQueries()
+    },
+    [queryClient],
+  )
+
+  /**
    * Re-mint tokens and re-read the identity. The backend resolves the tenant
    * and the caller's membership again, so this is also the correct way to
    * refresh after creating a business (persona change) and to bind a session
@@ -137,12 +151,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signIn,
       signUp,
       completeVerification,
+      establishSession,
       syncSession,
       signOut,
       refreshProfile,
       hasRole: (...roles: UserRole[]) => !!session && roles.includes(session.user.role),
     }),
-    [session, isRestoring, signIn, signUp, completeVerification, syncSession, signOut, refreshProfile],
+    [
+      session,
+      isRestoring,
+      signIn,
+      signUp,
+      completeVerification,
+      establishSession,
+      syncSession,
+      signOut,
+      refreshProfile,
+    ],
   )
 
   return <AuthContext value={value}>{children}</AuthContext>

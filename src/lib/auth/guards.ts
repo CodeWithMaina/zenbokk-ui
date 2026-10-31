@@ -106,6 +106,18 @@ export function requireTenantSurface(): string {
 }
 
 /**
+ * The console entry point exists on the platform surfaces (the marketing site
+ * and the administration host) but never inside a business storefront: a tenant
+ * host that receives it sends the visitor to the platform address rather than
+ * rendering platform sign-in inside a business's page.
+ */
+export function requirePlatformSurface(path = '/'): void {
+  const surface = resolveSurface()
+  if (surface.kind !== 'tenant') return
+  throw redirect({ href: marketingUrl(path) })
+}
+
+/**
  * The marketing site owns registration and the owner entry point. A business
  * host that receives those paths sends the visitor to the canonical marketing
  * address instead of rendering platform marketing inside a tenant.

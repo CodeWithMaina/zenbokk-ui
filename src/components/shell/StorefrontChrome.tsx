@@ -1,14 +1,15 @@
-import { Link } from '@tanstack/react-router'
-import { CalendarPlus, UserRound } from 'lucide-react'
+import { CalendarPlus } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { useAuth } from '../../lib/auth'
-import { useStorefront } from '../../lib/storefront'
 import { getInitials } from '../../lib/format'
+import { useStorefront } from '../../lib/storefront'
+import { resolveNavigation, sectionLabel } from '../../lib/storefront/sections'
 import { marketingUrl, storefrontHref } from '../../lib/tenant'
+import { StorefrontAccountMenu } from './StorefrontAccountMenu'
 
 function Monogram({ name, src }: { name: string; src?: string }) {
   return (
-    <span className="grid size-[2.35rem] shrink-0 place-items-center overflow-hidden rounded-full bg-accent-soft text-[0.8rem] font-bold text-accent-ink">
+    <span className="grid size-[2.35rem] shrink-0 place-items-center overflow-hidden rounded-round bg-accent-soft text-[0.8rem] font-bold text-accent-ink">
       {src ? <img src={src} alt="" className="size-full object-cover" /> : getInitials(name)}
     </span>
   )
@@ -16,11 +17,14 @@ function Monogram({ name, src }: { name: string; src?: string }) {
 
 /**
  * Storefront frame: the business's own header and footer around its pages.
- * Everything shown here is already entitlement-filtered by bootstrap, so a
- * business without a gallery simply never renders a gallery link.
+ *
+ * The navigation is the owner's configuration, filtered by the capabilities the
+ * business actually has — so a business without a gallery never renders a
+ * gallery link, and one that hides its reviews from the dashboard hides them
+ * here too. Nothing in this file decides what a business offers.
  */
 export function StorefrontChrome({ children }: { children: ReactNode }) {
-  const { business, canonicalSlug, can } = useStorefront()
+  const { business, canonicalSlug, landingPage, can } = useStorefront()
   const { isAuthenticated } = useAuth()
 
   const navClass =
@@ -29,6 +33,11 @@ export function StorefrontChrome({ children }: { children: ReactNode }) {
   const homeHref = storefrontHref(canonicalSlug)
   const bookHref = storefrontHref(canonicalSlug, '/book')
   const accountHref = storefrontHref(canonicalSlug, '/account')
+
+  // `booking` is a route rather than an anchor on the home page, so it stays out
+  // of the in-page nav list; every other entry scrolls to its section.
+  const navEntries = resolveNavigation(landingPage, can).filter((key) => key !== 'booking')
+  const canBook = can('appointments') && landingPage.navigation.booking
 
   return (
     <div className="flex min-h-svh flex-col bg-bg">
@@ -46,15 +55,18 @@ export function StorefrontChrome({ children }: { children: ReactNode }) {
             </span>
           </a>
 
-          <nav className="ml-[0.65rem] hidden items-center gap-[0.15rem] md:flex" aria-label="Sections">
+          <nav
+            className="ml-[0.65rem] hidden items-center gap-[0.15rem] md:flex"
+            aria-label="Sections"
+          >
             <a href={homeHref} className={navClass}>
               Home
             </a>
-            {can('services') ? (
-              <a href={bookHref} className={navClass}>
-                Services
+            {navEntries.map((key) => (
+              <a key={key} href={`#${key}`} className={navClass}>
+                {sectionLabel(key)}
               </a>
-            ) : null}
+            ))}
             {isAuthenticated ? (
               <a href={accountHref} className={navClass}>
                 My bookings
@@ -63,32 +75,15 @@ export function StorefrontChrome({ children }: { children: ReactNode }) {
           </nav>
 
           <div className="ml-auto flex items-center gap-[0.4rem]">
-            {can('appointments') ? (
+            {canBook ? (
               <a href={bookHref} className="btn btn-primary no-underline">
                 <CalendarPlus className="size-[0.95rem]" aria-hidden="true" />
                 Book
               </a>
             ) : null}
-            {isAuthenticated ? (
-              <a
-                href={accountHref}
-                className="btn btn-ghost no-underline max-sm:btn-icon"
-                aria-label="My bookings"
-              >
-                <UserRound className="size-[1rem]" aria-hidden="true" />
-                <span className="max-sm:hidden">My bookings</span>
-              </a>
-            ) : (
-              <Link
-                to="/auth/sign-in"
-                search={{ redirect: accountHref }}
-                className="btn btn-ghost no-underline max-sm:btn-icon"
-                aria-label="Sign in"
-              >
-                <UserRound className="size-[1rem]" aria-hidden="true" />
-                <span className="max-sm:hidden">Sign in</span>
-              </Link>
-            )}
+            {/* One control for both audiences: a log-in link when anonymous, the
+                account avatar + menu when signed in. */}
+            <StorefrontAccountMenu />
           </div>
         </div>
       </header>
@@ -104,31 +99,11 @@ export function StorefrontChrome({ children }: { children: ReactNode }) {
           <p className="flex items-center gap-[0.3rem]">
             Built with
             <a href={marketingUrl('/')} className="link">
-              Zenbokk
+              Punched
             </a>
           </p>
         </div>
       </footer>
-    </div>
-  )
-}
-
-/** Hero action pair reused by storefront pages. */
-export function StorefrontCta({
-  slug,
-  children,
-}: {
-  slug: string
-  children?: ReactNode
-}) {
-  return (
-    <div className="flex flex-wrap items-center gap-[0.6rem]">
-      <a href={storefrontHref(slug, '/book')} className="btn btn-primary btn-xl no-underline">
-        {children ?? 'Book an appointment'}
-      </a>
-      <a href="#services" className="btn btn-ghost btn-xl hidden no-underline sm:inline-flex">
-        See services
-      </a>
     </div>
   )
 }

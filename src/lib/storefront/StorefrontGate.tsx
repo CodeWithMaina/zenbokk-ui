@@ -32,7 +32,6 @@ export function StorefrontGate({ slug, children }: { slug: string; children: Rea
   const bootstrap = useStorefrontBootstrap(slug)
   const queryClient = useQueryClient()
 
-  const canonical = bootstrap.data?.slug ?? null
   const businessId = bootstrap.data?.businessId ?? null
 
   // Tenant switch: drop customer-scoped caches that were fetched for the

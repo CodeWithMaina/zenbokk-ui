@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import type { MouseEvent, ReactNode } from 'react'
 import { cn } from '../../lib/cn'
 import { Avatar } from './avatar'
 import { StatusPill } from './badge'
@@ -96,8 +96,24 @@ export function ClientTable({
             const selected = Boolean(selectedIds?.has(client.id))
             const stamps = Math.min(Math.max(0, client.stamps ?? 0), goal)
 
+            const handleRowClick = (event: MouseEvent<HTMLTableRowElement>) => {
+              if (!onOpen) return
+              if (
+                (event.target as HTMLElement).closest(
+                  'a, button, input, [role="checkbox"]',
+                )
+              ) {
+                return
+              }
+              onOpen(client)
+            }
+
             return (
-              <tr key={client.id} className={selected ? 'bg-selected' : undefined}>
+              <tr
+                key={client.id}
+                onClick={onOpen ? handleRowClick : undefined}
+                className={cn(selected && 'bg-selected', onOpen && 'cursor-pointer')}
+              >
                 {selectable ? (
                   <td className="w-[2.4rem]">
                     <Checkbox
@@ -133,23 +149,27 @@ export function ClientTable({
                         </p>
                       )}
                       <span className="block truncate text-caption text-muted md:hidden">
-                        {client.phone}
+                        {client.phone ?? 'No phone number'}
                       </span>
                     </div>
                   </div>
                 </td>
 
                 <td className="hidden text-meta text-muted md:table-cell">
-                  <a
-                    href={`tel:${client.phone.replace(/\s/g, '')}`}
-                    className="hover:text-fg"
-                  >
-                    {client.phone}
-                  </a>
+                  {client.phone ? (
+                    <a
+                      href={`tel:${client.phone.replace(/\s/g, '')}`}
+                      className="hover:text-fg"
+                    >
+                      {client.phone}
+                    </a>
+                  ) : (
+                    <span className="text-subtle">—</span>
+                  )}
                 </td>
 
                 <td className="hidden sm:table-cell">
-                  <StatusPill status={client.status}>
+                  <StatusPill status={client.status} tone={client.tone}>
                     {client.statusLabel ?? client.status}
                   </StatusPill>
                 </td>

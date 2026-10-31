@@ -8,7 +8,9 @@ import type {
   EligibleStaff,
   PaginatedResponse,
   PublicLandingPage,
+  PublicReview,
   RescheduleAppointmentRequest,
+  ReviewSummary,
   ServiceCatalogItem,
   StorefrontBootstrap,
 } from '../api/types'
@@ -68,6 +70,25 @@ export const storefrontApi = {
         endDate: params.endDate ?? window.endDate,
       },
     )
+  },
+
+  /**
+   * Published reviews for a business, newest first.
+   *
+   * The route lives on `ReviewController`, whose class route is `v1` — so the
+   * public review endpoints sit under the business, not under a `/reviews`
+   * prefix.
+   */
+  reviews(businessId: string, page = 1, pageSize = 6): Promise<PaginatedResponse<PublicReview>> {
+    return apiGet<PaginatedResponse<PublicReview>>(`/v1/businesses/${businessId}/reviews`, {
+      page,
+      pageSize,
+    })
+  },
+
+  /** Average rating and the per-star counts behind it. */
+  reviewSummary(businessId: string): Promise<ReviewSummary> {
+    return apiGet<ReviewSummary>(`/v1/businesses/${businessId}/reviews/summary`)
   },
 }
 

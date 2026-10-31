@@ -6,6 +6,7 @@ import {
   setSessionTokens,
 } from '../auth/session'
 import { getActiveTenantSlug } from '../tenant/tenant-store'
+import { AUTH_PATH_PREFIX, REFRESH_PATH, buildApiUrl, apiConfig } from './config'
 import type { ApiEnvelope, TokenResponse } from './types'
 
 /**
@@ -16,11 +17,10 @@ import type { ApiEnvelope, TokenResponse } from './types'
  *  - attach the bearer token and the tenant header,
  *  - refresh once (single-flight) and retry after a 401,
  *  - normalise every failure into `ApiError` so callers branch on `code`.
+ *
+ * URLs, headers and the credential policy come from `./config`, so a base-URL
+ * or tenant-header change is a one-line edit rather than a codebase sweep.
  */
-
-const API_BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? '/api'
-const TENANT_HEADER = 'X-Punched-Tenant'
-const REFRESH_PATH = '/v1/auth/refresh-token'
 
 export class ApiError extends Error {
   /** Machine-readable code from the envelope, or `HTTP_<status>` / `NETWORK_ERROR`. */
@@ -66,16 +66,15 @@ export type RequestOptions = {
 }
 
 function buildUrl(path: string, search?: URLSearchParams): string {
-  const suffix = search && search.size > 0 ? `?${search.toString()}` : ''
-  return `${API_BASE}${path}${suffix}`
+  return buildApiUrl(path, search)
 }
 
 function buildHeaders(options: RequestOptions, hasBody: boolean): Headers {
-  const headers = new Headers({ Accept: 'application/json' })
+  const headers = new Headers(apiConfig.defaultHeaders)
   if (hasBody) headers.set('Content-Type', 'application/json')
 
   const tenant = options.tenantSlug ?? getActiveTenantSlug()
-  if (tenant) headers.set(TENANT_HEADER, tenant)
+  if (tenant) headers.set(apiConfig.tenantHeader, tenant)
 
   if (options.auth !== false) {
     const token = getAccessToken()
@@ -102,7 +101,7 @@ function refreshSession(): Promise<boolean> {
     try {
       const response = await fetch(buildUrl(REFRESH_PATH), {
         method: 'POST',
-        credentials: 'include',
+        credentials: apiConfig.credentials,
         headers: buildHeaders({ method: 'POST', auth: false }, true),
         body: JSON.stringify({
           refreshToken: refreshToken ?? '',
@@ -129,16 +128,21 @@ async function readEnvelope<T>(response: Response): Promise<ApiEnvelope<T> | nul
   return (await response.json().catch(() => null)) as ApiEnvelope<T> | null
 }
 
-async function execute<T>(
+/**
+ * Perform one request with the shared auth, tenant and retry-once-on-401
+ * behaviour. Both the JSON path (`execute`) and the file path (`apiDownload`)
+ * go through here, so no caller re-implements the credential policy.
+ */
+async function sendRequest(
   path: string,
   search: URLSearchParams | undefined,
   options: RequestOptions,
-): Promise<T> {
+): Promise<Response> {
   const hasBody = options.body !== undefined
   const send = () =>
     fetch(buildUrl(path, search), {
       method: options.method ?? 'GET',
-      credentials: 'include',
+      credentials: apiConfig.credentials,
       headers: buildHeaders(options, hasBody),
       body: hasBody ? JSON.stringify(options.body) : undefined,
       signal: options.signal,
@@ -152,7 +156,7 @@ async function execute<T>(
     throw new ApiError('NETWORK_ERROR', 'Could not reach Punched. Check your connection and try again.')
   }
 
-  if (response.status === 401 && options.auth !== false && !path.startsWith('/v1/auth/')) {
+  if (response.status === 401 && options.auth !== false && !path.startsWith(AUTH_PATH_PREFIX)) {
     const refreshed = await refreshSession()
     if (refreshed) {
       response = await send()
@@ -161,6 +165,15 @@ async function execute<T>(
     }
   }
 
+  return response
+}
+
+async function execute<T>(
+  path: string,
+  search: URLSearchParams | undefined,
+  options: RequestOptions,
+): Promise<T> {
+  const response = await sendRequest(path, search, options)
   const envelope = await readEnvelope<T>(response)
 
   if (response.ok && envelope?.success) {
@@ -192,12 +205,8 @@ export type QueryValue =
   | undefined
   | readonly (string | number)[]
 
-/** GET helper that turns a params object into a query string, skipping empties. */
-export async function apiGet<T>(
-  path: string,
-  params: Record<string, QueryValue> = {},
-  options: RequestOptions = {},
-): Promise<T> {
+/** Turn a params object into a query string, skipping empties. */
+function toSearchParams(params: Record<string, QueryValue>): URLSearchParams {
   const search = new URLSearchParams()
   for (const [key, value] of Object.entries(params)) {
     if (value === null || value === undefined || value === '') continue
@@ -209,7 +218,45 @@ export async function apiGet<T>(
     }
     search.set(key, String(value))
   }
-  return execute<T>(path, search, { ...options, method: 'GET' })
+  return search
+}
+
+/** GET helper that turns a params object into a query string, skipping empties. */
+export async function apiGet<T>(
+  path: string,
+  params: Record<string, QueryValue> = {},
+  options: RequestOptions = {},
+): Promise<T> {
+  return execute<T>(path, toSearchParams(params), { ...options, method: 'GET' })
+}
+
+/**
+ * GET for endpoints that stream a file rather than the JSON envelope (the
+ * customer CSV export). Failures still arrive as an envelope, so the error
+ * message and code are preserved; success returns the raw body.
+ */
+export async function apiDownload(
+  path: string,
+  params: Record<string, QueryValue> = {},
+  options: RequestOptions = {},
+): Promise<Blob> {
+  const response = await sendRequest(path, toSearchParams(params), {
+    ...options,
+    method: 'GET',
+  })
+
+  if (response.ok) return response.blob()
+
+  const envelope = await readEnvelope<unknown>(response)
+  if (envelope?.error) {
+    throw new ApiError(envelope.error.code, envelope.error.message, response.status)
+  }
+
+  throw new ApiError(
+    `HTTP_${response.status}`,
+    'The download could not be prepared. Please try again.',
+    response.status,
+  )
 }
 
 export function errorMessage(

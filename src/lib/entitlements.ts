@@ -61,13 +61,18 @@ export function hasAnyCapability(
   return keys.some((key) => hasCapability(capabilities, key))
 }
 
-export function hasModule(modules: readonly string[] | null | undefined, key: ModuleKey): boolean {
+/**
+ * Module keys and permission codes arrive from the backend as plain strings, so
+ * the gates accept `string` as well as the literal unions — a module added to
+ * `ModuleCatalog.cs` must not require a frontend type change to be honoured.
+ */
+export function hasModule(modules: readonly string[] | null | undefined, key: string): boolean {
   return !!modules?.includes(key)
 }
 
 export function hasAnyModule(
   modules: readonly string[] | null | undefined,
-  keys: readonly ModuleKey[],
+  keys: readonly string[],
 ): boolean {
   return keys.some((key) => hasModule(modules, key))
 }

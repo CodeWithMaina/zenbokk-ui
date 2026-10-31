@@ -10,6 +10,7 @@ import { Field, Input } from '../components/ui/field'
 import { ApiError, errorMessage } from '../lib/api/client'
 import { authApi } from '../lib/auth'
 import { requireAnonymous } from '../lib/auth/guards'
+import { PASSWORD_HINT, passwordSchema } from '../lib/validation/password'
 
 type ResetSearch = { email?: string }
 
@@ -34,7 +35,7 @@ const schema = z
       .string()
       .trim()
       .regex(/^\d{6}$/, 'Enter the six-digit code from your email'),
-    newPassword: z.string().min(8, 'Use at least 8 characters'),
+    newPassword: passwordSchema,
     confirmPassword: z.string().min(1, 'Confirm your new password'),
   })
   .refine((values) => values.newPassword === values.confirmPassword, {
@@ -123,7 +124,7 @@ function ResetPasswordPage() {
           label="New password"
           htmlFor="newPassword"
           error={errors.newPassword?.message}
-          hint="At least 8 characters."
+          hint={PASSWORD_HINT}
         >
           <Input
             id="newPassword"

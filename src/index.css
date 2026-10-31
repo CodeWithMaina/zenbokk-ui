@@ -248,6 +248,52 @@ html {
   --on-photo: #ffffff;
   --on-photo-dim: rgba(255, 255, 255, 0.5);
   --on-photo-btn: rgba(255, 255, 255, 0.9);
+  /* The forest panel is a dark surface in every theme, so its accent is fixed
+     too: the theme's action green is far too dark to read against it. */
+  --forest-accent: #8fd39b;
+}
+
+/* ---------- PUBLIC SURFACE: forest panel + pastel washes ----------
+   The marketing pages are built like a ticket book: one white canvas, four
+   pastel washes and a single deep forest panel. Those are the only colours the
+   public surface adds to the token system — ink, lines and the action green all
+   reuse `--fg`, `--line` and `--accent`, so both themes keep working and a new
+   theme only has to declare these ten values.
+
+   Declared after the light/dark blocks on purpose: same specificity, later
+   wins, so the per-theme values above stay the single source for everything
+   else. */
+:root,
+[data-theme="light"] {
+  --forest: #0d3a26;
+  --on-forest: #ffffff;
+  --on-forest-soft: rgba(255, 255, 255, 0.78);
+  --forest-line: rgba(255, 255, 255, 0.26);
+  --tone-blue: #dbeafe;
+  --tone-blue-deep: #1d4ed8;
+  --tone-pink: #fce7f3;
+  --tone-pink-deep: #be185d;
+  --tone-purple: #ede9fe;
+  --tone-purple-deep: #6d28d9;
+  --tone-beige: #f5ead7;
+  --tone-beige-deep: #8a5a12;
+  /* Body copy that sits on a wash: the wash's own hue is never used as text. */
+  --on-tone: #4b515c;
+}
+[data-theme="dark"] {
+  --forest: #16341f;
+  --on-forest: #ffffff;
+  --on-forest-soft: rgba(255, 255, 255, 0.76);
+  --forest-line: rgba(255, 255, 255, 0.2);
+  --tone-blue: #17242f;
+  --tone-blue-deep: #9dc4ee;
+  --tone-pink: #2a1a22;
+  --tone-pink-deep: #f1a9c1;
+  --tone-purple: #221d31;
+  --tone-purple-deep: #b8a7ea;
+  --tone-beige: #262117;
+  --tone-beige-deep: #e0b877;
+  --on-tone: #cfcdc7;
 }
 
 /* ==========================================================================
@@ -457,6 +503,21 @@ html {
   --color-on-photo: var(--on-photo);
   --color-on-photo-dim: var(--on-photo-dim);
 
+  /* public surface (marketing / enterprise) */
+  --color-forest: var(--forest);
+  --color-on-forest: var(--on-forest);
+  --color-forest-line: var(--forest-line);
+  --color-forest-accent: var(--forest-accent);
+  --color-tone-blue: var(--tone-blue);
+  --color-tone-blue-deep: var(--tone-blue-deep);
+  --color-tone-pink: var(--tone-pink);
+  --color-tone-pink-deep: var(--tone-pink-deep);
+  --color-tone-purple: var(--tone-purple);
+  --color-tone-purple-deep: var(--tone-purple-deep);
+  --color-tone-beige: var(--tone-beige);
+  --color-tone-beige-deep: var(--tone-beige-deep);
+  --color-on-tone: var(--on-tone);
+
   --shadow-*: initial;
   --shadow-none: none;
   --shadow-card: var(--elev-1);
@@ -623,6 +684,30 @@ html {
   --z-popover: 50;
   --z-toast: 60;
   --z-tooltip: 70;
+}
+
+/* 5e. Public surface scale (marketing pages)
+   ─────────────────────────────────────────────────────────────────────
+   The marketing pages are authored at a comfortable desktop size and then
+   scaled down as a whole, so a browser at 100% renders them the way the
+   design reads on paper. This is the page's own scale, not a browser zoom
+   setting: nothing about the visitor's preferences changes, and the
+   dashboard — which has its own density contract — is untouched.
+
+   The measure stays in px on purpose. The app's fluid root size is a
+   feature of the console; the public canvas deliberately scales as one
+   object instead, because halving the type and leaving the padding alone
+   produces a different page, whereas scaling the whole canvas produces the
+   same one, smaller. */
+:root {
+  --public-measure: 1320px;
+  --pn-scale: 0.8;
+  --punch-hole-size: 24px;
+  --punch-hairline: 2px;
+  /* calm motion: slower and softer than the app-scale ramp */
+  --duration-calm: 420ms;
+  --duration-calm-fast: 240ms;
+  --ease-calm: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 /* 5d. Utilities that read tokens */
@@ -1161,6 +1246,11 @@ html {
     padding: 1rem var(--spacing-sheet);
     border-bottom: 1px solid var(--line);
   }
+  /* Wider dialog for content that carries its own two-column body (the
+     marketing feature sheet). Phones keep the bottom-sheet behaviour. */
+  .dialog-wide {
+    width: min(48rem, calc(100% - 2rem));
+  }
   .sheet-body {
     flex: 1;
     overflow: auto;
@@ -1277,5 +1367,188 @@ html {
     border-radius: var(--radius-panel);
     background: var(--premium-bg);
     color: var(--premium-ink);
+  }
+
+  /* ======================================================================
+     PUBLIC SURFACE (marketing)
+     The vocabulary the ticket-book marketing pages are built from. One
+     perforation divider, one display voice, one calm entrance — shared by
+     the landing page, the enterprise page and the feature sheet, so those
+     three can never quietly drift apart again.
+     ====================================================================== */
+
+  /* The canvas the public pages paint. `zoom` is applied here rather than on
+     an inner wrapper so `position: fixed` chrome (the floating header, the
+     phone drawer) scales with the page instead of floating above it at a
+     different size. Phones opt out: at 0.8 a 375px screen would render body
+     copy at ~12.5px, so the canvas keeps full size below `md` and the
+     clamp()-based type scale does the work there. */
+  .pn-canvas {
+    zoom: var(--pn-scale);
+    width: 100%;
+    min-height: 100svh;
+    background: var(--bg);
+    color: var(--fg);
+    overflow-x: clip;
+    -webkit-font-smoothing: antialiased;
+  }
+  @media (max-width: 40rem) {
+    .pn-canvas {
+      zoom: 1;
+    }
+  }
+
+  /* The perforation: one divider for every public screen. The hole is
+     punched out of whatever panel sits behind it, so a single rule works on
+     a pastel ticket, the page canvas or the forest panel. `--punch-bg`
+     overrides it per panel. */
+  .punch-perf {
+    position: relative;
+    border-top: var(--punch-hairline) dashed
+      color-mix(in srgb, var(--fg) 16%, transparent);
+  }
+  .punch-perf::before,
+  .punch-perf::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    width: var(--punch-hole-size);
+    height: var(--punch-hole-size);
+    border-radius: 50%;
+    background: var(--punch-bg, var(--bg));
+    transform: translateY(-50%);
+  }
+  .punch-perf::before {
+    left: 0;
+    transform: translate(-50%, -50%);
+  }
+  .punch-perf::after {
+    right: 0;
+    transform: translate(50%, -50%);
+  }
+  .punch-perf[data-surface='wash']::before,
+  .punch-perf[data-surface='wash']::after {
+    background: var(--punch-bg, var(--surface-sunken));
+  }
+  .punch-perf[data-surface='canvas']::before,
+  .punch-perf[data-surface='canvas']::after {
+    background: var(--punch-bg, var(--surface));
+  }
+  .punch-perf[data-surface='forest']::before,
+  .punch-perf[data-surface='forest']::after {
+    background: var(--punch-bg, var(--forest));
+  }
+
+  /* Display type: the marketing headline voice — the theme's serif display
+     face, never a second family. */
+  .punch-display {
+    font-family: var(--font-display);
+    font-weight: 400;
+    letter-spacing: -0.035em;
+  }
+  .punch-body {
+    color: var(--fg-muted);
+  }
+  .punch-eyebrow {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--fg-subtle);
+  }
+
+  /* Calm entrance: rise, settle, never bounce. */
+  .animate-punch-rise {
+    animation: punch-rise var(--duration-calm) var(--ease-calm) both;
+  }
+  .punch-step-1 {
+    animation-delay: 60ms;
+  }
+  .punch-step-2 {
+    animation-delay: 130ms;
+  }
+  .punch-step-3 {
+    animation-delay: 200ms;
+  }
+  .punch-step-4 {
+    animation-delay: 270ms;
+  }
+  .punch-step-5 {
+    animation-delay: 340ms;
+  }
+  .punch-step-6 {
+    animation-delay: 410ms;
+  }
+
+  /* Stagger a group without per-item class names. */
+  .punch-stagger > * {
+    animation: punch-rise var(--duration-calm) var(--ease-calm) both;
+  }
+  .punch-stagger > *:nth-child(1) {
+    animation-delay: 40ms;
+  }
+  .punch-stagger > *:nth-child(2) {
+    animation-delay: 100ms;
+  }
+  .punch-stagger > *:nth-child(3) {
+    animation-delay: 160ms;
+  }
+  .punch-stagger > *:nth-child(4) {
+    animation-delay: 220ms;
+  }
+  .punch-stagger > *:nth-child(5) {
+    animation-delay: 280ms;
+  }
+  .punch-stagger > *:nth-child(6) {
+    animation-delay: 340ms;
+  }
+  .punch-stagger > *:nth-child(7) {
+    animation-delay: 400ms;
+  }
+  .punch-stagger > *:nth-child(8) {
+    animation-delay: 460ms;
+  }
+
+  /* Calm interactive response: a small, quick settle — no bounce, no pop. */
+  .punch-lift {
+    transition:
+      transform var(--duration-calm-fast) var(--ease-calm),
+      background-color var(--duration-normal) var(--ease-standard),
+      border-color var(--duration-normal) var(--ease-standard),
+      color var(--duration-normal) var(--ease-standard);
+  }
+  .punch-lift:hover {
+    transform: translateY(-2px);
+  }
+  .punch-lift:active {
+    transform: translateY(0);
+  }
+}
+
+/* ==========================================================================
+   8. PUBLIC SURFACE: motion
+   Keyframes and the reduced-motion override live outside `@layer components`
+   because a keyframes rule is not part of the cascade, and the override has to
+   beat the entrance animations rather than sit in the same layer as them.
+   ========================================================================== */
+
+@keyframes punch-rise {
+  from {
+    transform: translateY(10px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pn-canvas *,
+  .pn-canvas *::before,
+  .pn-canvas *::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
+    transition-duration: 0.01ms !important;
   }
 }

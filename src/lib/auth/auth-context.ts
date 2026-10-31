@@ -13,6 +13,12 @@ export type AuthContextValue = {
   signUp: (input: RegisterRequest) => Promise<string>
   completeVerification: (input: VerifyEmailRequest) => Promise<AuthResponse>
   /**
+   * Adopt a token pair the server issued outside the sign-in/sign-up screens —
+   * staff invitation acceptance returns a full `AuthResponse`, and the session
+   * shape is owned here, not by the page that received it.
+   */
+  establishSession: (response: AuthResponse) => Promise<void>
+  /**
    * Re-read the identity and re-mint tokens after a server-side role change
    * (a customer becoming a business owner) or a tenant switch.
    */

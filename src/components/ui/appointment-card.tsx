@@ -2,11 +2,13 @@ import type { ReactNode } from 'react'
 import { formatDuration, money } from '../../lib/format'
 import { cn } from '../../lib/cn'
 import { StatusPill } from './badge'
+import type { Tone } from './badge'
 
 export type AppointmentLine = {
   name: ReactNode
   duration?: number
-  price: number
+  /** Omitted when the price is unknown (e.g. the service was deleted). */
+  price?: number
 }
 
 export type AppointmentCardData = {
@@ -19,8 +21,12 @@ export type AppointmentCardData = {
   /** A status understood by `[data-status]`. */
   status: string
   statusLabel?: ReactNode
+  /** Force a semantic tone when the status has no `[data-status]` mapping. */
+  statusTone?: Tone
+  /** Assigned staff member, shown under the time line. */
+  staff?: ReactNode
   services: readonly AppointmentLine[]
-  /** Defaults to the sum of the service prices. */
+  /** Defaults to the sum of the known service prices. */
   total?: number
   currency?: string
 }
@@ -39,9 +45,13 @@ export function AppointmentCard({
     (sum, line) => sum + (line.duration ?? 0),
     0,
   )
+  const priced = appointment.services.filter(
+    (line) => typeof line.price === 'number',
+  )
+  const hasPrice = priced.length > 0
   const total =
     appointment.total ??
-    appointment.services.reduce((sum, line) => sum + line.price, 0)
+    priced.reduce((sum, line) => sum + (line.price ?? 0), 0)
 
   return (
     <article className={cn('card flex gap-[0.9rem] p-[0.9rem]', className)}>
@@ -57,7 +67,7 @@ export function AppointmentCard({
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-[0.35rem]">
           <p className="font-semibold">{appointment.weekday}</p>
-          <StatusPill status={appointment.status}>
+          <StatusPill status={appointment.status} tone={appointment.statusTone}>
             {appointment.statusLabel ?? appointment.status}
           </StatusPill>
         </div>
@@ -66,6 +76,10 @@ export function AppointmentCard({
           {appointment.time}
           {duration > 0 ? ` · ${formatDuration(duration)}` : ''}
         </p>
+
+        {appointment.staff ? (
+          <p className="mt-[0.1rem] text-caption text-muted">{appointment.staff}</p>
+        ) : null}
 
         <ul className="mt-[0.7rem] border-t border-line">
           {appointment.services.map((line, index) => (
@@ -79,15 +93,19 @@ export function AppointmentCard({
                   ? ` · ${formatDuration(line.duration)}`
                   : ''}
               </span>
-              <span className="shrink-0 font-medium tabular">
-                {money(line.price, appointment.currency)}
-              </span>
+              {typeof line.price === 'number' ? (
+                <span className="shrink-0 font-medium tabular">
+                  {money(line.price, appointment.currency)}
+                </span>
+              ) : null}
             </li>
           ))}
-          <li className="flex items-center justify-between gap-3 py-[0.6rem] font-semibold">
-            <b>Total</b>
-            <b className="tabular">{money(total, appointment.currency)}</b>
-          </li>
+          {hasPrice ? (
+            <li className="flex items-center justify-between gap-3 py-[0.6rem] font-semibold">
+              <b>Total</b>
+              <b className="tabular">{money(total, appointment.currency)}</b>
+            </li>
+          ) : null}
         </ul>
       </div>
     </article>

@@ -6,7 +6,7 @@ import { StatusPill } from '../components/ui/badge'
 import { Button } from '../components/ui/button'
 import { Card } from '../components/ui/card'
 import { PageHeader } from '../components/ui/page-header'
-import { useOwnerConsole } from '../lib/dashboard/console-context'
+import { useDashboardContext } from '../lib/dashboard/dashboard-context'
 import { MODULE } from '../lib/entitlements'
 
 export const Route = createFileRoute('/dashboard/storefront')({
@@ -14,7 +14,7 @@ export const Route = createFileRoute('/dashboard/storefront')({
 })
 
 function StorefrontOverview() {
-  const { business, hasModule } = useOwnerConsole()
+  const { business, hasModule } = useDashboardContext()
   const [copied, setCopied] = useState(false)
   const publicUrl = `${window.location.origin}/${business.slug}`
   const storefrontLive = hasModule(MODULE.storefront)

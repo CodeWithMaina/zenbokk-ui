@@ -1,18 +1,23 @@
 import { Crown } from 'lucide-react'
+import type { MouseEvent } from 'react'
 import { cn } from '../../lib/cn'
 import { Avatar } from './avatar'
 import type { AvatarSize, AvatarTint } from './avatar'
 import { StatusPill } from './badge'
+import type { Tone } from './badge'
 import { Checkbox } from './checkbox'
 import { StampDots } from './stamp-dots'
 
 export type ClientSummary = {
   id: string
   name: string
-  phone: string
+  /** Phone number; omit when the roster row has none. */
+  phone?: string
   /** A status understood by `[data-status]`, e.g. active, pending, paused. */
   status: string
   statusLabel?: string
+  /** Force a semantic tone when the status has no `[data-status]` mapping. */
+  tone?: Tone
   stamps?: number
   stampGoal?: number
   vip?: boolean
@@ -44,8 +49,22 @@ export function ClientCard({
   const goal = Math.max(1, stampGoal)
   const stamps = Math.min(Math.max(0, client.stamps ?? 0), goal)
 
+  /**
+   * The whole card opens the client, as in the design. Interactive children
+   * (the name button, the phone link, the selection checkbox) keep their own
+   * behaviour and never double-fire the card action.
+   */
+  const handleCardClick = (event: MouseEvent<HTMLElement>) => {
+    if (!onOpen) return
+    if ((event.target as HTMLElement).closest('a, button, input, [role="checkbox"]')) {
+      return
+    }
+    onOpen(client)
+  }
+
   return (
     <article
+      onClick={onOpen ? handleCardClick : undefined}
       className={cn(
         'card min-w-0 p-[0.95rem]',
         onOpen && 'card-link',
@@ -85,12 +104,18 @@ export function ClientCard({
             ) : null}
           </div>
 
-          <a
-            href={`tel:${client.phone.replace(/\s/g, '')}`}
-            className="mt-[0.1rem] block truncate text-meta text-muted hover:text-fg"
-          >
-            {client.phone}
-          </a>
+          {client.phone ? (
+            <a
+              href={`tel:${client.phone.replace(/\s/g, '')}`}
+              className="mt-[0.1rem] block truncate text-meta text-muted hover:text-fg"
+            >
+              {client.phone}
+            </a>
+          ) : (
+            <p className="mt-[0.1rem] block truncate text-meta text-subtle">
+              No phone number
+            </p>
+          )}
         </div>
 
         {onSelectedChange ? (
@@ -104,7 +129,7 @@ export function ClientCard({
       </div>
 
       <div className="mt-[0.7rem] flex flex-wrap items-center justify-between gap-x-[0.7rem] gap-y-[0.4rem]">
-        <StatusPill status={client.status}>
+        <StatusPill status={client.status} tone={client.tone}>
           {client.statusLabel ?? client.status}
         </StatusPill>
 
