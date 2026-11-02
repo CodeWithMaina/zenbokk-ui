@@ -5,6 +5,7 @@ import { formatDuration, money } from '../../../lib/format'
 import { storefrontApi, useStorefront } from '../../../lib/storefront'
 import { Card } from '../../ui/card'
 import { EmptyState } from '../../ui/empty-state'
+import { ResponsiveImage } from '../../ui/responsive-image'
 import { Skeleton } from '../../ui/skeleton'
 import { StorefrontSection } from '../StorefrontSection'
 
@@ -75,17 +76,18 @@ export function ServicesSection({ title, description, onBook }: ServicesSectionP
         <>
           <ul className="grid list-none grid-cols-1 gap-[0.9rem] p-0 sm:grid-cols-2 lg:grid-cols-3">
             {available.map((service) => {
-              const image = service.imageVariants?.[0]?.url
+              const variants = service.imageVariants ?? []
 
               return (
                 <li key={service.id}>
                   <Card className="flex h-full flex-col overflow-hidden p-0">
-                    {image ? (
-                      <img
-                        src={image}
+                    {variants.length > 0 ? (
+                      <ResponsiveImage
+                        variants={variants}
                         alt=""
-                        className="aspect-[16/10] w-full object-cover"
+                        sizes="(min-width: 1024px) 22rem, (min-width: 640px) 45vw, 100vw"
                         loading="lazy"
+                        className="aspect-[16/10] w-full object-cover"
                       />
                     ) : null}
                     <div className="flex min-w-0 flex-1 flex-col p-[1rem]">

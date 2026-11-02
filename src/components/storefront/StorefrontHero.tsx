@@ -1,9 +1,11 @@
 import { useQuery } from '@tanstack/react-query'
 import { ArrowRight, CalendarPlus, Mail, MapPin, Phone } from 'lucide-react'
 import { queryKeys } from '../../lib/api/query-client'
+import { pickVariant } from '../../lib/media'
 import { storefrontApi, useStorefront } from '../../lib/storefront'
 import { storefrontHref } from '../../lib/tenant'
 import { cn } from '../../lib/cn'
+import { ResponsiveImage } from '../ui/responsive-image'
 
 /**
  * The storefront hero.
@@ -23,8 +25,9 @@ import { cn } from '../../lib/cn'
 export function StorefrontHero() {
   const { business, businessId, landingPage, canonicalSlug, can } = useStorefront()
 
-  const bootstrapImage = landingPage.heroBackgroundVariants?.[0]?.url ?? null
-  const needsResolvedHero = !bootstrapImage && Boolean(landingPage.heroBackgroundMediaId)
+  const bootstrapVariants = landingPage.heroBackgroundVariants ?? []
+  const needsResolvedHero =
+    bootstrapVariants.length === 0 && Boolean(landingPage.heroBackgroundMediaId)
 
   const resolved = useQuery({
     queryKey: [...queryKeys.storefront(businessId), 'landing-page'] as const,
@@ -33,7 +36,11 @@ export function StorefrontHero() {
     retry: false,
   })
 
-  const heroImage = bootstrapImage ?? resolved.data?.heroBackgroundVariants?.[0]?.url ?? null
+  // The hero is the largest image on the page, so it renders from the full
+  // variant set (widest WebP, JPEG fallback) rather than one hard-picked URL.
+  const heroVariants =
+    bootstrapVariants.length > 0 ? bootstrapVariants : (resolved.data?.heroBackgroundVariants ?? [])
+  const heroImage = pickVariant(heroVariants)?.url ?? null
   const canBook = can('appointments')
   const showsServices = can('services')
   const bookHref = storefrontHref(canonicalSlug, '/book')
@@ -118,11 +125,14 @@ export function StorefrontHero() {
           )}
         >
           {heroImage ? (
-            <img
+            <ResponsiveImage
               src={heroImage}
+              variants={heroVariants}
               alt={`${business.name} interior`}
-              className="size-full object-cover"
+              sizes="(min-width: 1024px) 48vw, 100vw"
               loading="eager"
+              fetchPriority="high"
+              className="size-full object-cover"
             />
           ) : (
             <div

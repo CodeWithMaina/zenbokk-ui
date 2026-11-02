@@ -231,11 +231,42 @@ export type ServiceCatalogItem = {
   durationMinutes: number
   price: number
   isActive: boolean
+  /** Filed away by the business; never bookable and never public. */
+  isArchived: boolean
+  /** `active | paused | archived`, derived server-side from the two flags. */
+  status: string
   showcase: boolean
+  categoryId: string | null
+  categoryName: string | null
+  categorySortOrder: number | null
+  /** The cover image's media id (index 0 of `images`). */
   imageMediaId: string | null
   imageStatus: string | null
   imageVariants: ImageVariant[]
+  /** Every image, in gallery order; index 0 is the cover. */
+  images: ServiceImage[]
   createdAt: string
+}
+
+/**
+ * One image attached to a service. `displayOrder` is the gallery position and
+ * `isCover` is true for the single image at order 0.
+ */
+export type ServiceImage = {
+  id: string
+  mediaId: string
+  url: string | null
+  status: string
+  width: number | null
+  height: number | null
+  displayOrder: number
+  isCover: boolean
+  variants: ImageVariant[]
+}
+
+/** `PUT /v1/services/me/{id}/images` — array order IS the gallery order. */
+export type SetServiceImagesRequest = {
+  mediaIds: string[]
 }
 
 export type EligibleStaff = {
@@ -837,10 +868,14 @@ export type CreateServiceRequest = {
   durationMinutes: number
   price: number
   showcase?: boolean
+  categoryId?: string | null
 }
 
 export type UpdateServiceRequest = Partial<CreateServiceRequest> & {
   isActive?: boolean
+  /** Archiving also deactivates; clearing it restores the service to active. */
+  isArchived?: boolean
+  clearCategory?: boolean
 }
 
 export type StaffInvitation = {
@@ -962,8 +997,111 @@ export type BusinessResponse = {
   coverMediaId: string | null
   galleryMediaIds: string[]
   ownerId: string | null
+  /** Business-level default stamp goal for staff (null = not configured). */
+  defaultDailyGoal: number | null
+  /** Which metric the daily goal tracks: `stamps` | `appointments`. */
+  dailyGoalType: string
+  /** Business-level default appointment goal. */
+  defaultAppointmentDailyGoal: number | null
   hasReferralProgram: boolean
   createdAt: string
+  /** Absent (null) means platform reminder defaults apply. */
+  reminderPolicy: BusinessReminderPolicy | null
+}
+
+// ─────────────────────────────────────────────────────────────
+//  Settings — business, modules, reminders, notifications, support
+// ─────────────────────────────────────────────────────────────
+
+/** `BusinessReminderPolicyResponse` — the business's appointment reminder ladder. */
+export type BusinessReminderPolicy = {
+  enabled: boolean
+  /** Offsets, in minutes before the appointment (e.g. `[1440, 60]`). */
+  offsetMinutes: number[]
+  /** Channel allow-list (`in_app`, `email`, `sms`, `push`). */
+  channels: string[]
+}
+
+/** `PUT /v1/businesses/me/reminder-policy` — omitted fields are left untouched. */
+export type UpdateBusinessReminderPolicyRequest = {
+  enabled?: boolean
+  offsetMinutes?: number[]
+  channels?: string[]
+}
+
+/** `PUT /v1/businesses/me/daily-goal`. */
+export type UpdateBusinessDailyGoalRequest = {
+  dailyGoal?: number | null
+  dailyGoalType?: string
+  appointmentDailyGoal?: number | null
+}
+
+/**
+ * `BusinessModuleDetail` — one module's effective entitlement for the owner
+ * view (`GET /v1/businesses/me/modules`). `hasAccess` is the effective flag
+ * (enabled AND covered by an active subscription); `enabled` is the raw
+ * plan/override state.
+ */
+export type BusinessModuleDetail = {
+  key: string
+  name: string
+  description: string | null
+  enabled: boolean
+  /** `PLAN` | `OVERRIDE` | `ADMIN`. */
+  source: string
+  hasAccess: boolean
+  dependencies: string[]
+  isCore: boolean
+  reason: string | null
+}
+
+export type BusinessModulesResponse = {
+  modules: BusinessModuleDetail[]
+  plan: CallerPlanInfo | null
+}
+
+/**
+ * `ResolvedPreferenceDto` — one (category × channel) cell of the notification
+ * matrix, already resolved through business + user overrides server-side.
+ * `available` is false when this deployment ships no sender for the channel, so
+ * the client greys the control instead of offering a choice that cannot be
+ * honoured.
+ */
+export type ResolvedNotificationPreference = {
+  category: string
+  channel: string
+  enabled: boolean
+  available: boolean
+  /** `system` | `business` | `user` — which level decided the value. */
+  source: string
+}
+
+export type NotificationPreferenceItem = {
+  category: string
+  channel: string
+  enabled: boolean
+}
+
+export type UpdateNotificationPreferencesRequest = {
+  /** Scopes the override to one business; null writes a global user preference. */
+  businessId?: string | null
+  preferences: NotificationPreferenceItem[]
+}
+
+/** `GET /v1/support` — platform support channels resolved from server config. */
+export type SupportHour = {
+  days: string
+  hours: string
+}
+
+export type SupportContact = {
+  email: string
+  phone: string
+  whatsApp: string
+  helpCenterUrl: string
+  responseNote: string
+  hoursTimeZone: string
+  hours: SupportHour[]
 }
 
 // ─────────────────────────────────────────────────────────────

@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import type { LucideIcon } from 'lucide-react'
 import { cn } from '../../lib/cn'
 import { Checkbox } from './checkbox'
+import { Switch } from './switch'
 
 export type NotificationChannel = {
   id: string
@@ -16,12 +17,16 @@ export type NotificationEvent = {
   description?: ReactNode
 }
 
+export type NotificationControl = 'checkbox' | 'switch'
+
 export type NotificationMatrixProps = {
   channels: readonly NotificationChannel[]
   events: readonly NotificationEvent[]
   /** `value[eventId][channelId]`; missing entries count as off. */
   value: Readonly<Record<string, Readonly<Record<string, boolean>>>>
   onChange: (eventId: string, channelId: string, enabled: boolean) => void
+  /** Which control renders in each cell. Defaults to a checkbox. */
+  control?: NotificationControl
   /** Accessible table name. */
   label?: string
   className?: string
@@ -36,6 +41,7 @@ export function NotificationMatrix({
   events,
   value,
   onChange,
+  control = 'checkbox',
   label = 'Notification preferences',
   className,
 }: NotificationMatrixProps) {
@@ -85,18 +91,30 @@ export function NotificationMatrix({
 
               {channels.map((channel) => {
                 const checked = value[event.id]?.[channel.id] ?? false
+                const controlLabel = `${String(event.label)} via ${String(channel.label)}`
 
                 return (
                   <td key={channel.id} className="text-center">
                     <span className="flex justify-center">
-                      <Checkbox
-                        checked={checked}
-                        disabled={channel.disabled}
-                        onCheckedChange={(next) =>
-                          onChange(event.id, channel.id, next)
-                        }
-                        label={`${String(event.label)} via ${String(channel.label)}`}
-                      />
+                      {control === 'switch' ? (
+                        <Switch
+                          checked={checked}
+                          disabled={channel.disabled}
+                          onCheckedChange={(next) =>
+                            onChange(event.id, channel.id, next)
+                          }
+                          label={controlLabel}
+                        />
+                      ) : (
+                        <Checkbox
+                          checked={checked}
+                          disabled={channel.disabled}
+                          onCheckedChange={(next) =>
+                            onChange(event.id, channel.id, next)
+                          }
+                          label={controlLabel}
+                        />
+                      )}
                     </span>
                   </td>
                 )
@@ -108,3 +126,4 @@ export function NotificationMatrix({
     </div>
   )
 }
+

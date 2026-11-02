@@ -1,11 +1,18 @@
-import { createFileRoute } from '@tanstack/react-router'
-import { ModulePlaceholder } from '../components/shell/ModulePlaceholder'
+import { createFileRoute, Outlet } from '@tanstack/react-router'
 
-/** Programs — placeholder (`programs` module, `programs.view`). */
+/**
+ * Programs section layout.
+ *
+ * Carries no chrome of its own — the dashboard shell already provides the
+ * sidebar and page frame. It exists so `/dashboard/programs` and
+ * `/dashboard/programs/$programId` are sibling routes under one path, which
+ * keeps the Programs entry in the sidebar active on both.
+ */
 export const Route = createFileRoute('/dashboard/programs')({
-  component: ProgramsPlaceholder,
+  component: ProgramsLayout,
 })
 
-function ProgramsPlaceholder() {
-  return <ModulePlaceholder navKey="programs" />
+function ProgramsLayout() {
+  return <Outlet />
 }
+

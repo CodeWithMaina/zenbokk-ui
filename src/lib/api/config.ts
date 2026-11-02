@@ -10,7 +10,7 @@
  * `.env.example`). Never put a secret in this file.
  */
 
-const env = import.meta.env
+const env: Record<string, string | undefined> = import.meta.env ?? {}
 
 /** Header the API uses to narrow a request to the business whose page it came from. */
 export const TENANT_HEADER = 'X-Punched-Tenant'

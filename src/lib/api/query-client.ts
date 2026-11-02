@@ -55,6 +55,13 @@ export const queryKeys = {
   staffAppointments: (filters: Record<string, unknown>) =>
     ['appointments', 'staff', filters] as const,
   ownerServices: () => ['services', 'owner'] as const,
+  /** Filtered, sorted, paged service catalogue (`GET /v1/services/me/query`). */
+  ownerServicesList: (filters: Record<string, unknown>) =>
+    ['services', 'owner', 'list', filters] as const,
+  /** One service, by id. */
+  ownerService: (serviceId: string) => ['services', 'owner', 'detail', serviceId] as const,
+  /** Active/total counters for the Services header. */
+  ownerServiceCounts: () => ['services', 'owner', 'counts'] as const,
   ownerStaff: (filters: Record<string, unknown>) => ['staff', 'owner', filters] as const,
   staffOverview: () => ['staff', 'owner', 'overview'] as const,
   staffInvitations: () => ['staff', 'owner', 'invitations'] as const,
@@ -71,6 +78,22 @@ export const queryKeys = {
   appointmentPayment: (appointmentId: string) =>
     ['payments', 'appointment', appointmentId] as const,
 
+  /** Programs owned by the business (`GET /v1/programs/me`). */
+  loyaltyPrograms: () => ['loyalty', 'programs'] as const,
+  /** One program, without metrics. */
+  loyaltyProgram: (programId: string) => ['loyalty', 'programs', programId] as const,
+  /** One program plus live performance metrics. */
+  loyaltyProgramDetail: (programId: string) =>
+    ['loyalty', 'programs', programId, 'details'] as const,
+  /** Card designs this business may choose from (`GET /v1/card-designs/me`). */
+  loyaltyCardDesigns: () => ['loyalty', 'card-designs'] as const,
+  /** A program's enrolled customers (the business roster filtered by program). */
+  loyaltyProgramCustomers: (programId: string, filters: Record<string, unknown>) =>
+    ['loyalty', 'programs', programId, 'customers', filters] as const,
+  /** A program's stamp activity/audit feed. */
+  loyaltyProgramActivity: (programId: string, filters: Record<string, unknown>) =>
+    ['loyalty', 'programs', programId, 'activity', filters] as const,
+
   myAppointments: (filters: Record<string, unknown>) =>
     ['appointments', 'customer', filters] as const,
 
@@ -84,5 +107,16 @@ export const queryKeys = {
   staffAnalytics: () => ['staff', 'console', 'analytics'] as const,
 
   ownerBusiness: () => ['business', 'owner'] as const,
+  /** Full owner business record (incl. reminder policy + daily goals). */
+  settingsBusiness: () => ['settings', 'business'] as const,
+  /** Effective module entitlements for the owner's business. */
+  settingsModules: () => ['settings', 'modules'] as const,
+  /** Resolved notification preference matrix for the caller. */
+  notificationPreferences: (businessId: string | null) =>
+    ['notifications', 'preferences', businessId] as const,
+  /** Platform support channels (server-configured). */
+  supportContact: () => ['support', 'contact'] as const,
+  /** One media record by id — resolves avatar/logo/cover variants to a URL. */
+  media: (mediaId: string) => ['media', mediaId] as const,
   invitation: (token: string) => ['invitation', token] as const,
 }

@@ -12,6 +12,16 @@ dist
 dist-ssr
 *.local
 
+# Environment overrides may hold local values -> keep local, templates stay tracked
+.env
+.env.*
+!.env.example
+
+# Generated caches (TanStack Router / Vite)
+.tanstack/
+.vite/
+*.tsbuildinfo
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

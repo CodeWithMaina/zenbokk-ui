@@ -2,6 +2,8 @@ import type { ReactNode } from 'react'
 import { Scissors } from 'lucide-react'
 import { formatDuration, money } from '../../lib/format'
 import { cn } from '../../lib/cn'
+import type { VariantLike } from '../../lib/media'
+import { ResponsiveImage } from './responsive-image'
 import { StatusPill } from './badge'
 
 export type ServiceSummary = {
@@ -10,6 +12,8 @@ export type ServiceSummary = {
   duration: number
   price: number
   image?: string
+  /** Processed variants for the cover, so the tile ships the right size. */
+  imageVariants?: readonly VariantLike[]
   /** A status understood by `[data-status]`; omit to hide the pill. */
   status?: string
   statusLabel?: ReactNode
@@ -42,10 +46,13 @@ export function ServiceCard({
         className,
       )}
     >
-      {service.image ? (
-        <img
+      {service.image || (service.imageVariants && service.imageVariants.length > 0) ? (
+        <ResponsiveImage
           src={service.image}
+          variants={service.imageVariants}
           alt=""
+          sizes="(min-width: 1024px) 20rem, (min-width: 640px) 45vw, 50vw"
+          loading="lazy"
           className="absolute inset-0 size-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
         />
       ) : (

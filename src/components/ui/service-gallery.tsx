@@ -2,11 +2,15 @@ import { useRef, useState } from 'react'
 import { ChevronLeft, ChevronRight, ImageIcon } from 'lucide-react'
 import { clamp } from '../../lib/format'
 import { cn } from '../../lib/cn'
+import type { VariantLike } from '../../lib/media'
 import { EmptyState } from './empty-state'
+import { ResponsiveImage } from './responsive-image'
 
 export type GalleryImage = {
   src: string
   alt?: string
+  /** Processed variants, so each slide ships the right size and format. */
+  variants?: readonly VariantLike[]
 }
 
 export type ServiceGalleryProps = {
@@ -95,10 +99,12 @@ export function ServiceGallery({
           aria-label={`${label}, ${current + 1} of ${count}`}
         >
           {images.map((image, imageIndex) => (
-            <img
+            <ResponsiveImage
               key={`${image.src}-${imageIndex}`}
               src={image.src}
+              variants={image.variants}
               alt={image.alt ?? ''}
+              sizes={aspect === 'wide' ? '100vw' : '(min-width: 768px) 32rem, 100vw'}
               loading={imageIndex === 0 ? 'eager' : 'lazy'}
               draggable={false}
               className="block h-full w-full shrink-0 snap-start object-cover"
@@ -160,9 +166,11 @@ export function ServiceGallery({
                   : 'opacity-55 hover:opacity-100',
               )}
             >
-              <img
+              <ResponsiveImage
                 src={image.src}
+                variants={image.variants}
                 alt=""
+                sizes="10rem"
                 loading="lazy"
                 className="size-full object-cover"
               />

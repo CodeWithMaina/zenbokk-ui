@@ -55,6 +55,13 @@ import { Route as StaffIndexRouteImport } from './routes/staff.index'
 import { Route as StaffAppointmentsRouteImport } from './routes/staff.appointments'
 import { Route as DashboardCustomersIndexRouteImport } from './routes/dashboard.customers.index'
 import { Route as DashboardCustomersClientIdRouteImport } from './routes/dashboard.customers.$clientId'
+import { Route as DashboardProgramsIndexRouteImport } from './routes/dashboard.programs.index'
+import { Route as DashboardProgramsProgramIdRouteImport } from './routes/dashboard.programs.$programId'
+import { Route as DashboardServicesIndexRouteImport } from './routes/dashboard.services.index'
+import { Route as DashboardServicesServiceIdRouteImport } from './routes/dashboard.services.$serviceId'
+import { Route as DashboardServicesNewRouteImport } from './routes/dashboard.services.new'
+import { Route as DashboardServicesServiceIdIndexRouteImport } from './routes/dashboard.services.$serviceId.index'
+import { Route as DashboardServicesServiceIdEditRouteImport } from './routes/dashboard.services.$serviceId.edit'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -287,6 +294,45 @@ const DashboardCustomersClientIdRoute =
     path: '/$clientId',
     getParentRoute: () => DashboardCustomersRoute,
   } as any)
+const DashboardProgramsIndexRoute = DashboardProgramsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => DashboardProgramsRoute,
+} as any)
+const DashboardProgramsProgramIdRoute =
+  DashboardProgramsProgramIdRouteImport.update({
+    id: '/$programId',
+    path: '/$programId',
+    getParentRoute: () => DashboardProgramsRoute,
+  } as any)
+const DashboardServicesIndexRoute = DashboardServicesIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => DashboardServicesRoute,
+} as any)
+const DashboardServicesServiceIdRoute =
+  DashboardServicesServiceIdRouteImport.update({
+    id: '/$serviceId',
+    path: '/$serviceId',
+    getParentRoute: () => DashboardServicesRoute,
+  } as any)
+const DashboardServicesNewRoute = DashboardServicesNewRouteImport.update({
+  id: '/new',
+  path: '/new',
+  getParentRoute: () => DashboardServicesRoute,
+} as any)
+const DashboardServicesServiceIdIndexRoute =
+  DashboardServicesServiceIdIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => DashboardServicesServiceIdRoute,
+  } as any)
+const DashboardServicesServiceIdEditRoute =
+  DashboardServicesServiceIdEditRouteImport.update({
+    id: '/edit',
+    path: '/edit',
+    getParentRoute: () => DashboardServicesServiceIdRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -318,11 +364,11 @@ export interface FileRoutesByFullPath {
   '/dashboard/loyalty': typeof DashboardLoyaltyRoute
   '/dashboard/notifications': typeof DashboardNotificationsRoute
   '/dashboard/payments': typeof DashboardPaymentsRoute
-  '/dashboard/programs': typeof DashboardProgramsRoute
+  '/dashboard/programs': typeof DashboardProgramsRouteWithChildren
   '/dashboard/referrals': typeof DashboardReferralsRoute
   '/dashboard/reviews': typeof DashboardReviewsRoute
   '/dashboard/rewards': typeof DashboardRewardsRoute
-  '/dashboard/services': typeof DashboardServicesRoute
+  '/dashboard/services': typeof DashboardServicesRouteWithChildren
   '/dashboard/settings': typeof DashboardSettingsRoute
   '/dashboard/staff': typeof DashboardStaffRoute
   '/dashboard/stamps': typeof DashboardStampsRoute
@@ -334,7 +380,14 @@ export interface FileRoutesByFullPath {
   '/dashboard/': typeof DashboardIndexRoute
   '/staff/': typeof StaffIndexRoute
   '/dashboard/customers/$clientId': typeof DashboardCustomersClientIdRoute
+  '/dashboard/programs/$programId': typeof DashboardProgramsProgramIdRoute
+  '/dashboard/services/$serviceId': typeof DashboardServicesServiceIdRouteWithChildren
+  '/dashboard/services/new': typeof DashboardServicesNewRoute
   '/dashboard/customers/': typeof DashboardCustomersIndexRoute
+  '/dashboard/programs/': typeof DashboardProgramsIndexRoute
+  '/dashboard/services/': typeof DashboardServicesIndexRoute
+  '/dashboard/services/$serviceId/edit': typeof DashboardServicesServiceIdEditRoute
+  '/dashboard/services/$serviceId/': typeof DashboardServicesServiceIdIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -361,11 +414,9 @@ export interface FileRoutesByTo {
   '/dashboard/loyalty': typeof DashboardLoyaltyRoute
   '/dashboard/notifications': typeof DashboardNotificationsRoute
   '/dashboard/payments': typeof DashboardPaymentsRoute
-  '/dashboard/programs': typeof DashboardProgramsRoute
   '/dashboard/referrals': typeof DashboardReferralsRoute
   '/dashboard/reviews': typeof DashboardReviewsRoute
   '/dashboard/rewards': typeof DashboardRewardsRoute
-  '/dashboard/services': typeof DashboardServicesRoute
   '/dashboard/settings': typeof DashboardSettingsRoute
   '/dashboard/staff': typeof DashboardStaffRoute
   '/dashboard/stamps': typeof DashboardStampsRoute
@@ -377,7 +428,13 @@ export interface FileRoutesByTo {
   '/dashboard': typeof DashboardIndexRoute
   '/staff': typeof StaffIndexRoute
   '/dashboard/customers/$clientId': typeof DashboardCustomersClientIdRoute
+  '/dashboard/programs/$programId': typeof DashboardProgramsProgramIdRoute
+  '/dashboard/services/new': typeof DashboardServicesNewRoute
   '/dashboard/customers': typeof DashboardCustomersIndexRoute
+  '/dashboard/programs': typeof DashboardProgramsIndexRoute
+  '/dashboard/services': typeof DashboardServicesIndexRoute
+  '/dashboard/services/$serviceId/edit': typeof DashboardServicesServiceIdEditRoute
+  '/dashboard/services/$serviceId': typeof DashboardServicesServiceIdIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -410,11 +467,11 @@ export interface FileRoutesById {
   '/dashboard/loyalty': typeof DashboardLoyaltyRoute
   '/dashboard/notifications': typeof DashboardNotificationsRoute
   '/dashboard/payments': typeof DashboardPaymentsRoute
-  '/dashboard/programs': typeof DashboardProgramsRoute
+  '/dashboard/programs': typeof DashboardProgramsRouteWithChildren
   '/dashboard/referrals': typeof DashboardReferralsRoute
   '/dashboard/reviews': typeof DashboardReviewsRoute
   '/dashboard/rewards': typeof DashboardRewardsRoute
-  '/dashboard/services': typeof DashboardServicesRoute
+  '/dashboard/services': typeof DashboardServicesRouteWithChildren
   '/dashboard/settings': typeof DashboardSettingsRoute
   '/dashboard/staff': typeof DashboardStaffRoute
   '/dashboard/stamps': typeof DashboardStampsRoute
@@ -426,7 +483,14 @@ export interface FileRoutesById {
   '/dashboard/': typeof DashboardIndexRoute
   '/staff/': typeof StaffIndexRoute
   '/dashboard/customers/$clientId': typeof DashboardCustomersClientIdRoute
+  '/dashboard/programs/$programId': typeof DashboardProgramsProgramIdRoute
+  '/dashboard/services/$serviceId': typeof DashboardServicesServiceIdRouteWithChildren
+  '/dashboard/services/new': typeof DashboardServicesNewRoute
   '/dashboard/customers/': typeof DashboardCustomersIndexRoute
+  '/dashboard/programs/': typeof DashboardProgramsIndexRoute
+  '/dashboard/services/': typeof DashboardServicesIndexRoute
+  '/dashboard/services/$serviceId/edit': typeof DashboardServicesServiceIdEditRoute
+  '/dashboard/services/$serviceId/': typeof DashboardServicesServiceIdIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -476,7 +540,14 @@ export interface FileRouteTypes {
     | '/dashboard/'
     | '/staff/'
     | '/dashboard/customers/$clientId'
+    | '/dashboard/programs/$programId'
+    | '/dashboard/services/$serviceId'
+    | '/dashboard/services/new'
     | '/dashboard/customers/'
+    | '/dashboard/programs/'
+    | '/dashboard/services/'
+    | '/dashboard/services/$serviceId/edit'
+    | '/dashboard/services/$serviceId/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -503,11 +574,9 @@ export interface FileRouteTypes {
     | '/dashboard/loyalty'
     | '/dashboard/notifications'
     | '/dashboard/payments'
-    | '/dashboard/programs'
     | '/dashboard/referrals'
     | '/dashboard/reviews'
     | '/dashboard/rewards'
-    | '/dashboard/services'
     | '/dashboard/settings'
     | '/dashboard/staff'
     | '/dashboard/stamps'
@@ -519,7 +588,13 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/staff'
     | '/dashboard/customers/$clientId'
+    | '/dashboard/programs/$programId'
+    | '/dashboard/services/new'
     | '/dashboard/customers'
+    | '/dashboard/programs'
+    | '/dashboard/services'
+    | '/dashboard/services/$serviceId/edit'
+    | '/dashboard/services/$serviceId'
   id:
     | '__root__'
     | '/'
@@ -567,7 +642,14 @@ export interface FileRouteTypes {
     | '/dashboard/'
     | '/staff/'
     | '/dashboard/customers/$clientId'
+    | '/dashboard/programs/$programId'
+    | '/dashboard/services/$serviceId'
+    | '/dashboard/services/new'
     | '/dashboard/customers/'
+    | '/dashboard/programs/'
+    | '/dashboard/services/'
+    | '/dashboard/services/$serviceId/edit'
+    | '/dashboard/services/$serviceId/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -909,6 +991,55 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardCustomersClientIdRouteImport
       parentRoute: typeof DashboardCustomersRoute
     }
+    '/dashboard/programs/': {
+      id: '/dashboard/programs/'
+      path: '/'
+      fullPath: '/dashboard/programs/'
+      preLoaderRoute: typeof DashboardProgramsIndexRouteImport
+      parentRoute: typeof DashboardProgramsRoute
+    }
+    '/dashboard/programs/$programId': {
+      id: '/dashboard/programs/$programId'
+      path: '/$programId'
+      fullPath: '/dashboard/programs/$programId'
+      preLoaderRoute: typeof DashboardProgramsProgramIdRouteImport
+      parentRoute: typeof DashboardProgramsRoute
+    }
+    '/dashboard/services/': {
+      id: '/dashboard/services/'
+      path: '/'
+      fullPath: '/dashboard/services/'
+      preLoaderRoute: typeof DashboardServicesIndexRouteImport
+      parentRoute: typeof DashboardServicesRoute
+    }
+    '/dashboard/services/$serviceId': {
+      id: '/dashboard/services/$serviceId'
+      path: '/$serviceId'
+      fullPath: '/dashboard/services/$serviceId'
+      preLoaderRoute: typeof DashboardServicesServiceIdRouteImport
+      parentRoute: typeof DashboardServicesRoute
+    }
+    '/dashboard/services/new': {
+      id: '/dashboard/services/new'
+      path: '/new'
+      fullPath: '/dashboard/services/new'
+      preLoaderRoute: typeof DashboardServicesNewRouteImport
+      parentRoute: typeof DashboardServicesRoute
+    }
+    '/dashboard/services/$serviceId/': {
+      id: '/dashboard/services/$serviceId/'
+      path: '/'
+      fullPath: '/dashboard/services/$serviceId/'
+      preLoaderRoute: typeof DashboardServicesServiceIdIndexRouteImport
+      parentRoute: typeof DashboardServicesServiceIdRoute
+    }
+    '/dashboard/services/$serviceId/edit': {
+      id: '/dashboard/services/$serviceId/edit'
+      path: '/edit'
+      fullPath: '/dashboard/services/$serviceId/edit'
+      preLoaderRoute: typeof DashboardServicesServiceIdEditRouteImport
+      parentRoute: typeof DashboardServicesServiceIdRoute
+    }
   }
 }
 
@@ -971,6 +1102,50 @@ const DashboardCustomersRouteChildren: DashboardCustomersRouteChildren = {
 const DashboardCustomersRouteWithChildren =
   DashboardCustomersRoute._addFileChildren(DashboardCustomersRouteChildren)
 
+interface DashboardProgramsRouteChildren {
+  DashboardProgramsProgramIdRoute: typeof DashboardProgramsProgramIdRoute
+  DashboardProgramsIndexRoute: typeof DashboardProgramsIndexRoute
+}
+
+const DashboardProgramsRouteChildren: DashboardProgramsRouteChildren = {
+  DashboardProgramsProgramIdRoute: DashboardProgramsProgramIdRoute,
+  DashboardProgramsIndexRoute: DashboardProgramsIndexRoute,
+}
+
+const DashboardProgramsRouteWithChildren =
+  DashboardProgramsRoute._addFileChildren(DashboardProgramsRouteChildren)
+
+interface DashboardServicesServiceIdRouteChildren {
+  DashboardServicesServiceIdEditRoute: typeof DashboardServicesServiceIdEditRoute
+  DashboardServicesServiceIdIndexRoute: typeof DashboardServicesServiceIdIndexRoute
+}
+
+const DashboardServicesServiceIdRouteChildren: DashboardServicesServiceIdRouteChildren =
+  {
+    DashboardServicesServiceIdEditRoute: DashboardServicesServiceIdEditRoute,
+    DashboardServicesServiceIdIndexRoute: DashboardServicesServiceIdIndexRoute,
+  }
+
+const DashboardServicesServiceIdRouteWithChildren =
+  DashboardServicesServiceIdRoute._addFileChildren(
+    DashboardServicesServiceIdRouteChildren,
+  )
+
+interface DashboardServicesRouteChildren {
+  DashboardServicesServiceIdRoute: typeof DashboardServicesServiceIdRouteWithChildren
+  DashboardServicesNewRoute: typeof DashboardServicesNewRoute
+  DashboardServicesIndexRoute: typeof DashboardServicesIndexRoute
+}
+
+const DashboardServicesRouteChildren: DashboardServicesRouteChildren = {
+  DashboardServicesServiceIdRoute: DashboardServicesServiceIdRouteWithChildren,
+  DashboardServicesNewRoute: DashboardServicesNewRoute,
+  DashboardServicesIndexRoute: DashboardServicesIndexRoute,
+}
+
+const DashboardServicesRouteWithChildren =
+  DashboardServicesRoute._addFileChildren(DashboardServicesRouteChildren)
+
 interface DashboardRouteChildren {
   DashboardAnalyticsRoute: typeof DashboardAnalyticsRoute
   DashboardAppointmentsRoute: typeof DashboardAppointmentsRoute
@@ -981,11 +1156,11 @@ interface DashboardRouteChildren {
   DashboardLoyaltyRoute: typeof DashboardLoyaltyRoute
   DashboardNotificationsRoute: typeof DashboardNotificationsRoute
   DashboardPaymentsRoute: typeof DashboardPaymentsRoute
-  DashboardProgramsRoute: typeof DashboardProgramsRoute
+  DashboardProgramsRoute: typeof DashboardProgramsRouteWithChildren
   DashboardReferralsRoute: typeof DashboardReferralsRoute
   DashboardReviewsRoute: typeof DashboardReviewsRoute
   DashboardRewardsRoute: typeof DashboardRewardsRoute
-  DashboardServicesRoute: typeof DashboardServicesRoute
+  DashboardServicesRoute: typeof DashboardServicesRouteWithChildren
   DashboardSettingsRoute: typeof DashboardSettingsRoute
   DashboardStaffRoute: typeof DashboardStaffRoute
   DashboardStampsRoute: typeof DashboardStampsRoute
@@ -1003,11 +1178,11 @@ const DashboardRouteChildren: DashboardRouteChildren = {
   DashboardLoyaltyRoute: DashboardLoyaltyRoute,
   DashboardNotificationsRoute: DashboardNotificationsRoute,
   DashboardPaymentsRoute: DashboardPaymentsRoute,
-  DashboardProgramsRoute: DashboardProgramsRoute,
+  DashboardProgramsRoute: DashboardProgramsRouteWithChildren,
   DashboardReferralsRoute: DashboardReferralsRoute,
   DashboardReviewsRoute: DashboardReviewsRoute,
   DashboardRewardsRoute: DashboardRewardsRoute,
-  DashboardServicesRoute: DashboardServicesRoute,
+  DashboardServicesRoute: DashboardServicesRouteWithChildren,
   DashboardSettingsRoute: DashboardSettingsRoute,
   DashboardStaffRoute: DashboardStaffRoute,
   DashboardStampsRoute: DashboardStampsRoute,
