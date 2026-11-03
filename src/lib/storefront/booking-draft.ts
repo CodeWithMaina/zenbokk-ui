@@ -7,7 +7,7 @@ export type BookingDraft = {
   startsAt: string | null
   notes: string
   /** Step the customer reached, so sign-in returns them to the right screen. */
-  step: 'services' | 'staff' | 'time' | 'details' | 'review'
+  step: 'services' | 'staff' | 'time' | 'details' | 'payment'
 }
 
 export const emptyDraft: BookingDraft = {
@@ -18,10 +18,22 @@ export const emptyDraft: BookingDraft = {
   step: 'services',
 }
 
-export const BOOKING_STEPS = ['services', 'staff', 'time', 'details', 'review'] as const
+export const BOOKING_STEPS = ['services', 'staff', 'time', 'details', 'payment'] as const
 
 function isBookingStep(value: unknown): value is BookingDraft['step'] {
   return typeof value === 'string' && (BOOKING_STEPS as readonly string[]).includes(value)
+}
+
+/**
+ * Map a stored step onto a current one.
+ *
+ * `review` was the name of the final step before it became a real payment step.
+ * A draft saved by an older build resumes at the payment step rather than
+ * dropping the visitor back at the start with their choices still in place.
+ */
+function normaliseStep(value: unknown): BookingDraft['step'] {
+  if (value === 'review') return 'payment'
+  return isBookingStep(value) ? value : 'services'
 }
 
 function optionalString(value: unknown): string | null {
@@ -52,7 +64,7 @@ export function readBookingDraft(businessId: string): BookingDraft {
       staffId: optionalString(parsed.staffId),
       startsAt: optionalString(parsed.startsAt),
       notes: typeof parsed.notes === 'string' ? parsed.notes : '',
-      step: isBookingStep(parsed.step) ? parsed.step : 'services',
+      step: normaliseStep(parsed.step),
     }
   } catch {
     return emptyDraft

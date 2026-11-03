@@ -274,6 +274,55 @@ export type EligibleStaff = {
   fullName: string
   avatarUrl: string | null
   phoneNumber: string | null
+  /**
+   * The services this member is assigned to within the business, restricted to
+   * the publicly visible ones. This is what lets the storefront show "who does
+   * what" and offer a specialist without one request per service.
+   */
+  serviceIds: string[]
+  /**
+   * The member's business-assigned job title ("Senior Stylist", "Master
+   * Barber"), or null when the business has not set one. Purely descriptive —
+   * a position grants no permission and no eligibility.
+   */
+  positionName: string | null
+  /**
+   * The business's short biography for this member. Null when it has not
+   * written one — the profile page then omits the section rather than
+   * inventing a paragraph.
+   */
+  bio: string | null
+  /**
+   * What the member is known for, as free text ("Balayage, Curly cuts").
+   * Null when the business has not stated any.
+   */
+  specialities: string | null
+  /**
+   * Whole years of professional experience as the business states it. Null
+   * when not stated — distinct from `0`, which is a real answer.
+   */
+  yearsOfExperience: number | null
+}
+
+/**
+ * `POST /v1/businesses/{businessId}/enquiries` — an anonymous storefront
+ * enquiry. The business decides what it does with it; the platform records it
+ * as a notification for the owner and returns the reference to quote.
+ */
+export type StorefrontEnquiryRequest = {
+  /** One of `services | event | booking | other`. */
+  topic: string
+  /** The visitor's answers, in the order they were given. */
+  answers: string[]
+  name: string
+  phoneNumber: string
+  message: string | null
+}
+
+export type StorefrontEnquiryResponse = {
+  reference: string
+  businessName: string
+  receivedAt: string
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -555,6 +604,16 @@ export type StaffMember = {
   stampsToday?: number
   lastActiveAt?: string | null
   status?: string
+  /** Trailing-window counters the roster reports alongside today's. */
+  appointmentsLast7d?: number
+  stampsLast7d?: number
+  /** `lastActivityAt` is the staff list's own name for the same timestamp. */
+  lastActivityAt?: string | null
+  positionId?: string | null
+  positionName?: string | null
+  positionIsActive?: boolean | null
+  /** `Active` | `Suspended` — the roster keeps deactivated members visible. */
+  membershipStatus?: string
 }
 
 export type StaffListResponse = {
@@ -577,6 +636,245 @@ export type StaffOverview = {
   topPerformers: StaffMember[]
   needsAttention: StaffMember[]
   recentlyActive: StaffMember[]
+}
+
+// ─────────────────────────────────────────────────────────────
+//  Staff management (one member)
+// ─────────────────────────────────────────────────────────────
+
+/** A job title (position). Descriptive only — it grants nothing. */
+export type StaffPosition = {
+  id: string
+  businessId: string
+  name: string
+  description: string | null
+  sortOrder: number
+  isActive: boolean
+  assignedStaffCount: number
+  createdAt: string
+  updatedAt: string
+}
+
+/** One service a staff member is assigned to deliver. */
+export type StaffServiceLink = {
+  serviceId: string
+  name: string
+  categoryId: string | null
+  categoryName: string | null
+  durationMinutes: number
+  price: number | null
+  isActive: boolean
+  showcase: boolean
+}
+
+/** One weekday of the recurring working week. `dayOfWeek` is 0 = Sunday. */
+export type StaffAvailabilityDay = {
+  dayOfWeek: number
+  dayName: string
+  isWorking: boolean
+  startMinute: number
+  endMinute: number
+  breakStartMinute: number | null
+  breakEndMinute: number | null
+}
+
+/** A dated exception to the recurring week (a day off, or a one-off change). */
+export type StaffTimeOff = {
+  date: string
+  isWorking: boolean
+  startMinute: number
+  endMinute: number
+  reason: string | null
+}
+
+/**
+ * `GET /v1/businesses/me/staff/{id}` — the member's management profile.
+ *
+ * Per-visit data (bookings, attendance events, commission ledger) is served by
+ * the module that owns it, so this payload stays a stable description of the
+ * person and their employment.
+ */
+export type StaffDetail = {
+  userId: string
+  fullName: string
+  email: string
+  phoneNumber: string | null
+  avatarUrl: string | null
+  avatarMediaId: string | null
+
+  /** `Active` | `Invited` | `Suspended` | `Left`. */
+  membershipStatus: string
+  isActive: boolean
+  joinedAt: string
+  endedAt: string | null
+
+  positionId: string | null
+  positionName: string | null
+
+  bio: string | null
+  /** What the member is known for, comma-separated. Null when not stated. */
+  specialities: string | null
+  /** Whole years of experience. Null when not stated (distinct from 0). */
+  yearsOfExperience: number | null
+  isPublic: boolean
+  isBookable: boolean
+
+  dailyGoalOverride: number | null
+  appointmentDailyGoalOverride: number | null
+  dailyGoal: number | null
+  appointmentDailyGoal: number | null
+  dailyGoalType: string
+
+  stampsIssued: number
+  stampsToday: number
+  stampsLast7d: number
+  appointmentsToday: number
+  appointmentsLast7d: number
+  lastActivityAt: string | null
+
+  services: StaffServiceLink[]
+  availability: StaffAvailabilityDay[]
+  /** `pattern` | `roster` | `business` — where the working week comes from. */
+  availabilitySource: string
+  timeOff: StaffTimeOff[]
+
+  bookingOpenMinute: number
+  bookingCloseMinute: number
+  timeZoneId: string | null
+}
+
+/**
+ * Partial update. An omitted field is never touched, so two screens editing
+ * different parts of the same profile cannot overwrite each other. Email is
+ * absent by design: it is the sign-in identity.
+ */
+export type UpdateStaffRequest = {
+  fullName?: string
+  phoneNumber?: string
+  bio?: string
+  /** Free text; an empty string clears it. */
+  specialities?: string
+  /** Whole years (0–80); omit to leave untouched. */
+  yearsOfExperience?: number | null
+  /** Explicitly clear the stated experience rather than leaving it untouched. */
+  clearYearsOfExperience?: boolean
+  isPublic?: boolean
+  isBookable?: boolean
+  positionId?: string | null
+  clearPosition?: boolean
+  dailyGoalOverride?: number | null
+  appointmentDailyGoalOverride?: number | null
+  clearDailyGoalOverride?: boolean
+  clearAppointmentDailyGoalOverride?: boolean
+  avatarMediaId?: string | null
+}
+
+export type StaffStatusResponse = {
+  userId: string
+  membershipStatus: string
+  isActive: boolean
+  endedAt: string | null
+  message: string
+}
+
+export type SetStaffServicesRequest = {
+  serviceIds: string[]
+}
+
+export type StaffAvailabilityDayInput = {
+  dayOfWeek: number
+  isWorking: boolean
+  startMinute: number
+  endMinute: number
+  breakStartMinute?: number | null
+  breakEndMinute?: number | null
+}
+
+export type SetStaffAvailabilityRequest = {
+  days: StaffAvailabilityDayInput[]
+}
+
+export type AddStaffTimeOffRequest = {
+  from: string
+  to: string
+  reason?: string | null
+}
+
+
+// ─────────────────────────────────────────────────────────────
+//  Attendance (owner view)
+// ─────────────────────────────────────────────────────────────
+
+/** One member's clock state for a single day. */
+export type AttendanceOverviewStaffItem = {
+  staffUserId: string
+  fullName: string
+  avatarUrl: string | null
+  /** `not_clocked_in` | `clocked_in` | `clocked_out`. */
+  state: string
+  openedAt: string | null
+  closedAt: string | null
+  workedMinutes: number | null
+  locationName: string | null
+}
+
+export type AttendanceOverview = {
+  date: string
+  totalStaffCount: number
+  clockedInCount: number
+  completedShiftCount: number
+  notClockedInCount: number
+  totalWorkedMinutes: number
+  staff: AttendanceOverviewStaffItem[]
+}
+
+/** One clock event in a member's history. */
+export type AttendanceHistoryItem = {
+  id: string
+  /** `CLOCK_IN` | `CLOCK_OUT`. */
+  eventType: string
+  occurredAt: string
+  locationId: string | null
+  locationName: string | null
+  sessionId: string | null
+  workedMinutes: number | null
+  inProgress: boolean
+}
+
+/** A manually recorded clock event for one member. */
+export type OwnerAttendanceClockRequest = {
+  locationId?: string | null
+  note?: string | null
+}
+
+export type OwnerAttendanceClockResponse = {
+  staffUserId: string
+  state: string
+  eventType: string
+  occurredAt: string
+  locationId: string | null
+  locationName: string | null
+  openedAt: string | null
+  workedMinutes: number | null
+}
+
+// ─────────────────────────────────────────────────────────────
+//  Commission (owner view)
+// ─────────────────────────────────────────────────────────────
+
+/** Amounts owed to (or held from) one member. */
+export type CommissionStaffBalance = {
+  staffUserId: string
+  staffName: string | null
+  currency: string
+  pendingAmount: number
+  approvedAmount: number
+  payableAmount: number
+  paidAmount: number
+  disputedAmount: number
+  reversedAmount: number
+  outstandingAmount: number
+  lifetimeEarnedAmount: number
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -1207,5 +1505,144 @@ export type AdminGrowth = {
   businesses: AdminGrowthPoint[]
   stamps: AdminGrowthPoint[]
   redemptions: AdminGrowthPoint[]
+}
+
+
+// ─────────────────────────────────────────────────────────────
+//  Public storefront reads (gallery, opening hours, search)
+//  Mirrors Application/DTOs/Storefront{Gallery,Hours,Search}DTOs.cs.
+// ─────────────────────────────────────────────────────────────
+
+// ─────────────────────────────────────────────────────────────
+//  Guest booking (account-free)
+//  Mirrors Application/DTOs/GuestBookingDTOs.cs. The visitor proves
+//  control of an inbox with a one-time code and receives a short-lived
+//  CUSTOMER token, which is then used against the ordinary customer
+//  appointment API — so no booking rule is bypassed for guests.
+// ─────────────────────────────────────────────────────────────
+
+export type GuestBookingStartRequest = {
+  fullName: string
+  /** Kenyan mobile number, in any of the shapes people type. */
+  phoneNumber: string
+  /** The inbox the one-time code is sent to. */
+  email: string
+}
+
+export type GuestBookingStartResponse = {
+  /** Masked (`p•••@example.com`); the full address is never echoed back. */
+  email: string
+  phoneNumber: string
+  expiresAt: string
+  resendAvailableAt: string
+  codeLength: number
+  /** `email` — the only channel the platform verifies by today. */
+  deliveryChannel: string
+}
+
+export type GuestBookingVerifyRequest = {
+  phoneNumber: string
+  code: string
+}
+
+export type GuestBookingCustomer = {
+  fullName: string
+  phoneNumber: string
+  /** Masked. */
+  email: string
+}
+
+export type GuestBookingVerifyResponse = {
+  /** A short-lived customer access token scoped to the business. No refresh token. */
+  accessToken: string
+  expiresIn: number
+  tokenType: string
+  businessId: string
+  customer: GuestBookingCustomer
+}
+
+/** One published image in a business's public gallery. */
+export type PublicGalleryImage = {
+  mediaId: string
+  /** Owner-written caption, or null when none was written. */
+  caption: string | null
+  sortOrder: number
+  featured: boolean
+  width: number | null
+  height: number | null
+  /** Ready variants only; empty while an image is still processing. */
+  variants: ImageVariant[]
+}
+
+/** `GET /v1/businesses/{businessId}/gallery`. */
+export type PublicGallery = {
+  businessId: string
+  images: PublicGalleryImage[]
+}
+
+/** One opening period in a day, with the staff break inside it (if any). */
+export type OpeningHoursPeriod = {
+  /** Local `HH:mm`. */
+  opensAt: string
+  closesAt: string
+  breakStartsAt: string | null
+  breakEndsAt: string | null
+}
+
+export type OpeningHoursDay = {
+  /** Lower-case English day name (`monday` … `sunday`). */
+  day: string
+  /** 0 = Sunday … 6 = Saturday. */
+  dayOfWeek: number
+  isClosed: boolean
+  periods: OpeningHoursPeriod[]
+}
+
+/** A dated exception to the weekly pattern (a holiday or a special day). */
+export type SpecialOpeningHours = {
+  /** Business-local `yyyy-MM-dd`. */
+  date: string
+  isClosed: boolean
+  label: string | null
+  periods: OpeningHoursPeriod[]
+}
+
+/** `GET /v1/businesses/{businessId}/opening-hours`. */
+export type PublicOpeningHours = {
+  businessId: string
+  timeZoneId: string
+  /** False when the hours fall back to the business's own booking window. */
+  hasStaffSchedule: boolean
+  days: OpeningHoursDay[]
+  specialHours: SpecialOpeningHours[]
+}
+
+/** One search hit. `type` is `service` or `staff`. */
+export type StorefrontSearchResult = {
+  type: 'service' | 'staff'
+  id: string
+  title: string
+  subtitle: string | null
+  description: string | null
+  categoryName: string | null
+  price: number | null
+  durationMinutes: number | null
+  imageVariants: ImageVariant[]
+  avatarUrl: string | null
+  serviceIds: string[]
+}
+
+/** `GET /v1/businesses/{businessId}/search`. */
+export type StorefrontSearchResponse = {
+  query: string
+  /** The normalised scope the server applied (`all` | `services` | `team`). */
+  type: string
+  items: StorefrontSearchResult[]
+  totalCount: number
+  page: number
+  pageSize: number
+  totalPages: number
+  /** The business's active, published category names. */
+  categories: string[]
 }
 

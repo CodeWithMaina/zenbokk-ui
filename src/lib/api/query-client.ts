@@ -34,10 +34,27 @@ export const queryClient = new QueryClient({
 export const queryKeys = {
   storefront: (slug: string) => ['storefront', slug] as const,
   storefrontServices: (businessId: string) => ['storefront', businessId, 'services'] as const,
+  /**
+   * One service from the public catalogue. A child of `storefrontServices`, so
+   * invalidating the list also refreshes any detail page open on it.
+   */
+  storefrontService: (businessId: string, serviceId: string) =>
+    ['storefront', businessId, 'services', serviceId] as const,
   storefrontStaff: (businessId: string, serviceIds: string[]) =>
     ['storefront', businessId, 'staff', serviceIds.join(',')] as const,
   availability: (businessId: string, params: Record<string, unknown>) =>
     ['storefront', businessId, 'availability', params] as const,
+  /** The business's published gallery (one request, all images + variants). */
+  storefrontGallery: (businessId: string) => ['storefront', businessId, 'gallery'] as const,
+  /** The business's opening hours. */
+  storefrontHours: (businessId: string) => ['storefront', businessId, 'hours'] as const,
+  /**
+   * Server-side storefront search. The query + scope are part of the key, so
+   * each distinct search is cached independently and a tenant switch cannot
+   * reuse another business's results (the business id is in the prefix).
+   */
+  storefrontSearch: (businessId: string, params: Record<string, unknown>) =>
+    ['storefront', businessId, 'search', params] as const,
 
   dashboard: () => ['dashboard', 'bootstrap'] as const,
   /**
@@ -65,6 +82,30 @@ export const queryKeys = {
   ownerStaff: (filters: Record<string, unknown>) => ['staff', 'owner', filters] as const,
   staffOverview: () => ['staff', 'owner', 'overview'] as const,
   staffInvitations: () => ['staff', 'owner', 'invitations'] as const,
+  /** One member's management profile (`GET /v1/businesses/me/staff/{id}`). */
+  ownerStaffDetail: (staffId: string) => ['staff', 'owner', 'detail', staffId] as const,
+  /** The services a member delivers. */
+  staffServices: (staffId: string) => ['staff', 'owner', 'detail', staffId, 'services'] as const,
+  /** The member's recurring working week plus dated time off. */
+  staffAvailability: (staffId: string) => ['staff', 'owner', 'detail', staffId, 'availability'] as const,
+  /** Job titles of the caller's business (assignment pickers). */
+  staffPositions: () => ['staff', 'owner', 'positions'] as const,
+  /** Stamp analytics for one member, per period. */
+  staffMemberAnalytics: (staffId: string, period: string) =>
+    ['staff', 'owner', 'analytics', staffId, period] as const,
+  /** One member's activity timeline. */
+  staffMemberActivity: (staffId: string, filters: Record<string, unknown>) =>
+    ['staff', 'owner', 'activity', staffId, filters] as const,
+
+  /** Today's clock state for the whole team (attendance module). */
+  attendanceOverview: (date: string | null) => ['attendance', 'overview', date] as const,
+  /** One member's clock events. */
+  attendanceStaffHistory: (staffId: string, filters: Record<string, unknown>) =>
+    ['attendance', 'staff', staffId, filters] as const,
+
+  /** Commission balance owed to one member (commissions module). */
+  commissionStaffBalance: (staffId: string) =>
+    ['commissions', 'balance', staffId] as const,
   ownerCustomers: (filters: Record<string, unknown>) => ['customers', 'owner', filters] as const,
   customerOverview: () => ['customers', 'owner', 'overview'] as const,
   /** Per-status roster counts for the Clients filter chips. */

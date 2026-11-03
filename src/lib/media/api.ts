@@ -158,6 +158,83 @@ export const mediaApi = {
   clearCover(): Promise<MediaAssignmentCleared> {
     return apiRequest<MediaAssignmentCleared>('/v1/media/business/cover', { method: 'DELETE' })
   },
+
+  // ── Business gallery ──────────────────────────────────────────
+  // The owner's gallery, including images that are attached but not yet
+  // published. The public gallery endpoint is a different read (see
+  // `storefrontApi.gallery`) and never returns an unpublished image.
+
+  /** Every image in the owner's gallery, in display order. */
+  gallery(): Promise<BusinessMediaEntry[]> {
+    return apiGet<BusinessMediaEntry[]>('/v1/media/business/gallery')
+  },
+
+  /** How many more images the gallery can hold. */
+  galleryCapacity(): Promise<GalleryCapacity> {
+    return apiGet<GalleryCapacity>('/v1/media/business/gallery/capacity')
+  },
+
+  /** Attach an uploaded, processed image to the gallery. */
+  attachGallery(
+    mediaId: string,
+    options: { sortOrder?: number; featured?: boolean } = {},
+  ): Promise<BusinessMediaEntry> {
+    return apiRequest<BusinessMediaEntry>('/v1/media/business/gallery', {
+      method: 'POST',
+      body: { mediaId, sortOrder: options.sortOrder ?? null, featured: options.featured ?? false },
+    })
+  },
+
+  /** Edit one entry's caption, publication state or position. */
+  updateGalleryEntry(
+    mediaId: string,
+    body: UpdateGalleryEntryRequest,
+  ): Promise<BusinessMediaEntry> {
+    return apiRequest<BusinessMediaEntry>(`/v1/media/business/gallery/${mediaId}`, {
+      method: 'PATCH',
+      body,
+    })
+  },
+
+  /** Rewrite the whole order. The array IS the order. */
+  reorderGallery(mediaIds: string[]): Promise<boolean> {
+    return apiRequest<boolean>('/v1/media/business/gallery/order', {
+      method: 'PATCH',
+      body: { mediaIds },
+    })
+  },
+
+  /** Take an image out of the gallery entirely (the media row is retained). */
+  detachGallery(mediaId: string): Promise<boolean> {
+    return apiRequest<boolean>(`/v1/media/business/gallery/${mediaId}`, { method: 'DELETE' })
+  },
+}
+
+/** One gallery entry as the owner sees it. */
+export type BusinessMediaEntry = {
+  businessId: string
+  mediaId: string
+  role: string
+  sortOrder: number
+  featured: boolean
+  caption: string | null
+  /** False keeps the image attached but off the public gallery. */
+  isVisible: boolean
+  media: MediaRecord | null
+}
+
+/** Authoritative gallery capacity. `limit`/`remaining` are null when unlimited. */
+export type GalleryCapacity = {
+  limit: number | null
+  used: number
+  remaining: number | null
+}
+
+/** Partial edit of one gallery entry; an omitted field is left untouched. */
+export type UpdateGalleryEntryRequest = {
+  caption?: string
+  isVisible?: boolean
+  sortOrder?: number
 }
 
 /**

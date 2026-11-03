@@ -90,7 +90,7 @@ export const Route = createFileRoute('/dashboard/services/')({
 })
 
 function ServicesPage() {
-  const navigate = useNavigate()
+  const navigate = useNavigate({ from: Route.fullPath })
   const search = Route.useSearch()
   const { canSee, hasPermission } = useDashboardContext()
   const canManage = hasPermission('serviceCatalog.manage')
@@ -121,8 +121,7 @@ function ServicesPage() {
   const patchSearch = useCallback(
     (patch: Partial<ServicesSearch>) => {
       void navigate({
-        to: '/dashboard/services',
-        search: (previous: ServicesSearch) => ({ ...previous, ...patch }),
+        search: (previous) => ({ ...previous, ...patch }),
         replace: true,
       })
     },

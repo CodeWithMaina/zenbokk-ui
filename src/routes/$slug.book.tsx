@@ -1,42 +1,44 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
-import {
-  ArrowLeft,
-  ArrowRight,
-  CalendarDays,
-  Check,
-  Clock,
-  Loader2,
-  Scissors,
-  UserRound,
-} from 'lucide-react'
+import { createFileRoute, Link } from '@tanstack/react-router'
+import { ArrowLeft, ArrowRight, Loader2 } from 'lucide-react'
 import { useState } from 'react'
 import { Alert } from '../components/ui/alert'
-import { BookingConfirmation } from '../components/ui/booking-confirmation'
 import { Button } from '../components/ui/button'
-import { Card } from '../components/ui/card'
-import { Field, Textarea } from '../components/ui/field'
-import { OptionRow } from '../components/ui/option-row'
-import { Progress } from '../components/ui/progress'
-import { QuickChoices } from '../components/ui/quick-choices'
 import { Skeleton } from '../components/ui/skeleton'
+import { StorefrontBookingDone } from '../components/storefront/booking/StorefrontBookingDone'
+import { GuestVerifyPanel } from '../components/storefront/booking/GuestVerifyPanel'
+import {
+  StorefrontBookingActionBar,
+  StorefrontBookingSummary,
+} from '../components/storefront/booking/StorefrontBookingSummary'
+import {
+  StepOption,
+  StorefrontBookingStepper,
+} from '../components/storefront/booking/StorefrontBookingStepper'
 import { ApiError, errorMessage } from '../lib/api/client'
-import { queryKeys, queryClient } from '../lib/api/query-client'
-import type { Appointment, AvailabilitySlot, DayAvailability } from '../lib/api/types'
+import { queryClient, queryKeys } from '../lib/api/query-client'
+import type { Appointment, AvailabilitySlot, DayAvailability, EligibleStaff } from '../lib/api/types'
 import { useAuth } from '../lib/auth'
 import { CAPABILITY } from '../lib/entitlements'
-import { formatDay, formatDuration, formatNumber, money } from '../lib/format'
+import { formatDay, formatDuration, money } from '../lib/format'
 import {
   bookingApi,
   clearBookingDraft,
+  clearGuestSession,
   emptyDraft,
+  guestTokenFor,
   readBookingDraft,
-  storefrontApi,
+  readGuestSession,
   useStorefront,
   writeBookingDraft,
 } from '../lib/storefront'
 import type { BookingDraft } from '../lib/storefront'
-import { isTenantHost, storefrontHref } from '../lib/tenant'
+import {
+  useStorefrontServices,
+  useStorefrontTeam,
+} from '../lib/storefront/use-storefront-catalog'
+import { storefrontApi } from '../lib/storefront/api'
+import { storefrontHref } from '../lib/tenant'
 
 export const Route = createFileRoute('/$slug/book')({
   component: BookingWizardPage,
@@ -44,10 +46,10 @@ export const Route = createFileRoute('/$slug/book')({
 
 const STEPS = [
   { key: 'services', label: 'Services' },
-  { key: 'staff', label: 'Staff' },
+  { key: 'staff', label: 'Specialist' },
   { key: 'time', label: 'Date & time' },
   { key: 'details', label: 'Details' },
-  { key: 'review', label: 'Review' },
+  { key: 'payment', label: 'Payment' },
 ] as const
 
 type StepKey = (typeof STEPS)[number]['key']
@@ -56,17 +58,63 @@ function stepIndex(step: StepKey): number {
   return STEPS.findIndex((entry) => entry.key === step)
 }
 
+/** `2026-05-12` → `Tue 12 May`, without a UTC/DST shift. */
+function dateLabel(localDate: string): string {
+  return formatDay(new Date(`${localDate}T12:00:00`))
+}
+
+/** `14:30` → `2:30 pm`. */
+function timeLabel(localTime: string): string {
+  const [hourText, minute] = localTime.split(':')
+  const hour = Number(hourText)
+  const suffix = hour >= 12 ? 'pm' : 'am'
+  const twelve = hour % 12 === 0 ? 12 : hour % 12
+  return `${twelve}:${minute} ${suffix}`
+}
+
+/**
+ * The five-step booking flow.
+ *
+ * Same five steps the design draws, and the same underlying system the platform
+ * already had: choose services, choose a specialist, pick a real slot from the
+ * availability engine, add a note, then settle payment.
+ *
+ * Two things are worth stating plainly, because they are the difference between
+ * a working booking flow and a convincing-looking one:
+ *
+ *  - **Availability is the server's.** Slots come from
+ *    `GET /v1/businesses/{id}/availability/calendar`, which accounts for the
+ *    combined duration of every chosen service, the specialist's shifts and
+ *    breaks, existing appointments, the lead time and the booking window. The
+ *    page never invents a time, and it re-checks the chosen slot before
+ *    submitting — a slot can be taken while the visitor is filling the form.
+ *
+ *  - **Creating an appointment needs an identity.** `POST /v1/appointments` is
+ *    scoped to an authenticated customer and derives `customerId` from the token,
+ *    so the final step asks an anonymous visitor to sign in. Their choices are
+ *    already in `sessionStorage`, so they return to the same screen with the same
+ *    lineup rather than starting again. Guest booking would be a backend feature
+ *    (guest customer + verification + payment intent) and is not faked here.
+ */
 export function BookingWizardPage() {
   const { business, businessId, canonicalSlug, can } = useStorefront()
-  const { isAuthenticated } = useAuth()
-  const navigate = useNavigate()
+  const { isAuthenticated, user } = useAuth()
 
   const [draft, setDraft] = useState<BookingDraft>(() => readBookingDraft(businessId))
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [failure, setFailure] = useState<string | null>(null)
   const [confirmed, setConfirmed] = useState<Appointment | null>(null)
+  const [summaryOpen, setSummaryOpen] = useState(false)
+  const [paymentChoice, setPaymentChoice] = useState<'mpesa' | 'studio' | null>(null)
+
+  // A guest who has already verified in this session (or in a previous step of
+  // the same session) is not asked again. The token itself lives in
+  // `sessionStorage`, not in the app's session store — a guest has no profile.
+  const [guestVerified, setGuestVerified] = useState(() => Boolean(guestTokenFor(businessId)))
+  const [guestName, setGuestName] = useState(() => readGuestSession(businessId)?.fullName ?? '')
 
   const appointmentsEnabled = can(CAPABILITY.appointments)
+  const paymentsEnabled = can(CAPABILITY.payments)
   const currency = 'KES'
 
   function update(changes: Partial<BookingDraft>) {
@@ -82,36 +130,29 @@ export function BookingWizardPage() {
     update({ step })
   }
 
-  const servicesQuery = useQuery({
-    queryKey: queryKeys.storefrontServices(businessId),
-    queryFn: () => storefrontApi.services(businessId),
-    enabled: appointmentsEnabled,
-  })
+  const servicesQuery = useStorefrontServices(businessId, appointmentsEnabled)
 
-  const services = (servicesQuery.data ?? []).filter((service) => service.isActive)
+  const services = servicesQuery.services
   const selectedServices = services.filter((service) => draft.serviceIds.includes(service.id))
   // Only active catalogue items may be sent back to the API: a draft can outlive
   // a service being hidden or deleted while the customer was signing in.
   const selectedServiceIds = selectedServices.map((service) => service.id)
-  const totalDuration = selectedServices.reduce(
-    (sum, service) => sum + service.durationMinutes,
-    0,
-  )
-  const totalPrice = selectedServices.reduce((sum, service) => sum + service.price, 0)
+  const totalDuration = selectedServices.reduce((sum, s) => sum + s.durationMinutes, 0)
+  const totalPrice = selectedServices.reduce((sum, s) => sum + s.price, 0)
 
   // A restored draft may point at services that no longer exist. Fall back to
   // the first step instead of leaving the wizard stuck on a dead query.
-  const activeStep =
+  const activeStep: StepKey =
     draft.step !== 'services' && servicesQuery.isFetched && selectedServices.length === 0
       ? 'services'
       : draft.step
   const activeIndex = Math.max(0, stepIndex(activeStep))
 
-  const staffQuery = useQuery({
-    queryKey: queryKeys.storefrontStaff(businessId, selectedServiceIds),
-    queryFn: () => storefrontApi.eligibleStaff(businessId, selectedServiceIds),
-    enabled: appointmentsEnabled && selectedServiceIds.length > 0,
-  })
+  const staffQuery = useStorefrontTeam(
+    businessId,
+    selectedServiceIds,
+    appointmentsEnabled && selectedServiceIds.length > 0,
+  )
 
   const availabilityQuery = useQuery({
     queryKey: queryKeys.availability(businessId, {
@@ -126,36 +167,43 @@ export function BookingWizardPage() {
     enabled:
       appointmentsEnabled &&
       selectedServiceIds.length > 0 &&
-      (activeStep === 'time' || activeStep === 'details' || activeStep === 'review'),
+      (activeStep === 'time' || activeStep === 'details' || activeStep === 'payment'),
   })
 
   const calendar = availabilityQuery.data
   const bookableDays = (calendar?.days ?? []).filter((day) => day.availableSlots > 0)
   const selectedSlot =
-    calendar?.days
-      .flatMap((day) => day.slots)
-      .find((slot) => slot.startAtUtc === draft.startsAt) ?? null
+    calendar?.days.flatMap((day) => day.slots).find((slot) => slot.startAtUtc === draft.startsAt) ??
+    null
   // After the sign-in round trip `selectedDate` is fresh state, so recover the
   // day from the saved slot instead of snapping back to the first open day.
   const selectedDay = selectedSlot?.localDate ?? null
   const selectedSlotAvailable =
     selectedSlot !== null && selectedSlot.isAvailable && selectedSlot.status === 'available'
   const activeDay =
-    (calendar?.days ?? []).find(
-      (day) => day.date === (selectedDate ?? selectedDay),
-    ) ??
+    (calendar?.days ?? []).find((day) => day.date === (selectedDate ?? selectedDay)) ??
     bookableDays[0] ??
     null
 
+  const staffName = draft.staffId
+    ? ((staffQuery.data ?? []).find((member) => member.userId === draft.staffId)?.fullName ?? null)
+    : null
+
   const createBooking = useMutation({
     mutationFn: () =>
-      bookingApi.create({
-        businessId,
-        serviceIds: selectedServiceIds,
-        staffUserId: draft.staffId,
-        scheduledAt: draft.startsAt ?? '',
-        note: draft.notes.trim() || null,
-      }),
+      bookingApi.create(
+        {
+          businessId,
+          serviceIds: selectedServiceIds,
+          staffUserId: draft.staffId,
+          scheduledAt: draft.startsAt ?? '',
+          note: draft.notes.trim() || null,
+        },
+        // A verified guest books with their own short-lived token; a signed-in
+        // customer books with their session. The API derives the customer from
+        // whichever token arrives — it is never taken from the request body.
+        isAuthenticated ? null : guestTokenFor(businessId),
+      ),
     onSuccess: (appointment) => {
       clearBookingDraft(businessId)
       setDraft({ ...emptyDraft })
@@ -164,13 +212,18 @@ export function BookingWizardPage() {
     },
     onError: (error) => {
       if (error instanceof ApiError && error.status === 401) {
+        // A guest token can expire mid-flow; send them back to verification
+        // rather than to a sign-in page they do not have an account for.
+        if (!isAuthenticated) {
+          clearGuestSession(businessId)
+          setGuestVerified(false)
+          setFailure('Your verification expired. Confirm your number again to finish.')
+          return
+        }
         setFailure('Sign in again to finish this booking. Your choices are saved.')
         return
       }
-      if (
-        error instanceof ApiError &&
-        (error.status === 409 || error.code === 'OVERBOOKING')
-      ) {
+      if (error instanceof ApiError && (error.status === 409 || error.code === 'OVERBOOKING')) {
         setFailure('That time was taken while you were booking. Pick another time.')
         update({ step: 'time', startsAt: null })
         void availabilityQuery.refetch()
@@ -180,60 +233,47 @@ export function BookingWizardPage() {
     },
   })
 
-  if (!appointmentsEnabled) {
-    return (
-      <div className="mx-auto w-full max-w-(--container-page) px-gutter py-[clamp(2rem,5vw,3.5rem)]">
-        <Card className="mx-auto max-w-[32rem] p-[1.5rem] text-center">
-          <p className="eyebrow">Bookings are closed</p>
-          <h1 className="display mt-[0.4rem] text-title">Online booking isn’t available</h1>
-          <p className="mt-[0.5rem] text-meta text-muted">
-            {business.name} doesn’t take appointments through its page right now.
-            {business.phoneNumber ? ` Call ${business.phoneNumber} to arrange a visit.` : ''}
-          </p>
-          <a href={storefrontHref(canonicalSlug)} className="btn btn-ghost mt-[1.1rem] no-underline">
-            Back to the storefront
-          </a>
-        </Card>
-      </div>
-    )
-  }
-
-  const signInHref =
-    typeof window !== 'undefined'
-      ? window.location.pathname + window.location.search
-      : `/${canonicalSlug}/book`
 
   function continueFromServices() {
-    if (selectedServiceIds.length === 0) {
+    if (selectedServices.length === 0) {
       setFailure('Choose at least one service to continue.')
       return
     }
     goTo('staff')
   }
 
-  function continueFromStaff() {
-    goTo('time')
-  }
-
   function continueFromTime() {
-    if (!selectedSlot || !selectedSlotAvailable) {
-      setFailure('That time is no longer available. Pick another one.')
-      update({ startsAt: null })
+    if (!selectedSlotAvailable) {
+      setFailure('Choose an open time to continue.')
       return
     }
     goTo('details')
   }
 
   function continueFromDetails() {
-    if (!isAuthenticated) {
-      setFailure('Sign in to finish your booking — your choices stay right here.')
-      return
-    }
-    goTo('review')
+    goTo('payment')
   }
 
   function submitBooking() {
-    if (!draft.startsAt || !selectedSlotAvailable) {
+    if (!isAuthenticated && !guestTokenFor(businessId)) {
+      // The draft is already in sessionStorage, and the verification panel is on
+      // this step — nothing is lost by asking the visitor to finish it first.
+      setFailure('Verify your number to confirm this booking. Your choices are saved.')
+      return
+    }
+    if (selectedServiceIds.length === 0) {
+      update({ step: 'services' })
+      setFailure('Choose at least one service.')
+      return
+    }
+    if (!draft.startsAt) {
+      update({ step: 'time' })
+      setFailure('Choose a time.')
+      return
+    }
+    // Re-check against the freshest availability: a slot can be taken while the
+    // visitor is on the last step, and the API would reject it anyway.
+    if (availabilityQuery.isFetched && !selectedSlotAvailable) {
       setFailure('That time is no longer available. Pick another one.')
       update({ step: 'time', startsAt: null })
       return
@@ -247,6 +287,7 @@ export function BookingWizardPage() {
       ? draft.serviceIds.filter((id) => id !== serviceId)
       : [...draft.serviceIds, serviceId]
     setSelectedDate(null)
+    // A different basket can invalidate the specialist and the slot.
     update({ serviceIds: next, startsAt: null, staffId: null })
   }
 
@@ -260,519 +301,465 @@ export function BookingWizardPage() {
     update({ startsAt: slot.startAtUtc, staffId: slot.staffUserId ?? draft.staffId })
   }
 
-  function dateLabel(localDate: string): string {
-    // Noon avoids a DST/UTC shift when the calendar hands back a bare date.
-    return formatDay(new Date(`${localDate}T12:00:00`))
+  if (confirmed) {
+    return (
+      <StorefrontBookingDone
+        appointment={confirmed}
+        services={selectedServices}
+        staffName={staffName}
+        canonicalSlug={canonicalSlug}
+        defaultPhone={user?.phone ?? null}
+        canPay={paymentsEnabled}
+      />
+    )
   }
 
-  return (
-    <div className="mx-auto w-full max-w-(--container-page) px-gutter py-[clamp(1.5rem,4vw,3rem)]">
-      <header className="max-w-[40rem]">
-        <a
-          href={storefrontHref(canonicalSlug)}
-          className="inline-flex items-center gap-[0.3rem] text-meta text-muted transition-colors hover:text-fg"
+  if (!appointmentsEnabled) {
+    return (
+      <div className="sf-container py-[clamp(2rem,5vw,3.5rem)]">
+        <div className="mx-auto max-w-[32rem] rounded-panel border border-line bg-surface p-[1.5rem] text-center">
+          <p className="sf-eyebrow">Booking closed</p>
+          <h1 className="sf-heading">{business.name} isn’t taking bookings online</h1>
+          <p className="sf-lead mx-auto">
+            Their page is still live, but appointments aren’t enabled on their plan. Call or message
+            them directly and they’ll sort you out.
+          </p>
+          <div className="mt-[1.2rem] flex flex-wrap justify-center gap-[0.5rem]">
+            {business.phoneNumber ? (
+              <a href={`tel:${business.phoneNumber}`} className="btn btn-primary no-underline">
+                Call {business.phoneNumber}
+              </a>
+            ) : null}
+            <a href={storefrontHref(canonicalSlug)} className="btn btn-ghost no-underline">
+              Back to the page
+            </a>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  const when =
+    selectedSlot && selectedDay ? `${dateLabel(selectedDay)}, ${timeLabel(selectedSlot.localTime)}` : null
+
+  const headline = selectedServices.length > 0 ? money(totalPrice, currency) : 'No services yet'
+  const detail =
+    selectedServices.length > 0
+      ? `${selectedServices.length} service${selectedServices.length === 1 ? '' : 's'} · ${formatDuration(totalDuration)}`
+      : null
+
+  const primaryAction = (
+    <>
+      {activeIndex > 0 ? (
+        <Button
+          variant="ghost"
+          className="shrink-0"
+          aria-label="Back"
+          onClick={() => goTo(STEPS[activeIndex - 1].key)}
         >
           <ArrowLeft className="size-4" aria-hidden="true" />
-          {business.name}
-        </a>
-        <p className="eyebrow mt-[0.6rem]">Book an appointment</p>
-        <h1 className="display mt-[0.3rem] text-title">
-          Choose what you need, then a time that suits you.
-        </h1>
-      </header>
+        </Button>
+      ) : null}
+      <Button
+        variant="primary"
+        onClick={
+          activeStep === 'services'
+            ? continueFromServices
+            : activeStep === 'staff'
+              ? () => goTo('time')
+              : activeStep === 'time'
+                ? continueFromTime
+                : activeStep === 'details'
+                  ? continueFromDetails
+                  : submitBooking
+        }
+        disabled={
+          (activeStep === 'services' && selectedServices.length === 0) ||
+          (activeStep === 'time' && (availabilityQuery.isPending || !selectedSlotAvailable)) ||
+          (activeStep === 'payment' && createBooking.isPending)
+        }
+      >
+        {createBooking.isPending ? (
+          <>
+            <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+            Confirming…
+          </>
+        ) : activeStep === 'payment' ? (
+          <>
+            Confirm booking
+            <ArrowRight className="size-4" aria-hidden="true" />
+          </>
+        ) : (
+          <>
+            Continue
+            <ArrowRight className="size-4" aria-hidden="true" />
+          </>
+        )}
+      </Button>
+    </>
+  )
 
-      <Card className="mt-[1.25rem] p-[clamp(1rem,3vw,1.6rem)]">
-        <ol className="flex list-none flex-wrap items-center gap-x-[0.6rem] gap-y-[0.35rem] p-0 text-meta">
-          {STEPS.map((step, index) => {
-            const done = index < activeIndex
-            const current = index === activeIndex
-            return (
-              <li key={step.key} className="flex items-center gap-[0.6rem]">
-                <span
-                  className={
-                    current
-                      ? 'font-semibold text-fg'
-                      : done
-                        ? 'flex items-center gap-[0.25rem] text-success-ink'
-                        : 'text-muted'
-                  }
-                >
-                  {done ? <Check className="size-[0.8rem]" aria-hidden="true" /> : null}
-                  {step.label}
-                </span>
-                {index < STEPS.length - 1 ? (
-                  <span aria-hidden="true" className="h-px w-[1rem] bg-line" />
-                ) : null}
-              </li>
-            )
-          })}
-        </ol>
 
-        <Progress
-          className="mt-[0.8rem]"
-          value={activeIndex + 1}
-          max={STEPS.length}
-          ariaLabel={`Step ${activeIndex + 1} of ${STEPS.length}: ${STEPS[activeIndex].label}`}
-        />
+  return (
+    <div className="sf-container py-[clamp(1.5rem,4vw,3rem)]">
+      <a href={storefrontHref(canonicalSlug)} className="sf-back">
+        <ArrowLeft className="size-[1rem]" aria-hidden="true" />
+        {business.name}
+      </a>
 
-        {failure ? (
-          <Alert tone="danger" className="mt-[1rem]" onDismiss={() => setFailure(null)}>
-            {failure}
-          </Alert>
-        ) : null}
+      <div className="sf-book">
+        <div>
+          <StorefrontBookingStepper
+            steps={STEPS}
+            current={activeIndex}
+            ariaLabel={`Step ${activeIndex + 1} of ${STEPS.length}: ${STEPS[activeIndex].label}`}
+          />
 
-        {activeStep === 'services' ? (
-          <section className="mt-[1.2rem]">
-            <h2 className="text-heading font-bold tracking-snug">Pick your services</h2>
-            <p className="mt-[0.15rem] text-meta text-muted">
-              Choose one or more. We’ll add up the time and price for you.
-            </p>
+          <h1 className="sf-heading">{STEP_TITLES[activeStep].title}</h1>
+          <p className="sf-lead">{STEP_TITLES[activeStep].description}</p>
 
-            {servicesQuery.isPending ? (
-              <div className="mt-[1rem] space-y-[0.6rem]" aria-busy="true">
-                <Skeleton className="h-[3.6rem] rounded-md" />
-                <Skeleton className="h-[3.6rem] rounded-md" />
-                <Skeleton className="h-[3.6rem] rounded-md" />
-              </div>
-            ) : servicesQuery.isError ? (
-              <Alert tone="danger" className="mt-[1rem]">
-                {errorMessage(servicesQuery.error, 'We could not load the service menu.')}{' '}
-                <button
-                  type="button"
-                  className="link font-semibold"
-                  onClick={() => void servicesQuery.refetch()}
-                >
-                  Try again
-                </button>
-              </Alert>
-            ) : services.length === 0 ? (
-              <Alert tone="info" className="mt-[1rem]">
-                This business has not published any services yet. Call them to book
-                directly.
-              </Alert>
-            ) : (
-              <div className="mt-[1rem] flex flex-col gap-[0.55rem]">
-                {services.map((service) => (
-                  <OptionRow
-                    key={service.id}
-                    title={service.name}
-                    description={
-                      service.description ||
-                      `${formatDuration(service.durationMinutes)} appointment`
-                    }
-                    meta={`${formatDuration(service.durationMinutes)} · ${money(service.price, currency)}`}
-                    selected={draft.serviceIds.includes(service.id)}
-                    onSelectedChange={() => toggleService(service.id)}
-                  />
-                ))}
-              </div>
-            )}
-
-            <div className="mt-[1.1rem] flex flex-wrap items-center justify-between gap-[0.6rem] border-t border-line pt-[0.9rem]">
-              <p className="text-meta text-muted">
-                {selectedServices.length > 0 ? (
-                  <>
-                    {formatNumber(selectedServices.length)}{' '}
-                    {selectedServices.length === 1 ? 'service' : 'services'} ·{' '}
-                    {formatDuration(totalDuration)} ·{' '}
-                    <b className="text-fg">{money(totalPrice, currency)}</b>
-                  </>
-                ) : (
-                  'Nothing selected yet.'
-                )}
-              </p>
-              <Button
-                variant="primary"
-                onClick={continueFromServices}
-                disabled={services.length === 0}
-              >
-                Choose staff
-                <ArrowRight className="size-4" aria-hidden="true" />
-              </Button>
-            </div>
-          </section>
-        ) : null}
-
-        {activeStep === 'staff' ? (
-          <section className="mt-[1.2rem]">
-            <h2 className="text-heading font-bold tracking-snug">Who would you like?</h2>
-            <p className="mt-[0.15rem] text-meta text-muted">
-              Pick a team member, or let the front desk choose the first available.
-            </p>
-
-            <div className="mt-[1rem] flex flex-col gap-[0.55rem]">
-              <OptionRow
-                role="radio"
-                title="Any available"
-                description="We’ll match you with someone who can do all your services."
-                selected={draft.staffId === null}
-                onSelectedChange={() => update({ staffId: null, startsAt: null })}
-              />
-
-              {staffQuery.isPending ? (
-                <Skeleton className="h-[3.6rem] rounded-md" />
-              ) : staffQuery.isError ? (
-                <Alert tone="warning">
-                  {errorMessage(staffQuery.error, 'We could not load the team list.')}
-                </Alert>
-              ) : (
-                (staffQuery.data ?? []).map((member) => (
-                  <OptionRow
-                    key={member.userId}
-                    role="radio"
-                    title={member.fullName}
-                    description={member.phoneNumber ?? 'Available for your services'}
-                    selected={draft.staffId === member.userId}
-                    onSelectedChange={() =>
-                      update({ staffId: member.userId, startsAt: null })
-                    }
-                  />
-                ))
-              )}
-            </div>
-
-            <div className="mt-[1.1rem] flex flex-wrap items-center justify-between gap-[0.6rem] border-t border-line pt-[0.9rem]">
-              <Button variant="ghost" onClick={() => goTo('services')}>
-                <ArrowLeft className="size-4" aria-hidden="true" />
-                Services
-              </Button>
-              <Button variant="primary" onClick={continueFromStaff}>
-                Pick a time
-                <ArrowRight className="size-4" aria-hidden="true" />
-              </Button>
-            </div>
-          </section>
-        ) : null}
-
-        {activeStep === 'time' ? (
-          <section className="mt-[1.2rem]">
-            <h2 className="text-heading font-bold tracking-snug">Pick a date and time</h2>
-            <p className="mt-[0.15rem] text-meta text-muted">
-              Times are shown in the business’s local time
-              {calendar?.timeZoneId ? ` (${calendar.timeZoneId})` : ''}.
-            </p>
-
-            {availabilityQuery.isPending ? (
-              <div className="mt-[1rem] space-y-[0.7rem]" aria-busy="true">
-                <Skeleton className="h-[2rem] w-[70%] rounded-pill" />
-                <Skeleton className="h-[8rem] rounded-md" />
-              </div>
-            ) : availabilityQuery.isError ? (
-              <Alert tone="danger" className="mt-[1rem]">
-                {errorMessage(availabilityQuery.error, 'We could not load the calendar.')}{' '}
-                <button
-                  type="button"
-                  className="link font-semibold"
-                  onClick={() => void availabilityQuery.refetch()}
-                >
-                  Try again
-                </button>
-              </Alert>
-            ) : (
-              <>
-                {calendar?.notice ? (
-                  <Alert tone="info" className="mt-[1rem]">
-                    {calendar.notice}
-                  </Alert>
-                ) : null}
-
-                {bookableDays.length === 0 ? (
-                  <Alert tone="warning" className="mt-[1rem]">
-                    No open times in the next two weeks. Try a different team member
-                    or call {business.phoneNumber ?? business.name} to arrange a visit.
-                  </Alert>
-                ) : (
-                  <>
-                    <QuickChoices
-                      label="Choose a day"
-                      className="mt-[1rem]"
-                      options={bookableDays.map((day) => ({
-                        value: day.date,
-                        label: dateLabel(day.date),
-                      }))}
-                      value={activeDay?.date ?? null}
-                      onChange={(value) => {
-                        const day = bookableDays.find((entry) => entry.date === value)
-                        if (day) chooseDay(day)
-                      }}
-                    />
-
-                    <div className="mt-[1rem] flex flex-col gap-[0.55rem]">
-                      {(activeDay?.slots ?? [])
-                        .filter((slot) => slot.isAvailable && slot.status === 'available')
-                        .map((slot) => (
-                          <OptionRow
-                            key={`${slot.startAtUtc}-${slot.staffUserId ?? 'any'}`}
-                            role="radio"
-                            title={slot.localTime}
-                            description={
-                              slot.staffName
-                                ? `With ${slot.staffName}`
-                                : 'First available team member'
-                            }
-                            meta={slot.dayPart}
-                            selected={draft.startsAt === slot.startAtUtc}
-                            onSelectedChange={() => chooseSlot(slot)}
-                          />
-                        ))}
-
-                      {activeDay && activeDay.availableSlots === 0 ? (
-                        <p className="py-4 text-center text-meta text-muted">
-                          No open times on {dateLabel(activeDay.date)}. Pick another day.
-                        </p>
-                      ) : null}
-                    </div>
-                  </>
-                )}
-              </>
-            )}
-
-            <div className="mt-[1.1rem] flex flex-wrap items-center justify-between gap-[0.6rem] border-t border-line pt-[0.9rem]">
-              <Button variant="ghost" onClick={() => goTo('staff')}>
-                <ArrowLeft className="size-4" aria-hidden="true" />
-                Staff
-              </Button>
-              <Button
-                variant="primary"
-                onClick={continueFromTime}
-                disabled={availabilityQuery.isPending || !selectedSlotAvailable}
-              >
-                Add details
-                <ArrowRight className="size-4" aria-hidden="true" />
-              </Button>
-            </div>
-          </section>
-        ) : null}
-
-        {activeStep === 'details' ? (
-          <section className="mt-[1.2rem]">
-            <h2 className="text-heading font-bold tracking-snug">Anything we should know?</h2>
-            <p className="mt-[0.15rem] text-meta text-muted">
-              Add a note for the team — allergies, parking, a preferred chair.
-            </p>
-
-            <div className="mt-[1rem] rounded-md border border-line bg-surface-2 p-[0.8rem]">
-              <ul className="flex flex-col gap-[0.3rem] text-meta">
-                {selectedServices.map((service) => (
-                  <li key={service.id} className="flex items-baseline justify-between gap-4">
-                    <span className="min-w-0 truncate">{service.name}</span>
-                    <span className="shrink-0 tabular">
-                      {money(service.price, currency)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-              {selectedSlot ? (
-                <p className="mt-[0.55rem] border-t border-line pt-[0.5rem] text-meta text-muted">
-                  {dateLabel(selectedSlot.localDate)} at {selectedSlot.localTime} ·{' '}
-                  {formatDuration(totalDuration)} with{' '}
-                  {selectedSlot.staffName || 'the first available team member'}
-                </p>
-              ) : null}
-            </div>
-
-            <div className="mt-[1rem]">
-              <Field label="Note for the team" htmlFor="booking-notes" optional>
-                <Textarea
-                  id="booking-notes"
-                  rows={4}
-                  maxLength={500}
-                  value={draft.notes}
-                  placeholder="Anything that helps us prepare…"
-                  onChange={(event) => update({ notes: event.target.value })}
-                />
-              </Field>
-            </div>
-
-            {!availabilityQuery.isPending && draft.startsAt && !selectedSlotAvailable ? (
-              <Alert tone="warning" className="mt-[1rem]">
-                That time is no longer available.{' '}
-                <button
-                  type="button"
-                  className="link font-semibold"
-                  onClick={() => goTo('time')}
-                >
-                  Pick another time
-                </button>
-              </Alert>
-            ) : null}
-
-            {!isAuthenticated ? (
-              <Alert tone="info" className="mt-[1rem]">
-                You’ll need an account to hold this slot. Sign in or create one — your
-                choices are saved on this device.
-              </Alert>
-            ) : null}
-
-            <div className="mt-[1.1rem] flex flex-wrap items-center justify-between gap-[0.6rem] border-t border-line pt-[0.9rem]">
-              <Button variant="ghost" onClick={() => goTo('time')}>
-                <ArrowLeft className="size-4" aria-hidden="true" />
-                Time
-              </Button>
-              {isAuthenticated ? (
-                <Button variant="primary" onClick={continueFromDetails}>
-                  Review booking
-                  <ArrowRight className="size-4" aria-hidden="true" />
-                </Button>
-              ) : (
-                <div className="flex flex-wrap items-center gap-[0.5rem]">
-                  <Link
-                    to="/auth/sign-up"
-                    search={{ redirect: signInHref }}
-                    className="btn btn-ghost no-underline"
-                  >
-                    Create account
-                  </Link>
+          {failure ? (
+            <Alert tone="danger" className="mt-[1rem]" onDismiss={() => setFailure(null)}>
+              {failure}
+              {!isAuthenticated ? (
+                <>
+                  {' '}
                   <Link
                     to="/auth/sign-in"
-                    search={{ redirect: signInHref }}
-                    className="btn btn-primary no-underline"
+                    search={{ redirect: storefrontHref(canonicalSlug, '/book') }}
+                    className="link font-semibold"
                   >
                     Sign in
                   </Link>
+                </>
+              ) : null}
+            </Alert>
+          ) : null}
+
+          {activeStep === 'services' ? (
+            <section className="mt-[1.2rem]">
+              {servicesQuery.isPending ? (
+                <div className="grid gap-[0.55rem]" aria-busy="true">
+                  <Skeleton className="h-[4.6rem] rounded-card" />
+                  <Skeleton className="h-[4.6rem] rounded-card" />
+                  <Skeleton className="h-[4.6rem] rounded-card" />
+                </div>
+              ) : servicesQuery.isError ? (
+                <Alert tone="danger">
+                  {errorMessage(servicesQuery.error, 'We could not load the service menu.')}{' '}
+                  <button
+                    type="button"
+                    className="link font-semibold"
+                    onClick={() => void servicesQuery.refetch()}
+                  >
+                    Try again
+                  </button>
+                </Alert>
+              ) : services.length === 0 ? (
+                <Alert tone="info">
+                  This business has not published any services yet. Call them to book directly.
+                </Alert>
+              ) : (
+                <div className="mt-[1rem]">
+                  {services.map((service) => (
+                    <StepOption
+                      key={service.id}
+                      title={service.name}
+                      description={
+                        service.description ??
+                        `${formatDuration(service.durationMinutes)} appointment`
+                      }
+                      meta={money(service.price, currency)}
+                      selected={draft.serviceIds.includes(service.id)}
+                      onSelect={() => toggleService(service.id)}
+                      thumbnailUrl={service.imageVariants[0]?.url ?? null}
+                      monogram={service.name.slice(0, 1).toUpperCase()}
+                    />
+                  ))}
                 </div>
               )}
-            </div>
-          </section>
-        ) : null}
+            </section>
+          ) : null}
 
-        {activeStep === 'review' ? (
-          <section className="mt-[1.2rem]">
-            <h2 className="text-heading font-bold tracking-snug">Look right?</h2>
-            <p className="mt-[0.15rem] text-meta text-muted">
-              We’ll hold this slot as soon as you confirm.
-            </p>
+          {activeStep === 'staff' ? (
+            <section className="mt-[1.2rem]">
+              {staffQuery.isPending ? (
+                <div className="grid gap-[0.55rem]" aria-busy="true">
+                  <Skeleton className="h-[4.6rem] rounded-card" />
+                  <Skeleton className="h-[4.6rem] rounded-card" />
+                </div>
+              ) : (
+                <div>
+                  <StepOption
+                    role="radio"
+                    title="Anyone available"
+                    description="We’ll match you with someone who can do all your services."
+                    selected={draft.staffId === null}
+                    onSelect={() => update({ staffId: null, startsAt: null })}
+                    monogram="★"
+                  />
+                  {(staffQuery.data ?? []).map((member: EligibleStaff) => (
+                    <StepOption
+                      key={member.userId}
+                      role="radio"
+                      title={member.fullName}
+                      description={member.positionName ?? 'Specialist'}
+                      selected={draft.staffId === member.userId}
+                      onSelect={() => update({ staffId: member.userId, startsAt: null })}
+                      thumbnailUrl={member.avatarUrl}
+                      monogram={member.fullName.slice(0, 1).toUpperCase()}
+                    />
+                  ))}
+                </div>
+              )}
+            </section>
+          ) : null}
+          {activeStep === 'time' ? (
+            <section className="mt-[1.2rem]">
+              {availabilityQuery.isPending ? (
+                <div className="grid gap-[0.55rem]" aria-busy="true">
+                  <Skeleton className="h-[3.4rem] rounded-card" />
+                  <Skeleton className="h-[6rem] rounded-card" />
+                </div>
+              ) : availabilityQuery.isError ? (
+                <Alert tone="danger">
+                  {errorMessage(availabilityQuery.error, 'We could not load open times.')}{' '}
+                  <button
+                    type="button"
+                    className="link font-semibold"
+                    onClick={() => void availabilityQuery.refetch()}
+                  >
+                    Try again
+                  </button>
+                </Alert>
+              ) : bookableDays.length === 0 ? (
+                <Alert tone="info">
+                  {calendar?.notice ||
+                    'No open times in the next two weeks for this combination. Try fewer services, or another specialist.'}
+                </Alert>
+              ) : (
+                <>
+                  <h2 className="mt-[0.4rem] text-label font-semibold">Day</h2>
+                  <div className="sf-dates mt-[0.5rem]">
+                    {bookableDays.map((day) => (
+                      <button
+                        key={day.date}
+                        type="button"
+                        className="sf-chip"
+                        aria-pressed={activeDay?.date === day.date}
+                        onClick={() => chooseDay(day)}
+                      >
+                        <span className="text-caption opacity-70">{day.weekday}</span>
+                        <b>{day.dayOfMonth}</b>
+                      </button>
+                    ))}
+                  </div>
 
-            <div className="mt-[1rem] grid gap-[0.6rem] sm:grid-cols-2">
-              <div className="rounded-md border border-line p-[0.8rem]">
-                <p className="flex items-center gap-[0.35rem] text-caption tracking-caps text-muted uppercase">
-                  <CalendarDays className="size-3.5" aria-hidden="true" />
-                  When
-                </p>
-                <p className="mt-[0.2rem] font-semibold">
-                  {selectedSlot ? dateLabel(selectedSlot.localDate) : 'Date pending'}
-                </p>
-                <p className="text-meta text-muted tabular">
-                  {selectedSlot?.localTime ?? '—'}
-                  {totalDuration > 0 ? ` · ${formatDuration(totalDuration)}` : ''}
-                </p>
-              </div>
+                  {activeDay ? (
+                    <>
+                      {DAY_PARTS.map((part) => {
+                        const slots = activeDay.slots.filter(
+                          (slot) =>
+                            slot.dayPart === part && slot.isAvailable && slot.status === 'available',
+                        )
+                        if (slots.length === 0) return null
+                        return (
+                          <div key={part}>
+                            <h2 className="mt-[1.1rem] text-label font-semibold capitalize">
+                              {part}
+                            </h2>
+                            <div className="sf-slots mt-[0.5rem]">
+                              {slots.map((slot) => (
+                                <button
+                                  key={`${slot.startAtUtc}-${slot.staffUserId ?? 'any'}`}
+                                  type="button"
+                                  className="sf-slot"
+                                  aria-pressed={draft.startsAt === slot.startAtUtc}
+                                  onClick={() => chooseSlot(slot)}
+                                >
+                                  {timeLabel(slot.localTime)}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )
+                      })}
 
-              <div className="rounded-md border border-line p-[0.8rem]">
-                <p className="flex items-center gap-[0.35rem] text-caption tracking-caps text-muted uppercase">
-                  <UserRound className="size-3.5" aria-hidden="true" />
-                  Who
-                </p>
-                <p className="mt-[0.2rem] font-semibold">
-                  {selectedSlot?.staffName || 'First available'}
-                </p>
-                {draft.notes.trim() ? (
-                  <p className="mt-[0.15rem] line-clamp-2 text-meta text-muted">
-                    “{draft.notes.trim()}”
-                  </p>
-                ) : null}
-              </div>
-            </div>
-
-            <div className="mt-[0.6rem] rounded-md border border-line p-[0.8rem]">
-              <p className="flex items-center gap-[0.35rem] text-caption tracking-caps text-muted uppercase">
-                <Scissors className="size-3.5" aria-hidden="true" />
-                Services
-              </p>
-              <ul className="mt-[0.35rem] flex flex-col gap-[0.3rem] text-meta">
+                      {activeDay.availableSlots === 0 ? (
+                        <p className="mt-[1rem] text-center text-meta text-muted">
+                          No open times on {dateLabel(activeDay.date)}. Pick another day.
+                        </p>
+                      ) : null}
+                    </>
+                  ) : null}
+                </>
+              )}
+            </section>
+          ) : null}
+          {activeStep === 'details' ? (
+            <section className="mt-[1.2rem]">
+              <ul className="mb-[1rem] list-none border-t border-line p-0">
                 {selectedServices.map((service) => (
-                  <li key={service.id} className="flex items-baseline justify-between gap-4">
-                    <span className="min-w-0">
-                      <span className="font-medium">{service.name}</span>
-                      <span className="text-muted">
-                        {' '}
-                        · {formatDuration(service.durationMinutes)}
-                      </span>
-                    </span>
-                    <span className="shrink-0 tabular">
-                      {money(service.price, currency)}
-                    </span>
+                  <li
+                    key={service.id}
+                    className="flex items-baseline justify-between gap-[1rem] border-b border-line py-[0.6rem] text-meta"
+                  >
+                    <span className="min-w-0 truncate">{service.name}</span>
+                    <span className="shrink-0 tabular">{money(service.price, currency)}</span>
                   </li>
                 ))}
               </ul>
-              <div className="mt-[0.6rem] flex items-baseline justify-between gap-4 border-t border-line pt-[0.55rem] text-meta">
-                <span className="flex items-center gap-[0.3rem] text-muted">
-                  <Clock className="size-3.5" aria-hidden="true" />
-                  {formatDuration(totalDuration)}
-                </span>
-                <b className="tabular">{money(totalPrice, currency)}</b>
-              </div>
-            </div>
 
-            <div className="mt-[1.1rem] flex flex-wrap items-center justify-between gap-[0.6rem] border-t border-line pt-[0.9rem]">
-              <Button variant="ghost" onClick={() => goTo('details')}>
-                <ArrowLeft className="size-4" aria-hidden="true" />
-                Details
-              </Button>
-              <Button
-                variant="primary"
-                onClick={submitBooking}
-                disabled={
-                  createBooking.isPending ||
-                  availabilityQuery.isPending ||
-                  !selectedSlotAvailable
-                }
-              >
-                {createBooking.isPending ? (
-                  <>
-                    <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-                    Confirming…
-                  </>
+              <label className="label" htmlFor="sf-note">
+                Anything we should know? <span className="text-subtle">(optional)</span>
+              </label>
+              <textarea
+                id="sf-note"
+                className="textarea"
+                rows={3}
+                value={draft.notes}
+                placeholder="Reference photo, allergies, running late…"
+                onChange={(event) => update({ notes: event.target.value })}
+              />
+
+              <p className="mt-[0.6rem] text-caption text-subtle">
+                {isAuthenticated
+                  ? `Booking as ${user?.fullName ?? 'you'}. The studio will use the contact details on your account.`
+                  : 'You’ll sign in on the next step so the studio knows who is coming. Your choices are kept.'}
+              </p>
+            </section>
+          ) : null}
+
+          {activeStep === 'payment' ? (
+            <section className="mt-[1.2rem]">
+              <ul className="list-none border-t border-line p-0">
+                <li className="flex items-baseline justify-between gap-[1rem] border-b border-line py-[0.6rem] text-meta">
+                  <span>When</span>
+                  <b>{when ?? '—'}</b>
+                </li>
+                <li className="flex items-baseline justify-between gap-[1rem] border-b border-line py-[0.6rem] text-meta">
+                  <span>With</span>
+                  <b>{staffName ?? 'First available specialist'}</b>
+                </li>
+                <li className="flex items-baseline justify-between gap-[1rem] border-b border-line py-[0.6rem] text-meta">
+                  <span>Duration</span>
+                  <b>{formatDuration(totalDuration)}</b>
+                </li>
+                <li className="flex items-baseline justify-between gap-[1rem] border-b border-line py-[0.6rem] text-label">
+                  <span>Total</span>
+                  <b>{money(totalPrice, currency)}</b>
+                </li>
+              </ul>
+
+              {paymentsEnabled ? (
+                <div className="mt-[1.2rem]">
+                  <h2 className="text-label font-semibold">How would you like to pay?</h2>
+                  <div className="mt-[0.6rem]">
+                    <StepOption
+                      role="radio"
+                      title="M-Pesa now"
+                      description="We’ll send a payment request to your phone after the booking is confirmed."
+                      selected={paymentChoice === 'mpesa'}
+                      onSelect={() => setPaymentChoice('mpesa')}
+                      monogram="M"
+                    />
+                    <StepOption
+                      role="radio"
+                      title="Pay at the studio"
+                      description="The studio records the payment when you arrive."
+                      selected={paymentChoice === 'studio'}
+                      onSelect={() => setPaymentChoice('studio')}
+                      monogram="K"
+                    />
+                  </div>
+                  <p className="mt-[0.6rem] text-caption text-subtle">
+                    Nothing is charged until you approve the request on your handset. The amount is
+                    calculated by the studio’s system, not by this page.
+                  </p>
+                </div>
+              ) : (
+                <Alert tone="info" className="mt-[1.2rem]">
+                  {business.name} does not collect payment through Punched. Settle it directly at
+                  the studio — nothing is charged here.
+                </Alert>
+              )}
+
+              {!isAuthenticated ? (
+                guestVerified ? (
+                  <Alert tone="success" className="mt-[1rem]">
+                    Verified{guestName ? ` as ${guestName}` : ''}. Confirm below to book.
+                  </Alert>
                 ) : (
-                  <>
-                    Confirm booking
-                    <ArrowRight className="size-4" aria-hidden="true" />
-                  </>
-                )}
-              </Button>
-            </div>
-          </section>
-        ) : null}
-      </Card>
+                  <div className="mt-[1.2rem]">
+                    <GuestVerifyPanel
+                      businessId={businessId}
+                      onVerified={(session) => {
+                        setGuestVerified(true)
+                        setGuestName(session.fullName)
+                        setFailure(null)
+                      }}
+                    />
+                    <p className="mt-[0.7rem] text-caption text-subtle">
+                      Already have an account?{' '}
+                      <Link
+                        to="/auth/sign-in"
+                        search={{ redirect: storefrontHref(canonicalSlug, '/book') }}
+                        className="link font-semibold"
+                      >
+                        Sign in
+                      </Link>{' '}
+                      instead. Your choices are saved either way.
+                    </p>
+                  </div>
+                )
+              ) : null}
+            </section>
+          ) : null}
+        </div>
 
-      <BookingConfirmation
-        open={confirmed !== null}
-        onClose={() => setConfirmed(null)}
-        date={
-          confirmed
-            ? formatDay(new Date(confirmed.scheduledAt))
-            : selectedSlot
-              ? dateLabel(selectedSlot.localDate)
-              : '—'
-        }
-        time={
-          confirmed
-            ? new Date(confirmed.scheduledAt).toLocaleTimeString(undefined, {
-                hour: '2-digit',
-                minute: '2-digit',
-              })
-            : (selectedSlot?.localTime ?? '—')
-        }
-        services={(confirmed?.services ?? selectedServices).map((service) => ({
-          id: 'serviceCatalogItemId' in service ? service.serviceCatalogItemId : service.id,
-          name: service.name,
-          duration: service.durationMinutes,
-          price: service.price,
-        }))}
-        total={
-          confirmed
-            ? confirmed.services.reduce((sum, service) => sum + service.price, 0)
-            : totalPrice
-        }
-        currency={currency}
-        title="You’re booked!"
-        description={`${business.name} has your appointment. We’ll send a reminder before your visit.`}
-        confirmLabel="Back to storefront"
-        onConfirm={() => {
-          if (isTenantHost()) void navigate({ to: '/' })
-          else void navigate({ to: '/$slug', params: { slug: canonicalSlug } })
-        }}
-      />
+        <aside className="sf-book-aside">
+          <StorefrontBookingSummary services={selectedServices} staffName={staffName} when={when} />
+        </aside>
+      </div>
+
+      <StorefrontBookingActionBar
+        headline={headline}
+        detail={detail}
+        expanded={summaryOpen}
+        onToggleExpanded={() => setSummaryOpen((open) => !open)}
+        action={primaryAction}
+      >
+        <StorefrontBookingSummary services={selectedServices} staffName={staffName} when={when} />
+      </StorefrontBookingActionBar>
     </div>
   )
 }
+
+
+/** The parts of a day the slot grid is grouped into, in display order. */
+const DAY_PARTS = ['morning', 'afternoon', 'evening'] as const
+
+/** Step copy, kept together so the five steps read as one voice. */
+const STEP_TITLES: Record<StepKey, { title: string; description: string }> = {
+  services: {
+    title: 'Choose your services',
+    description: 'Pick one or several. The time and price add up as you go.',
+  },
+  staff: {
+    title: 'Choose your specialist',
+    description: 'Pick who you’d like, or let the studio assign whoever is free first.',
+  },
+  time: {
+    title: 'Pick a time',
+    description: 'Only times that are genuinely open for your services are shown.',
+  },
+  details: {
+    title: 'Anything we should know?',
+    description: 'Add a note for the team — allergies, parking, a preferred chair.',
+  },
+  payment: {
+    title: 'Confirm your booking',
+    description: 'Check the details, then confirm. Nothing is charged without your approval.',
+  },
+}
+

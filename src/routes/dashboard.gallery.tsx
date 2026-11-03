@@ -1,11 +1,8 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { ModulePlaceholder } from '../components/shell/ModulePlaceholder'
+import { GalleryManager } from '../components/settings/GalleryManager'
 
-/** Gallery — placeholder (`gallery` module, `gallery.view`). */
+/** Gallery — the owner's photos, captions, order and publication state. */
 export const Route = createFileRoute('/dashboard/gallery')({
-  component: GalleryPlaceholder,
+  component: GalleryManager,
 })
 
-function GalleryPlaceholder() {
-  return <ModulePlaceholder navKey="gallery" />
-}

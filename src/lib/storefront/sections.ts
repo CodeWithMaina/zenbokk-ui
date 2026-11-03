@@ -47,16 +47,29 @@ const SECTION_CAPABILITY: Record<SectionKey, CapabilityKey | null> = {
 /**
  * Sections this client can render.
  *
- * `gallery` and `businessinfo` are deliberately absent. The public bootstrap
- * exposes `business.galleryMediaIds` without URLs, and there is no bulk public
- * media endpoint, so a gallery cannot be drawn without one request per image.
- * They are reported as unsupported rather than rendered empty.
+ * `businessinfo` and `loyalty` are deliberately absent:
+ *
+ *  - `businessinfo`: the storefront surfaces the same facts through its own
+ *    About and Contact pages, so a separate "details" section would be a second
+ *    presentation of the same data;
+ *  - `loyalty`: switched off for the storefront by product decision. The
+ *    business still runs its programme and the dashboard still manages it — the
+ *    customer-facing page simply does not offer it, and `resolveNavigation`
+ *    therefore never shows a link to it.
+ *
+ * `gallery` IS renderable now: the public gallery endpoint resolves the
+ * business's ordered media into ready variants, so the page can be drawn from
+ * one request instead of one per image.
+ *
+ * They are absent from the renderable set rather than deleted from the
+ * vocabulary, so the server's section keys and this client's stay readable side
+ * by side.
  */
 const RENDERABLE: ReadonlySet<SectionKey> = new Set<SectionKey>([
   'services',
-  'loyalty',
   'booking',
   'reviews',
+  'gallery',
   'about',
   'contact',
 ])
@@ -69,50 +82,9 @@ export function isRenderableSection(key: SectionKey): boolean {
   return RENDERABLE.has(key)
 }
 
-/** Section keys the client could not render even though the business enabled them. */
-export function unsupportedSections(landingPage: PublicLandingPage): SectionKey[] {
-  return landingPage.sections
-    .map((section) => section.key.toLowerCase())
-    .filter((key): key is SectionKey => isSectionKey(key))
-    .filter((key) => !isRenderableSection(key))
-}
-
-export type ResolvedSection = {
-  key: SectionKey
-  title: string | null
-  description: string | null
-}
-
-/**
- * The sections to draw, in the order the owner configured, with the entitlement
- * gate applied.
- *
- * The by-slug bootstrap filters sections by `enabled` only — unlike the
- * dedicated public landing-page endpoint — so the capability check has to happen
- * here. Without it, a section whose module the business is not entitled to would
- * render and then fail its own request with a 403.
- */
-export function resolveSections(
-  landingPage: PublicLandingPage,
-  can: (key: CapabilityKey) => boolean,
-): ResolvedSection[] {
-  return [...landingPage.sections]
-    .sort((a, b) => a.order - b.order || a.key.localeCompare(b.key))
-    .reduce<ResolvedSection[]>((resolved, section) => {
-      const key = section.key.toLowerCase()
-      if (!isSectionKey(key) || !isRenderableSection(key)) return resolved
-
-      const capability = SECTION_CAPABILITY[key]
-      if (capability && !can(capability)) return resolved
-
-      resolved.push({ key, title: section.title, description: section.description })
-      return resolved
-    }, [])
-}
-
 /**
  * Navigation entries the visitor should see: enabled in the owner's navigation
- * config, entitled, and backed by a section this client can render.
+ * config, entitled, and backed by a page this client can render.
  */
 export function resolveNavigation(
   landingPage: PublicLandingPage,
@@ -146,4 +118,47 @@ export function sectionLabel(key: SectionKey): string {
     case 'businessinfo':
       return 'Details'
   }
+}
+
+/**
+ * The page a configured section lives at.
+ *
+ * Sections are pages, not anchors: the owner still decides what appears in the
+ * navigation and in what order, but each entry resolves to its own route rather
+ * than scrolling to a block on the home page — which is now the hero alone.
+ *
+ * `businessinfo` and `loyalty` return null because this client does not render
+ * them at all (see `RENDERABLE` above), so there is no page to point at.
+ * Returning null is what keeps a configured-but-unavailable section out of the
+ * navigation instead of linking to a 404.
+ */
+export function sectionPath(key: SectionKey): string | null {
+  switch (key) {
+    case 'services':
+      return '/services'
+    case 'booking':
+      return '/book'
+    case 'reviews':
+      return '/reviews'
+    case 'gallery':
+      return '/gallery'
+    case 'about':
+      return '/about'
+    case 'contact':
+      return '/contact'
+    case 'loyalty':
+    case 'businessinfo':
+      return null
+  }
+}
+
+/** The owner's title/description overrides for one section, if it is configured. */
+export function sectionContent(
+  landingPage: PublicLandingPage,
+  key: SectionKey,
+): { title: string | null; description: string | null } {
+  const section = landingPage.sections.find(
+    (entry) => entry.key.toLowerCase() === key,
+  )
+  return { title: section?.title ?? null, description: section?.description ?? null }
 }

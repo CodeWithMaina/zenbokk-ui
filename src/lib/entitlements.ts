@@ -28,6 +28,7 @@ export const MODULE = {
   reviews: 'reviews',
   gallery: 'gallery',
   storefront: 'storefront',
+  commissions: 'commissions',
 } as const
 
 export type ModuleKey = (typeof MODULE)[keyof typeof MODULE]

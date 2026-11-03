@@ -3,15 +3,10 @@ import { Star } from 'lucide-react'
 import { queryKeys } from '../../../lib/api/query-client'
 import { formatDate, formatNumber, pluralize } from '../../../lib/format'
 import { storefrontApi, useStorefront } from '../../../lib/storefront'
+import { sectionContent } from '../../../lib/storefront/sections'
 import { Card } from '../../ui/card'
-import { EmptyState } from '../../ui/empty-state'
-import { Skeleton } from '../../ui/skeleton'
-import { StorefrontSection } from '../StorefrontSection'
-
-export type ReviewsSectionProps = {
-  title: string | null
-  description: string | null
-}
+import { StorefrontPage, StorefrontPageUnavailable } from '../StorefrontPage'
+import { StorefrontEmptyState, StorefrontErrorState } from '../StorefrontStates'
 
 /** Five stars, filled to `rating`. Purely decorative — the number is beside it. */
 function Stars({ rating, className }: { rating: number; className?: string }) {
@@ -34,51 +29,56 @@ function Stars({ rating, className }: { rating: number; className?: string }) {
  * reviews only, with the reviewer's display name and nothing that identifies the
  * customer behind it.
  */
-export function ReviewsSection({ title, description }: ReviewsSectionProps) {
-  const { businessId, business } = useStorefront()
+export function ReviewsPage() {
+  const { businessId, business, landingPage, can } = useStorefront()
+  const { title, description } = sectionContent(landingPage, 'reviews')
 
   const summary = useQuery({
     queryKey: [...queryKeys.storefront(businessId), 'reviews', 'summary'],
     queryFn: () => storefrontApi.reviewSummary(businessId),
+    enabled: can('galleryReviews'),
   })
 
   const reviews = useQuery({
     queryKey: [...queryKeys.storefront(businessId), 'reviews', 'list'],
     queryFn: () => storefrontApi.reviews(businessId),
+    enabled: can('galleryReviews'),
   })
+
+  if (!can('galleryReviews')) {
+    return (
+      <StorefrontPageUnavailable
+        title="This business doesn’t publish reviews"
+        description="Reviews are not part of this business’s page. Ask them directly, or book a visit and judge for yourself."
+      />
+    )
+  }
 
   const items = reviews.data?.items ?? []
   const average = summary.data?.averageRating ?? 0
   const total = summary.data?.totalCount ?? 0
 
   return (
-    <StorefrontSection
-      id="reviews"
+    <StorefrontPage
       eyebrow="What customers say"
-      title={title}
-      description={description}
-      defaultTitle="Reviews"
+      title={title || 'Reviews'}
+      description={description ?? undefined}
     >
       {reviews.isPending ? (
         <div className="grid gap-[0.9rem] sm:grid-cols-2 lg:grid-cols-3" aria-busy="true">
-          <Skeleton className="h-[9rem] rounded-card" />
-          <Skeleton className="h-[9rem] rounded-card" />
-          <Skeleton className="h-[9rem] rounded-card" />
+          <span className="sr-only">Loading reviews…</span>
+          <div className="skeleton h-[9rem]" />
+          <div className="skeleton h-[9rem]" />
+          <div className="skeleton h-[9rem]" />
         </div>
       ) : reviews.isError ? (
-        <EmptyState
-          icon={<Star className="size-5" />}
+        <StorefrontErrorState
           title="Reviews didn’t load"
           description="Refresh the page to try again."
-          action={
-            <button type="button" className="btn btn-ghost" onClick={() => void reviews.refetch()}>
-              Try again
-            </button>
-          }
+          onRetry={() => void reviews.refetch()}
         />
       ) : items.length === 0 ? (
-        <EmptyState
-          icon={<Star className="size-5" />}
+        <StorefrontEmptyState
           title="No reviews yet"
           description={`Be the first to review ${business.name} after your next visit.`}
         />
@@ -87,9 +87,7 @@ export function ReviewsSection({ title, description }: ReviewsSectionProps) {
           <div className="flex flex-wrap items-center gap-[0.6rem] text-meta">
             <Stars rating={average} className="flex items-center gap-[0.1rem] text-accent" />
             <b className="font-semibold tabular">{average.toFixed(1)}</b>
-            <span className="text-muted">
-              from {pluralize(total, 'review')}
-            </span>
+            <span className="text-muted">from {pluralize(total, 'review')}</span>
           </div>
 
           <ul className="mt-[1.1rem] grid list-none grid-cols-1 gap-[0.9rem] p-0 sm:grid-cols-2 lg:grid-cols-3">
@@ -97,10 +95,11 @@ export function ReviewsSection({ title, description }: ReviewsSectionProps) {
               <li key={review.id}>
                 <Card className="flex h-full flex-col p-[1rem]">
                   <div className="flex items-center justify-between gap-3">
-                    <Stars rating={review.rating} className="flex items-center gap-[0.1rem] text-accent" />
-                    <span className="text-caption text-subtle">
-                      {formatDate(review.createdAt)}
-                    </span>
+                    <Stars
+                      rating={review.rating}
+                      className="flex items-center gap-[0.1rem] text-accent"
+                    />
+                    <span className="text-caption text-subtle">{formatDate(review.createdAt)}</span>
                   </div>
 
                   {review.comment ? (
@@ -135,6 +134,6 @@ export function ReviewsSection({ title, description }: ReviewsSectionProps) {
           ) : null}
         </>
       )}
-    </StorefrontSection>
+    </StorefrontPage>
   )
 }

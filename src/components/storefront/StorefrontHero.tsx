@@ -1,26 +1,32 @@
 import { useQuery } from '@tanstack/react-query'
-import { ArrowRight, CalendarPlus, Mail, MapPin, Phone } from 'lucide-react'
+import { ArrowRight, CalendarPlus, Phone } from 'lucide-react'
 import { queryKeys } from '../../lib/api/query-client'
 import { pickVariant } from '../../lib/media'
 import { storefrontApi, useStorefront } from '../../lib/storefront'
+import { heroFacts, heroHeadline } from '../../lib/storefront/hero'
 import { storefrontHref } from '../../lib/tenant'
-import { cn } from '../../lib/cn'
 import { ResponsiveImage } from '../ui/responsive-image'
+import { StorefrontHeroCanvas } from './StorefrontHeroCanvas'
 
 /**
  * The storefront hero.
  *
- * Every string comes from the owner's landing-page configuration (resolved
- * server-side, so `heroTitle` already falls back to the business name).
+ * Full-bleed, premium and image-backed: the background is the *business's own*
+ * uploaded storefront image, never an asset shipped with the storefront. When no
+ * image has been uploaded the hero paints the token-driven canvas instead, so a
+ * brand-new business still has a finished front page.
  *
  * The background needs one extra request in one specific case. The by-slug
  * bootstrap carries `heroBackgroundMediaId` but returns an empty
  * `heroBackgroundVariants` list — it does not resolve the media into URLs, while
  * `GET /v1/businesses/public/{id}/landing-page` does. So the second request is
- * made only when the owner has actually configured a hero image and the
- * bootstrap could not describe it; a business without one never pays for it, and
- * a failure (the storefront module is off) falls back to the canvas treatment
- * instead of a broken frame.
+ * made only when the owner has actually configured a hero image and the bootstrap
+ * could not describe it; a business without one never pays for it, and a failure
+ * (the storefront module is off) falls back to the canvas rather than a broken
+ * frame.
+ *
+ * Every string comes from the owner's landing-page configuration (resolved
+ * server-side, so `heroTitle` already falls back to the business name).
  */
 export function StorefrontHero() {
   const { business, businessId, landingPage, canonicalSlug, can } = useStorefront()
@@ -40,135 +46,100 @@ export function StorefrontHero() {
   // variant set (widest WebP, JPEG fallback) rather than one hard-picked URL.
   const heroVariants =
     bootstrapVariants.length > 0 ? bootstrapVariants : (resolved.data?.heroBackgroundVariants ?? [])
-  const heroImage = pickVariant(heroVariants)?.url ?? null
+  const heroImage = pickVariant(heroVariants)
+
   const canBook = can('appointments')
   const showsServices = can('services')
   const bookHref = storefrontHref(canonicalSlug, '/book')
+  const servicesHref = storefrontHref(canonicalSlug, '/services')
+
+  const headline = heroHeadline(landingPage.heroTitle || business.name)
+  const facts = heroFacts([
+    business.location,
+    business.category,
+    canBook ? 'Book online in under a minute' : null,
+    business.phoneNumber,
+  ])
 
   return (
-    <section className="bg-surface">
-      <div className="mx-auto grid w-full max-w-(--container-page) items-center gap-[clamp(1.5rem,4vw,3rem)] px-gutter py-[clamp(2rem,6vw,4rem)] lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)]">
-        <div>
-          {landingPage.showLogo && business.logoUrl ? (
-            <img
-              src={business.logoUrl}
-              alt=""
-              className="mb-[0.9rem] size-[3.4rem] rounded-md border border-line object-cover"
-            />
+    <section className="sf-hero min-h-svh">
+      {heroImage ? (
+        <ResponsiveImage
+          variants={heroVariants}
+          src={heroImage.url}
+          alt=""
+          sizes="100vw"
+          loading="eager"
+          fetchPriority="high"
+          className="sf-hero-media"
+        />
+      ) : (
+        <StorefrontHeroCanvas />
+      )}
+      <div className="sf-hero-scrim" aria-hidden="true" />
+
+      <div className="sf-container sf-hero-body">
+        {landingPage.showLogo && business.logoUrl ? (
+          <img
+            src={business.logoUrl}
+            alt=""
+            className="mb-[1.2rem] size-[3.6rem] rounded-round border border-[var(--premium-line)] object-cover"
+          />
+        ) : null}
+
+        <p className="sf-hero-kicker">{business.category || 'Welcome'}</p>
+
+        <h1 className="sf-hero-title">
+          {headline.lead}
+          {headline.emphasis ? (
+            <>
+              {' '}
+              <em>{headline.emphasis}</em>
+            </>
+          ) : null}
+        </h1>
+
+        {landingPage.heroTagline ? (
+          <p className="sf-hero-lead">{landingPage.heroTagline}</p>
+        ) : landingPage.heroDescription ? (
+          <p className="sf-hero-lead">{landingPage.heroDescription}</p>
+        ) : null}
+
+        <div className="sf-hero-actions">
+          {canBook && landingPage.primaryCta.enabled ? (
+            <a href={bookHref} className="sf-hero-btn">
+              <CalendarPlus className="size-[1.05rem]" aria-hidden="true" />
+              {landingPage.primaryCta.label || 'Book an appointment'}
+            </a>
           ) : null}
 
-          <p className="eyebrow">{business.category || 'Welcome'}</p>
-          <h1 className="display mt-[0.5rem] text-display">
-            {landingPage.heroTitle || business.name}
-          </h1>
-          {landingPage.heroTagline ? (
-            <p className="mt-[0.75rem] text-lead text-muted">{landingPage.heroTagline}</p>
-          ) : null}
-          {landingPage.heroDescription ? (
-            <p className="mt-[0.75rem] max-w-[34rem] text-meta text-muted">
-              {landingPage.heroDescription}
-            </p>
+          {showsServices ? (
+            <a href={servicesHref} className="sf-hero-btn is-outline">
+              Explore services
+              <ArrowRight className="size-[1.05rem]" aria-hidden="true" />
+            </a>
           ) : null}
 
-          <div className="mt-[1.4rem] flex flex-wrap items-center gap-[0.6rem]">
-            {canBook && landingPage.primaryCta.enabled ? (
-              <a href={bookHref} className="btn btn-primary btn-xl no-underline">
-                <CalendarPlus className="size-[1rem]" aria-hidden="true" />
-                {landingPage.primaryCta.label || 'Book an appointment'}
-              </a>
-            ) : null}
-
-            {landingPage.secondaryCta.enabled ? (
-              <a
-                href={secondaryHref(landingPage.secondaryCta.type, canonicalSlug)}
-                className="btn btn-ghost btn-xl no-underline"
-              >
-                {landingPage.secondaryCta.label || 'Find out more'}
-                <ArrowRight className="size-[0.9rem]" aria-hidden="true" />
-              </a>
-            ) : showsServices ? (
-              <a href="#services" className="btn btn-ghost btn-xl no-underline">
-                See services
-              </a>
-            ) : null}
-          </div>
-
-          <ul className="mt-[1.4rem] list-none space-y-[0.4rem] p-0 text-meta text-muted">
-            {business.location ? (
-              <li className="flex items-start gap-[0.45rem]">
-                <MapPin className="mt-[0.15rem] size-[0.95rem] shrink-0 text-accent" aria-hidden="true" />
-                {business.location}
-              </li>
-            ) : null}
-            {business.phoneNumber ? (
-              <li className="flex items-start gap-[0.45rem]">
-                <Phone className="mt-[0.15rem] size-[0.95rem] shrink-0 text-accent" aria-hidden="true" />
-                <a href={`tel:${business.phoneNumber}`} className="link">
-                  {business.phoneNumber}
-                </a>
-              </li>
-            ) : null}
-            {business.email ? (
-              <li className="flex items-start gap-[0.45rem]">
-                <Mail className="mt-[0.15rem] size-[0.95rem] shrink-0 text-accent" aria-hidden="true" />
-                <a href={`mailto:${business.email}`} className="link">
-                  {business.email}
-                </a>
-              </li>
-            ) : null}
-          </ul>
-        </div>
-
-        <div
-          className={cn(
-            'relative aspect-[4/3] overflow-hidden rounded-panel border border-line bg-sunken',
-          )}
-        >
-          {heroImage ? (
-            <ResponsiveImage
-              src={heroImage}
-              variants={heroVariants}
-              alt={`${business.name} interior`}
-              sizes="(min-width: 1024px) 48vw, 100vw"
-              loading="eager"
-              fetchPriority="high"
-              className="size-full object-cover"
-            />
-          ) : (
-            <div
-              aria-hidden="true"
-              className="grid size-full place-items-center bg-[linear-gradient(150deg,var(--surface-sunken),var(--hover))]"
-            >
-              <span className="display text-[clamp(2rem,7vw,3.5rem)] text-subtle">
-                {business.name.slice(0, 2).toUpperCase()}
-              </span>
-            </div>
-          )}
+          {!canBook && business.phoneNumber ? (
+            <a href={`tel:${business.phoneNumber}`} className="sf-hero-btn">
+              <Phone className="size-[1.05rem]" aria-hidden="true" />
+              Call {business.phoneNumber}
+            </a>
+          ) : null}
         </div>
       </div>
+
+      {facts.length > 0 ? (
+        <div className="sf-hero-facts">
+          <div className="sf-container">
+            <ul>
+              {facts.map((fact) => (
+                <li key={fact}>{fact}</li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      ) : null}
     </section>
   )
-}
-
-/**
- * Where a configured CTA points.
- *
- * The CTA's `type` is presentation, so an unrecognised type falls back to the
- * business's own page rather than being treated as a URL.
- */
-function secondaryHref(type: string, slug: string): string {
-  switch (type) {
-    case 'book':
-      return storefrontHref(slug, '/book')
-    case 'loyalty':
-      return '#loyalty'
-    case 'contact':
-      return '#contact'
-    case 'reviews':
-      return '#reviews'
-    case 'services':
-      return '#services'
-    default:
-      return '#about'
-  }
 }

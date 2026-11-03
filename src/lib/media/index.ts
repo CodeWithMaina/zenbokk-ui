@@ -15,7 +15,9 @@ export {
   variantSrcSet,
 } from './api'
 export type {
+  BusinessMediaEntry,
   CreateMediaUploadRequest,
+  GalleryCapacity,
   ImageSources,
   MediaPurpose,
   MediaRecord,
@@ -23,6 +25,7 @@ export type {
   MediaUploadGrant,
   MediaVariant,
   PickVariantOptions,
+  UpdateGalleryEntryRequest,
   VariantLike,
 } from './api'
 export {

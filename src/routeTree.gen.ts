@@ -11,18 +11,28 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SlugRouteImport } from './routes/$slug'
+import { Route as AboutRouteImport } from './routes/about'
 import { Route as AccountRouteImport } from './routes/account'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as BookRouteImport } from './routes/book'
+import { Route as ContactRouteImport } from './routes/contact'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as EnterpriseRouteImport } from './routes/enterprise'
+import { Route as GalleryRouteImport } from './routes/gallery'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as RegisterRouteImport } from './routes/register'
+import { Route as ReviewsRouteImport } from './routes/reviews'
+import { Route as SearchRouteImport } from './routes/search'
 import { Route as StaffRouteImport } from './routes/staff'
 import { Route as SlugIndexRouteImport } from './routes/$slug.index'
+import { Route as SlugAboutRouteImport } from './routes/$slug.about'
 import { Route as SlugAccountRouteImport } from './routes/$slug.account'
 import { Route as SlugBookRouteImport } from './routes/$slug.book'
+import { Route as SlugContactRouteImport } from './routes/$slug.contact'
+import { Route as SlugGalleryRouteImport } from './routes/$slug.gallery'
+import { Route as SlugReviewsRouteImport } from './routes/$slug.reviews'
+import { Route as SlugSearchRouteImport } from './routes/$slug.search'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as AdminBusinessesRouteImport } from './routes/admin.businesses'
 import { Route as AdminUsersRouteImport } from './routes/admin.users'
@@ -51,8 +61,16 @@ import { Route as DashboardStaffRouteImport } from './routes/dashboard.staff'
 import { Route as DashboardStampsRouteImport } from './routes/dashboard.stamps'
 import { Route as DashboardStorefrontRouteImport } from './routes/dashboard.storefront'
 import { Route as InvitationsAcceptRouteImport } from './routes/invitations.accept'
+import { Route as ServicesIndexRouteImport } from './routes/services.index'
+import { Route as ServicesServiceIdRouteImport } from './routes/services.$serviceId'
 import { Route as StaffIndexRouteImport } from './routes/staff.index'
 import { Route as StaffAppointmentsRouteImport } from './routes/staff.appointments'
+import { Route as TeamIndexRouteImport } from './routes/team.index'
+import { Route as TeamStaffIdRouteImport } from './routes/team.$staffId'
+import { Route as SlugServicesIndexRouteImport } from './routes/$slug.services.index'
+import { Route as SlugServicesServiceIdRouteImport } from './routes/$slug.services.$serviceId'
+import { Route as SlugTeamIndexRouteImport } from './routes/$slug.team.index'
+import { Route as SlugTeamStaffIdRouteImport } from './routes/$slug.team.$staffId'
 import { Route as DashboardCustomersIndexRouteImport } from './routes/dashboard.customers.index'
 import { Route as DashboardCustomersClientIdRouteImport } from './routes/dashboard.customers.$clientId'
 import { Route as DashboardProgramsIndexRouteImport } from './routes/dashboard.programs.index'
@@ -60,6 +78,8 @@ import { Route as DashboardProgramsProgramIdRouteImport } from './routes/dashboa
 import { Route as DashboardServicesIndexRouteImport } from './routes/dashboard.services.index'
 import { Route as DashboardServicesServiceIdRouteImport } from './routes/dashboard.services.$serviceId'
 import { Route as DashboardServicesNewRouteImport } from './routes/dashboard.services.new'
+import { Route as DashboardStaffIndexRouteImport } from './routes/dashboard.staff.index'
+import { Route as DashboardStaffStaffIdRouteImport } from './routes/dashboard.staff.$staffId'
 import { Route as DashboardServicesServiceIdIndexRouteImport } from './routes/dashboard.services.$serviceId.index'
 import { Route as DashboardServicesServiceIdEditRouteImport } from './routes/dashboard.services.$serviceId.edit'
 
@@ -71,6 +91,11 @@ const IndexRoute = IndexRouteImport.update({
 const SlugRoute = SlugRouteImport.update({
   id: '/$slug',
   path: '/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AboutRoute = AboutRouteImport.update({
+  id: '/about',
+  path: '/about',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AccountRoute = AccountRouteImport.update({
@@ -93,6 +118,11 @@ const BookRoute = BookRouteImport.update({
   path: '/book',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ContactRoute = ContactRouteImport.update({
+  id: '/contact',
+  path: '/contact',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DashboardRoute = DashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
@@ -101,6 +131,11 @@ const DashboardRoute = DashboardRouteImport.update({
 const EnterpriseRoute = EnterpriseRouteImport.update({
   id: '/enterprise',
   path: '/enterprise',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GalleryRoute = GalleryRouteImport.update({
+  id: '/gallery',
+  path: '/gallery',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -113,6 +148,16 @@ const RegisterRoute = RegisterRouteImport.update({
   path: '/register',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ReviewsRoute = ReviewsRouteImport.update({
+  id: '/reviews',
+  path: '/reviews',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SearchRoute = SearchRouteImport.update({
+  id: '/search',
+  path: '/search',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const StaffRoute = StaffRouteImport.update({
   id: '/staff',
   path: '/staff',
@@ -123,6 +168,11 @@ const SlugIndexRoute = SlugIndexRouteImport.update({
   path: '/',
   getParentRoute: () => SlugRoute,
 } as any)
+const SlugAboutRoute = SlugAboutRouteImport.update({
+  id: '/about',
+  path: '/about',
+  getParentRoute: () => SlugRoute,
+} as any)
 const SlugAccountRoute = SlugAccountRouteImport.update({
   id: '/account',
   path: '/account',
@@ -131,6 +181,26 @@ const SlugAccountRoute = SlugAccountRouteImport.update({
 const SlugBookRoute = SlugBookRouteImport.update({
   id: '/book',
   path: '/book',
+  getParentRoute: () => SlugRoute,
+} as any)
+const SlugContactRoute = SlugContactRouteImport.update({
+  id: '/contact',
+  path: '/contact',
+  getParentRoute: () => SlugRoute,
+} as any)
+const SlugGalleryRoute = SlugGalleryRouteImport.update({
+  id: '/gallery',
+  path: '/gallery',
+  getParentRoute: () => SlugRoute,
+} as any)
+const SlugReviewsRoute = SlugReviewsRouteImport.update({
+  id: '/reviews',
+  path: '/reviews',
+  getParentRoute: () => SlugRoute,
+} as any)
+const SlugSearchRoute = SlugSearchRouteImport.update({
+  id: '/search',
+  path: '/search',
   getParentRoute: () => SlugRoute,
 } as any)
 const AdminIndexRoute = AdminIndexRouteImport.update({
@@ -273,6 +343,16 @@ const InvitationsAcceptRoute = InvitationsAcceptRouteImport.update({
   path: '/invitations/accept',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ServicesIndexRoute = ServicesIndexRouteImport.update({
+  id: '/services/',
+  path: '/services/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ServicesServiceIdRoute = ServicesServiceIdRouteImport.update({
+  id: '/services/$serviceId',
+  path: '/services/$serviceId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const StaffIndexRoute = StaffIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -282,6 +362,36 @@ const StaffAppointmentsRoute = StaffAppointmentsRouteImport.update({
   id: '/appointments',
   path: '/appointments',
   getParentRoute: () => StaffRoute,
+} as any)
+const TeamIndexRoute = TeamIndexRouteImport.update({
+  id: '/team/',
+  path: '/team/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TeamStaffIdRoute = TeamStaffIdRouteImport.update({
+  id: '/team/$staffId',
+  path: '/team/$staffId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SlugServicesIndexRoute = SlugServicesIndexRouteImport.update({
+  id: '/services/',
+  path: '/services/',
+  getParentRoute: () => SlugRoute,
+} as any)
+const SlugServicesServiceIdRoute = SlugServicesServiceIdRouteImport.update({
+  id: '/services/$serviceId',
+  path: '/services/$serviceId',
+  getParentRoute: () => SlugRoute,
+} as any)
+const SlugTeamIndexRoute = SlugTeamIndexRouteImport.update({
+  id: '/team/',
+  path: '/team/',
+  getParentRoute: () => SlugRoute,
+} as any)
+const SlugTeamStaffIdRoute = SlugTeamStaffIdRouteImport.update({
+  id: '/team/$staffId',
+  path: '/team/$staffId',
+  getParentRoute: () => SlugRoute,
 } as any)
 const DashboardCustomersIndexRoute = DashboardCustomersIndexRouteImport.update({
   id: '/',
@@ -321,6 +431,16 @@ const DashboardServicesNewRoute = DashboardServicesNewRouteImport.update({
   path: '/new',
   getParentRoute: () => DashboardServicesRoute,
 } as any)
+const DashboardStaffIndexRoute = DashboardStaffIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => DashboardStaffRoute,
+} as any)
+const DashboardStaffStaffIdRoute = DashboardStaffStaffIdRouteImport.update({
+  id: '/$staffId',
+  path: '/$staffId',
+  getParentRoute: () => DashboardStaffRoute,
+} as any)
 const DashboardServicesServiceIdIndexRoute =
   DashboardServicesServiceIdIndexRouteImport.update({
     id: '/',
@@ -337,17 +457,27 @@ const DashboardServicesServiceIdEditRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/$slug': typeof SlugRouteWithChildren
+  '/about': typeof AboutRoute
   '/account': typeof AccountRoute
   '/admin': typeof AdminRouteWithChildren
   '/auth': typeof AuthRouteWithChildren
   '/book': typeof BookRoute
+  '/contact': typeof ContactRoute
   '/dashboard': typeof DashboardRouteWithChildren
   '/enterprise': typeof EnterpriseRoute
+  '/gallery': typeof GalleryRoute
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
+  '/reviews': typeof ReviewsRoute
+  '/search': typeof SearchRoute
   '/staff': typeof StaffRouteWithChildren
+  '/$slug/about': typeof SlugAboutRoute
   '/$slug/account': typeof SlugAccountRoute
   '/$slug/book': typeof SlugBookRoute
+  '/$slug/contact': typeof SlugContactRoute
+  '/$slug/gallery': typeof SlugGalleryRoute
+  '/$slug/reviews': typeof SlugReviewsRoute
+  '/$slug/search': typeof SlugSearchRoute
   '/admin/businesses': typeof AdminBusinessesRoute
   '/admin/users': typeof AdminUsersRoute
   '/auth/forgot-password': typeof AuthForgotPasswordRoute
@@ -370,35 +500,55 @@ export interface FileRoutesByFullPath {
   '/dashboard/rewards': typeof DashboardRewardsRoute
   '/dashboard/services': typeof DashboardServicesRouteWithChildren
   '/dashboard/settings': typeof DashboardSettingsRoute
-  '/dashboard/staff': typeof DashboardStaffRoute
+  '/dashboard/staff': typeof DashboardStaffRouteWithChildren
   '/dashboard/stamps': typeof DashboardStampsRoute
   '/dashboard/storefront': typeof DashboardStorefrontRoute
   '/invitations/accept': typeof InvitationsAcceptRoute
+  '/services/$serviceId': typeof ServicesServiceIdRoute
   '/staff/appointments': typeof StaffAppointmentsRoute
+  '/team/$staffId': typeof TeamStaffIdRoute
   '/$slug/': typeof SlugIndexRoute
   '/admin/': typeof AdminIndexRoute
   '/dashboard/': typeof DashboardIndexRoute
+  '/services/': typeof ServicesIndexRoute
   '/staff/': typeof StaffIndexRoute
+  '/team/': typeof TeamIndexRoute
+  '/$slug/services/$serviceId': typeof SlugServicesServiceIdRoute
+  '/$slug/team/$staffId': typeof SlugTeamStaffIdRoute
   '/dashboard/customers/$clientId': typeof DashboardCustomersClientIdRoute
   '/dashboard/programs/$programId': typeof DashboardProgramsProgramIdRoute
   '/dashboard/services/$serviceId': typeof DashboardServicesServiceIdRouteWithChildren
   '/dashboard/services/new': typeof DashboardServicesNewRoute
+  '/dashboard/staff/$staffId': typeof DashboardStaffStaffIdRoute
+  '/$slug/services/': typeof SlugServicesIndexRoute
+  '/$slug/team/': typeof SlugTeamIndexRoute
   '/dashboard/customers/': typeof DashboardCustomersIndexRoute
   '/dashboard/programs/': typeof DashboardProgramsIndexRoute
   '/dashboard/services/': typeof DashboardServicesIndexRoute
+  '/dashboard/staff/': typeof DashboardStaffIndexRoute
   '/dashboard/services/$serviceId/edit': typeof DashboardServicesServiceIdEditRoute
   '/dashboard/services/$serviceId/': typeof DashboardServicesServiceIdIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/about': typeof AboutRoute
   '/account': typeof AccountRoute
   '/auth': typeof AuthRouteWithChildren
   '/book': typeof BookRoute
+  '/contact': typeof ContactRoute
   '/enterprise': typeof EnterpriseRoute
+  '/gallery': typeof GalleryRoute
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
+  '/reviews': typeof ReviewsRoute
+  '/search': typeof SearchRoute
+  '/$slug/about': typeof SlugAboutRoute
   '/$slug/account': typeof SlugAccountRoute
   '/$slug/book': typeof SlugBookRoute
+  '/$slug/contact': typeof SlugContactRoute
+  '/$slug/gallery': typeof SlugGalleryRoute
+  '/$slug/reviews': typeof SlugReviewsRoute
+  '/$slug/search': typeof SlugSearchRoute
   '/admin/businesses': typeof AdminBusinessesRoute
   '/admin/users': typeof AdminUsersRoute
   '/auth/forgot-password': typeof AuthForgotPasswordRoute
@@ -418,21 +568,30 @@ export interface FileRoutesByTo {
   '/dashboard/reviews': typeof DashboardReviewsRoute
   '/dashboard/rewards': typeof DashboardRewardsRoute
   '/dashboard/settings': typeof DashboardSettingsRoute
-  '/dashboard/staff': typeof DashboardStaffRoute
   '/dashboard/stamps': typeof DashboardStampsRoute
   '/dashboard/storefront': typeof DashboardStorefrontRoute
   '/invitations/accept': typeof InvitationsAcceptRoute
+  '/services/$serviceId': typeof ServicesServiceIdRoute
   '/staff/appointments': typeof StaffAppointmentsRoute
+  '/team/$staffId': typeof TeamStaffIdRoute
   '/$slug': typeof SlugIndexRoute
   '/admin': typeof AdminIndexRoute
   '/dashboard': typeof DashboardIndexRoute
+  '/services': typeof ServicesIndexRoute
   '/staff': typeof StaffIndexRoute
+  '/team': typeof TeamIndexRoute
+  '/$slug/services/$serviceId': typeof SlugServicesServiceIdRoute
+  '/$slug/team/$staffId': typeof SlugTeamStaffIdRoute
   '/dashboard/customers/$clientId': typeof DashboardCustomersClientIdRoute
   '/dashboard/programs/$programId': typeof DashboardProgramsProgramIdRoute
   '/dashboard/services/new': typeof DashboardServicesNewRoute
+  '/dashboard/staff/$staffId': typeof DashboardStaffStaffIdRoute
+  '/$slug/services': typeof SlugServicesIndexRoute
+  '/$slug/team': typeof SlugTeamIndexRoute
   '/dashboard/customers': typeof DashboardCustomersIndexRoute
   '/dashboard/programs': typeof DashboardProgramsIndexRoute
   '/dashboard/services': typeof DashboardServicesIndexRoute
+  '/dashboard/staff': typeof DashboardStaffIndexRoute
   '/dashboard/services/$serviceId/edit': typeof DashboardServicesServiceIdEditRoute
   '/dashboard/services/$serviceId': typeof DashboardServicesServiceIdIndexRoute
 }
@@ -440,17 +599,27 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/$slug': typeof SlugRouteWithChildren
+  '/about': typeof AboutRoute
   '/account': typeof AccountRoute
   '/admin': typeof AdminRouteWithChildren
   '/auth': typeof AuthRouteWithChildren
   '/book': typeof BookRoute
+  '/contact': typeof ContactRoute
   '/dashboard': typeof DashboardRouteWithChildren
   '/enterprise': typeof EnterpriseRoute
+  '/gallery': typeof GalleryRoute
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
+  '/reviews': typeof ReviewsRoute
+  '/search': typeof SearchRoute
   '/staff': typeof StaffRouteWithChildren
+  '/$slug/about': typeof SlugAboutRoute
   '/$slug/account': typeof SlugAccountRoute
   '/$slug/book': typeof SlugBookRoute
+  '/$slug/contact': typeof SlugContactRoute
+  '/$slug/gallery': typeof SlugGalleryRoute
+  '/$slug/reviews': typeof SlugReviewsRoute
+  '/$slug/search': typeof SlugSearchRoute
   '/admin/businesses': typeof AdminBusinessesRoute
   '/admin/users': typeof AdminUsersRoute
   '/auth/forgot-password': typeof AuthForgotPasswordRoute
@@ -473,22 +642,32 @@ export interface FileRoutesById {
   '/dashboard/rewards': typeof DashboardRewardsRoute
   '/dashboard/services': typeof DashboardServicesRouteWithChildren
   '/dashboard/settings': typeof DashboardSettingsRoute
-  '/dashboard/staff': typeof DashboardStaffRoute
+  '/dashboard/staff': typeof DashboardStaffRouteWithChildren
   '/dashboard/stamps': typeof DashboardStampsRoute
   '/dashboard/storefront': typeof DashboardStorefrontRoute
   '/invitations/accept': typeof InvitationsAcceptRoute
+  '/services/$serviceId': typeof ServicesServiceIdRoute
   '/staff/appointments': typeof StaffAppointmentsRoute
+  '/team/$staffId': typeof TeamStaffIdRoute
   '/$slug/': typeof SlugIndexRoute
   '/admin/': typeof AdminIndexRoute
   '/dashboard/': typeof DashboardIndexRoute
+  '/services/': typeof ServicesIndexRoute
   '/staff/': typeof StaffIndexRoute
+  '/team/': typeof TeamIndexRoute
+  '/$slug/services/$serviceId': typeof SlugServicesServiceIdRoute
+  '/$slug/team/$staffId': typeof SlugTeamStaffIdRoute
   '/dashboard/customers/$clientId': typeof DashboardCustomersClientIdRoute
   '/dashboard/programs/$programId': typeof DashboardProgramsProgramIdRoute
   '/dashboard/services/$serviceId': typeof DashboardServicesServiceIdRouteWithChildren
   '/dashboard/services/new': typeof DashboardServicesNewRoute
+  '/dashboard/staff/$staffId': typeof DashboardStaffStaffIdRoute
+  '/$slug/services/': typeof SlugServicesIndexRoute
+  '/$slug/team/': typeof SlugTeamIndexRoute
   '/dashboard/customers/': typeof DashboardCustomersIndexRoute
   '/dashboard/programs/': typeof DashboardProgramsIndexRoute
   '/dashboard/services/': typeof DashboardServicesIndexRoute
+  '/dashboard/staff/': typeof DashboardStaffIndexRoute
   '/dashboard/services/$serviceId/edit': typeof DashboardServicesServiceIdEditRoute
   '/dashboard/services/$serviceId/': typeof DashboardServicesServiceIdIndexRoute
 }
@@ -497,17 +676,27 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/$slug'
+    | '/about'
     | '/account'
     | '/admin'
     | '/auth'
     | '/book'
+    | '/contact'
     | '/dashboard'
     | '/enterprise'
+    | '/gallery'
     | '/login'
     | '/register'
+    | '/reviews'
+    | '/search'
     | '/staff'
+    | '/$slug/about'
     | '/$slug/account'
     | '/$slug/book'
+    | '/$slug/contact'
+    | '/$slug/gallery'
+    | '/$slug/reviews'
+    | '/$slug/search'
     | '/admin/businesses'
     | '/admin/users'
     | '/auth/forgot-password'
@@ -534,31 +723,51 @@ export interface FileRouteTypes {
     | '/dashboard/stamps'
     | '/dashboard/storefront'
     | '/invitations/accept'
+    | '/services/$serviceId'
     | '/staff/appointments'
+    | '/team/$staffId'
     | '/$slug/'
     | '/admin/'
     | '/dashboard/'
+    | '/services/'
     | '/staff/'
+    | '/team/'
+    | '/$slug/services/$serviceId'
+    | '/$slug/team/$staffId'
     | '/dashboard/customers/$clientId'
     | '/dashboard/programs/$programId'
     | '/dashboard/services/$serviceId'
     | '/dashboard/services/new'
+    | '/dashboard/staff/$staffId'
+    | '/$slug/services/'
+    | '/$slug/team/'
     | '/dashboard/customers/'
     | '/dashboard/programs/'
     | '/dashboard/services/'
+    | '/dashboard/staff/'
     | '/dashboard/services/$serviceId/edit'
     | '/dashboard/services/$serviceId/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/about'
     | '/account'
     | '/auth'
     | '/book'
+    | '/contact'
     | '/enterprise'
+    | '/gallery'
     | '/login'
     | '/register'
+    | '/reviews'
+    | '/search'
+    | '/$slug/about'
     | '/$slug/account'
     | '/$slug/book'
+    | '/$slug/contact'
+    | '/$slug/gallery'
+    | '/$slug/reviews'
+    | '/$slug/search'
     | '/admin/businesses'
     | '/admin/users'
     | '/auth/forgot-password'
@@ -578,38 +787,57 @@ export interface FileRouteTypes {
     | '/dashboard/reviews'
     | '/dashboard/rewards'
     | '/dashboard/settings'
-    | '/dashboard/staff'
     | '/dashboard/stamps'
     | '/dashboard/storefront'
     | '/invitations/accept'
+    | '/services/$serviceId'
     | '/staff/appointments'
+    | '/team/$staffId'
     | '/$slug'
     | '/admin'
     | '/dashboard'
+    | '/services'
     | '/staff'
+    | '/team'
+    | '/$slug/services/$serviceId'
+    | '/$slug/team/$staffId'
     | '/dashboard/customers/$clientId'
     | '/dashboard/programs/$programId'
     | '/dashboard/services/new'
+    | '/dashboard/staff/$staffId'
+    | '/$slug/services'
+    | '/$slug/team'
     | '/dashboard/customers'
     | '/dashboard/programs'
     | '/dashboard/services'
+    | '/dashboard/staff'
     | '/dashboard/services/$serviceId/edit'
     | '/dashboard/services/$serviceId'
   id:
     | '__root__'
     | '/'
     | '/$slug'
+    | '/about'
     | '/account'
     | '/admin'
     | '/auth'
     | '/book'
+    | '/contact'
     | '/dashboard'
     | '/enterprise'
+    | '/gallery'
     | '/login'
     | '/register'
+    | '/reviews'
+    | '/search'
     | '/staff'
+    | '/$slug/about'
     | '/$slug/account'
     | '/$slug/book'
+    | '/$slug/contact'
+    | '/$slug/gallery'
+    | '/$slug/reviews'
+    | '/$slug/search'
     | '/admin/businesses'
     | '/admin/users'
     | '/auth/forgot-password'
@@ -636,18 +864,28 @@ export interface FileRouteTypes {
     | '/dashboard/stamps'
     | '/dashboard/storefront'
     | '/invitations/accept'
+    | '/services/$serviceId'
     | '/staff/appointments'
+    | '/team/$staffId'
     | '/$slug/'
     | '/admin/'
     | '/dashboard/'
+    | '/services/'
     | '/staff/'
+    | '/team/'
+    | '/$slug/services/$serviceId'
+    | '/$slug/team/$staffId'
     | '/dashboard/customers/$clientId'
     | '/dashboard/programs/$programId'
     | '/dashboard/services/$serviceId'
     | '/dashboard/services/new'
+    | '/dashboard/staff/$staffId'
+    | '/$slug/services/'
+    | '/$slug/team/'
     | '/dashboard/customers/'
     | '/dashboard/programs/'
     | '/dashboard/services/'
+    | '/dashboard/staff/'
     | '/dashboard/services/$serviceId/edit'
     | '/dashboard/services/$serviceId/'
   fileRoutesById: FileRoutesById
@@ -655,16 +893,25 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   SlugRoute: typeof SlugRouteWithChildren
+  AboutRoute: typeof AboutRoute
   AccountRoute: typeof AccountRoute
   AdminRoute: typeof AdminRouteWithChildren
   AuthRoute: typeof AuthRouteWithChildren
   BookRoute: typeof BookRoute
+  ContactRoute: typeof ContactRoute
   DashboardRoute: typeof DashboardRouteWithChildren
   EnterpriseRoute: typeof EnterpriseRoute
+  GalleryRoute: typeof GalleryRoute
   LoginRoute: typeof LoginRoute
   RegisterRoute: typeof RegisterRoute
+  ReviewsRoute: typeof ReviewsRoute
+  SearchRoute: typeof SearchRoute
   StaffRoute: typeof StaffRouteWithChildren
   InvitationsAcceptRoute: typeof InvitationsAcceptRoute
+  ServicesServiceIdRoute: typeof ServicesServiceIdRoute
+  TeamStaffIdRoute: typeof TeamStaffIdRoute
+  ServicesIndexRoute: typeof ServicesIndexRoute
+  TeamIndexRoute: typeof TeamIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -681,6 +928,13 @@ declare module '@tanstack/react-router' {
       path: '/$slug'
       fullPath: '/$slug'
       preLoaderRoute: typeof SlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/about': {
+      id: '/about'
+      path: '/about'
+      fullPath: '/about'
+      preLoaderRoute: typeof AboutRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/account': {
@@ -711,6 +965,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BookRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/contact': {
+      id: '/contact'
+      path: '/contact'
+      fullPath: '/contact'
+      preLoaderRoute: typeof ContactRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/dashboard': {
       id: '/dashboard'
       path: '/dashboard'
@@ -723,6 +984,13 @@ declare module '@tanstack/react-router' {
       path: '/enterprise'
       fullPath: '/enterprise'
       preLoaderRoute: typeof EnterpriseRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/gallery': {
+      id: '/gallery'
+      path: '/gallery'
+      fullPath: '/gallery'
+      preLoaderRoute: typeof GalleryRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -739,6 +1007,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RegisterRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/reviews': {
+      id: '/reviews'
+      path: '/reviews'
+      fullPath: '/reviews'
+      preLoaderRoute: typeof ReviewsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/search': {
+      id: '/search'
+      path: '/search'
+      fullPath: '/search'
+      preLoaderRoute: typeof SearchRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/staff': {
       id: '/staff'
       path: '/staff'
@@ -753,6 +1035,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SlugIndexRouteImport
       parentRoute: typeof SlugRoute
     }
+    '/$slug/about': {
+      id: '/$slug/about'
+      path: '/about'
+      fullPath: '/$slug/about'
+      preLoaderRoute: typeof SlugAboutRouteImport
+      parentRoute: typeof SlugRoute
+    }
     '/$slug/account': {
       id: '/$slug/account'
       path: '/account'
@@ -765,6 +1054,34 @@ declare module '@tanstack/react-router' {
       path: '/book'
       fullPath: '/$slug/book'
       preLoaderRoute: typeof SlugBookRouteImport
+      parentRoute: typeof SlugRoute
+    }
+    '/$slug/contact': {
+      id: '/$slug/contact'
+      path: '/contact'
+      fullPath: '/$slug/contact'
+      preLoaderRoute: typeof SlugContactRouteImport
+      parentRoute: typeof SlugRoute
+    }
+    '/$slug/gallery': {
+      id: '/$slug/gallery'
+      path: '/gallery'
+      fullPath: '/$slug/gallery'
+      preLoaderRoute: typeof SlugGalleryRouteImport
+      parentRoute: typeof SlugRoute
+    }
+    '/$slug/reviews': {
+      id: '/$slug/reviews'
+      path: '/reviews'
+      fullPath: '/$slug/reviews'
+      preLoaderRoute: typeof SlugReviewsRouteImport
+      parentRoute: typeof SlugRoute
+    }
+    '/$slug/search': {
+      id: '/$slug/search'
+      path: '/search'
+      fullPath: '/$slug/search'
+      preLoaderRoute: typeof SlugSearchRouteImport
       parentRoute: typeof SlugRoute
     }
     '/admin/': {
@@ -963,6 +1280,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof InvitationsAcceptRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/services/': {
+      id: '/services/'
+      path: '/services'
+      fullPath: '/services/'
+      preLoaderRoute: typeof ServicesIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/services/$serviceId': {
+      id: '/services/$serviceId'
+      path: '/services/$serviceId'
+      fullPath: '/services/$serviceId'
+      preLoaderRoute: typeof ServicesServiceIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/staff/': {
       id: '/staff/'
       path: '/'
@@ -976,6 +1307,48 @@ declare module '@tanstack/react-router' {
       fullPath: '/staff/appointments'
       preLoaderRoute: typeof StaffAppointmentsRouteImport
       parentRoute: typeof StaffRoute
+    }
+    '/team/': {
+      id: '/team/'
+      path: '/team'
+      fullPath: '/team/'
+      preLoaderRoute: typeof TeamIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/team/$staffId': {
+      id: '/team/$staffId'
+      path: '/team/$staffId'
+      fullPath: '/team/$staffId'
+      preLoaderRoute: typeof TeamStaffIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/$slug/services/': {
+      id: '/$slug/services/'
+      path: '/services'
+      fullPath: '/$slug/services/'
+      preLoaderRoute: typeof SlugServicesIndexRouteImport
+      parentRoute: typeof SlugRoute
+    }
+    '/$slug/services/$serviceId': {
+      id: '/$slug/services/$serviceId'
+      path: '/services/$serviceId'
+      fullPath: '/$slug/services/$serviceId'
+      preLoaderRoute: typeof SlugServicesServiceIdRouteImport
+      parentRoute: typeof SlugRoute
+    }
+    '/$slug/team/': {
+      id: '/$slug/team/'
+      path: '/team'
+      fullPath: '/$slug/team/'
+      preLoaderRoute: typeof SlugTeamIndexRouteImport
+      parentRoute: typeof SlugRoute
+    }
+    '/$slug/team/$staffId': {
+      id: '/$slug/team/$staffId'
+      path: '/team/$staffId'
+      fullPath: '/$slug/team/$staffId'
+      preLoaderRoute: typeof SlugTeamStaffIdRouteImport
+      parentRoute: typeof SlugRoute
     }
     '/dashboard/customers/': {
       id: '/dashboard/customers/'
@@ -1026,6 +1399,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardServicesNewRouteImport
       parentRoute: typeof DashboardServicesRoute
     }
+    '/dashboard/staff/': {
+      id: '/dashboard/staff/'
+      path: '/'
+      fullPath: '/dashboard/staff/'
+      preLoaderRoute: typeof DashboardStaffIndexRouteImport
+      parentRoute: typeof DashboardStaffRoute
+    }
+    '/dashboard/staff/$staffId': {
+      id: '/dashboard/staff/$staffId'
+      path: '/$staffId'
+      fullPath: '/dashboard/staff/$staffId'
+      preLoaderRoute: typeof DashboardStaffStaffIdRouteImport
+      parentRoute: typeof DashboardStaffRoute
+    }
     '/dashboard/services/$serviceId/': {
       id: '/dashboard/services/$serviceId/'
       path: '/'
@@ -1044,15 +1431,33 @@ declare module '@tanstack/react-router' {
 }
 
 interface SlugRouteChildren {
+  SlugAboutRoute: typeof SlugAboutRoute
   SlugAccountRoute: typeof SlugAccountRoute
   SlugBookRoute: typeof SlugBookRoute
+  SlugContactRoute: typeof SlugContactRoute
+  SlugGalleryRoute: typeof SlugGalleryRoute
+  SlugReviewsRoute: typeof SlugReviewsRoute
+  SlugSearchRoute: typeof SlugSearchRoute
   SlugIndexRoute: typeof SlugIndexRoute
+  SlugServicesServiceIdRoute: typeof SlugServicesServiceIdRoute
+  SlugTeamStaffIdRoute: typeof SlugTeamStaffIdRoute
+  SlugServicesIndexRoute: typeof SlugServicesIndexRoute
+  SlugTeamIndexRoute: typeof SlugTeamIndexRoute
 }
 
 const SlugRouteChildren: SlugRouteChildren = {
+  SlugAboutRoute: SlugAboutRoute,
   SlugAccountRoute: SlugAccountRoute,
   SlugBookRoute: SlugBookRoute,
+  SlugContactRoute: SlugContactRoute,
+  SlugGalleryRoute: SlugGalleryRoute,
+  SlugReviewsRoute: SlugReviewsRoute,
+  SlugSearchRoute: SlugSearchRoute,
   SlugIndexRoute: SlugIndexRoute,
+  SlugServicesServiceIdRoute: SlugServicesServiceIdRoute,
+  SlugTeamStaffIdRoute: SlugTeamStaffIdRoute,
+  SlugServicesIndexRoute: SlugServicesIndexRoute,
+  SlugTeamIndexRoute: SlugTeamIndexRoute,
 }
 
 const SlugRouteWithChildren = SlugRoute._addFileChildren(SlugRouteChildren)
@@ -1146,6 +1551,20 @@ const DashboardServicesRouteChildren: DashboardServicesRouteChildren = {
 const DashboardServicesRouteWithChildren =
   DashboardServicesRoute._addFileChildren(DashboardServicesRouteChildren)
 
+interface DashboardStaffRouteChildren {
+  DashboardStaffStaffIdRoute: typeof DashboardStaffStaffIdRoute
+  DashboardStaffIndexRoute: typeof DashboardStaffIndexRoute
+}
+
+const DashboardStaffRouteChildren: DashboardStaffRouteChildren = {
+  DashboardStaffStaffIdRoute: DashboardStaffStaffIdRoute,
+  DashboardStaffIndexRoute: DashboardStaffIndexRoute,
+}
+
+const DashboardStaffRouteWithChildren = DashboardStaffRoute._addFileChildren(
+  DashboardStaffRouteChildren,
+)
+
 interface DashboardRouteChildren {
   DashboardAnalyticsRoute: typeof DashboardAnalyticsRoute
   DashboardAppointmentsRoute: typeof DashboardAppointmentsRoute
@@ -1162,7 +1581,7 @@ interface DashboardRouteChildren {
   DashboardRewardsRoute: typeof DashboardRewardsRoute
   DashboardServicesRoute: typeof DashboardServicesRouteWithChildren
   DashboardSettingsRoute: typeof DashboardSettingsRoute
-  DashboardStaffRoute: typeof DashboardStaffRoute
+  DashboardStaffRoute: typeof DashboardStaffRouteWithChildren
   DashboardStampsRoute: typeof DashboardStampsRoute
   DashboardStorefrontRoute: typeof DashboardStorefrontRoute
   DashboardIndexRoute: typeof DashboardIndexRoute
@@ -1184,7 +1603,7 @@ const DashboardRouteChildren: DashboardRouteChildren = {
   DashboardRewardsRoute: DashboardRewardsRoute,
   DashboardServicesRoute: DashboardServicesRouteWithChildren,
   DashboardSettingsRoute: DashboardSettingsRoute,
-  DashboardStaffRoute: DashboardStaffRoute,
+  DashboardStaffRoute: DashboardStaffRouteWithChildren,
   DashboardStampsRoute: DashboardStampsRoute,
   DashboardStorefrontRoute: DashboardStorefrontRoute,
   DashboardIndexRoute: DashboardIndexRoute,
@@ -1209,16 +1628,25 @@ const StaffRouteWithChildren = StaffRoute._addFileChildren(StaffRouteChildren)
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   SlugRoute: SlugRouteWithChildren,
+  AboutRoute: AboutRoute,
   AccountRoute: AccountRoute,
   AdminRoute: AdminRouteWithChildren,
   AuthRoute: AuthRouteWithChildren,
   BookRoute: BookRoute,
+  ContactRoute: ContactRoute,
   DashboardRoute: DashboardRouteWithChildren,
   EnterpriseRoute: EnterpriseRoute,
+  GalleryRoute: GalleryRoute,
   LoginRoute: LoginRoute,
   RegisterRoute: RegisterRoute,
+  ReviewsRoute: ReviewsRoute,
+  SearchRoute: SearchRoute,
   StaffRoute: StaffRouteWithChildren,
   InvitationsAcceptRoute: InvitationsAcceptRoute,
+  ServicesServiceIdRoute: ServicesServiceIdRoute,
+  TeamStaffIdRoute: TeamStaffIdRoute,
+  ServicesIndexRoute: ServicesIndexRoute,
+  TeamIndexRoute: TeamIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
