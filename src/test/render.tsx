@@ -3,9 +3,12 @@ import { render } from '@testing-library/react'
 import type { RenderOptions, RenderResult } from '@testing-library/react'
 import type { ReactElement, ReactNode } from 'react'
 import type { StorefrontBootstrap } from '../lib/api/types'
+import { DashboardContext } from '../lib/dashboard/dashboard-context'
+import type { DashboardContextValue } from '../lib/dashboard/dashboard-context'
 import { StorefrontProvider } from '../lib/storefront/StorefrontProvider'
 import { ThemeProvider } from '../theme'
 import { makeBootstrap } from './fixtures'
+import { makeDashboardContext } from './appointments'
 
 /**
  * Rendering utilities.
@@ -49,6 +52,42 @@ export function renderStorefront(
           <StorefrontProvider slug={bootstrap.slug} bootstrap={bootstrap}>
             {children}
           </StorefrontProvider>
+        </QueryClientProvider>
+      </ThemeProvider>
+    )
+  }
+
+  return { ...render(ui, { wrapper: Wrapper, ...rest }), queryClient }
+}
+
+export type DashboardRenderOptions = Omit<RenderOptions, 'wrapper'> & {
+  /** The resolved business console: entitlements, permissions, business, plan. */
+  context?: DashboardContextValue
+  /** Share a client when a test must inspect or prime the cache. */
+  queryClient?: QueryClient
+}
+
+/**
+ * Mount a business-console screen with the same providers the dashboard shell
+ * supplies. Pages read module access and permissions from the context rather
+ * than deciding for themselves, so a test must supply it too — otherwise it
+ * would be asserting behaviour the app never produces.
+ */
+export function renderDashboard(
+  ui: ReactElement,
+  options: DashboardRenderOptions = {},
+): RenderResult & { queryClient: QueryClient } {
+  const {
+    context = makeDashboardContext(),
+    queryClient = createTestQueryClient(),
+    ...rest
+  } = options
+
+  function Wrapper({ children }: { children: ReactNode }) {
+    return (
+      <ThemeProvider>
+        <QueryClientProvider client={queryClient}>
+          <DashboardContext value={context}>{children}</DashboardContext>
         </QueryClientProvider>
       </ThemeProvider>
     )

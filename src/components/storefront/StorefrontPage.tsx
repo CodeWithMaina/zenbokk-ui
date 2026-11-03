@@ -1,5 +1,4 @@
 import type { ReactNode } from 'react'
-import { StorefrontCallToAction } from './StorefrontCallToAction'
 
 export type StorefrontPageProps = {
   /** Small uppercase label above the title. */
@@ -23,15 +22,15 @@ export type StorefrontPageProps = {
  * heading is an `h1` — these are pages now, not blocks inside a page, which is
  * also what makes each one a real, linkable destination.
  *
- * `cta` defaults on, so a page ends by inviting the visitor to book. Pages that
- * already finish with their own call (the contact page's form) turn it off.
+ * `cta` remains part of the props contract (pages still declare whether they end
+ * in a call to action) but the closing band itself is currently off in the
+ * storefront design, so it is not destructured here.
  */
 export function StorefrontPage({
   eyebrow,
   title,
   description,
   action,
-  cta = true,
   children,
 }: StorefrontPageProps) {
   return (
@@ -46,8 +45,6 @@ export function StorefrontPage({
       </div>
 
       {children}
-
-      {/* {cta ? <StorefrontCallToAction /> : null} */}
     </div>
   )
 }

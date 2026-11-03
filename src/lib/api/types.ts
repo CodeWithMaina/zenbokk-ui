@@ -463,6 +463,8 @@ export type Appointment = {
     requestedAt: string
   } | null
   reminderOptOut: boolean
+  /** The business's working note for the booking; null when none is written. */
+  note: string | null
 }
 
 export type CreateAppointmentRequest = {

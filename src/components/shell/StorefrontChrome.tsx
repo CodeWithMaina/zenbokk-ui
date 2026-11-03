@@ -5,7 +5,6 @@ import { useStorefrontSeo } from '../../lib/storefront/use-storefront-seo'
 import { marketingUrl } from '../../lib/tenant'
 import { StorefrontNav } from '../storefront/StorefrontNav'
 import { StorefrontBookingTray } from '../storefront/StorefrontBookingTray'
-import { StorefrontOpeningHours } from '../storefront/StorefrontOpeningHours'
 
 /**
  * Storefront frame: the business's own header and footer around its pages.

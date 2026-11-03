@@ -8,6 +8,7 @@ import {
   makeService,
   makeStaff,
 } from './fixtures'
+import { appointmentHandlers } from './appointment-handlers'
 
 /**
  * MSW request handlers for the storefront's public reads.
@@ -38,6 +39,8 @@ export function fail(code: string, message: string, status = 400) {
 const base = '*/api/v1'
 
 export const handlers = [
+  ...appointmentHandlers,
+
   http.get(`${base}/businesses/:businessId/gallery`, () => ok(makeGallery(3))),
 
   http.get(`${base}/businesses/:businessId/opening-hours`, () => ok(makeOpeningHours())),

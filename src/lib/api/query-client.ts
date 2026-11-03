@@ -71,6 +71,24 @@ export const queryKeys = {
     ['appointments', 'owner', filters] as const,
   staffAppointments: (filters: Record<string, unknown>) =>
     ['appointments', 'staff', filters] as const,
+  /** One appointment, with every service line (the detail screen). */
+  appointmentDetail: (appointmentId: string) =>
+    ['appointments', 'owner', 'detail', appointmentId] as const,
+  /** One appointment's persisted status history. */
+  appointmentActivity: (appointmentId: string) =>
+    ['appointments', 'owner', 'activity', appointmentId] as const,
+  /** A whole calendar pane, walked across pages. */
+  appointmentRange: (filters: Record<string, unknown>) =>
+    ['appointments', 'owner', 'range', filters] as const,
+  /** One customer's appointment history within the business. */
+  appointmentCustomerHistory: (customerId: string, filters: Record<string, unknown>) =>
+    ['appointments', 'owner', 'customer', customerId, filters] as const,
+  /** One staff member's day, for the detail screen's schedule strip. */
+  appointmentStaffDay: (staffId: string, filters: Record<string, unknown>) =>
+    ['appointments', 'owner', 'staff', staffId, filters] as const,
+  /** Bookable slots for a service/staff/date combination. */
+  appointmentAvailability: (businessId: string, params: Record<string, unknown>) =>
+    ['appointments', 'availability', businessId, params] as const,
   ownerServices: () => ['services', 'owner'] as const,
   /** Filtered, sorted, paged service catalogue (`GET /v1/services/me/query`). */
   ownerServicesList: (filters: Record<string, unknown>) =>
