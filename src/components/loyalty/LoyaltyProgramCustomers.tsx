@@ -1,27 +1,27 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { RefreshCw, UsersRound } from 'lucide-react'
 import { cn } from '../../lib/cn'
 import { errorMessage } from '../../lib/api/client'
-import type { BusinessCustomer } from '../../lib/api/types'
-import { clientStampGoal } from '../../lib/clients/mappers'
-import { formatDate, formatNumber } from '../../lib/format'
+import { clientStampGoal, toClientSummary } from '../../lib/clients/mappers'
+import { formatNumber } from '../../lib/format'
 import { useDebouncedValue } from '../../lib/hooks/use-debounced-value'
 import { useProgramCustomers } from '../../lib/loyalty'
 import { Alert } from '../ui/alert'
-import { Avatar } from '../ui/avatar'
 import { Button } from '../ui/button'
+import { ClientGrid } from '../ui/client-grid'
+import { ClientTable } from '../ui/client-table'
 import { EmptyState } from '../ui/empty-state'
 import { PaginationBar } from '../ui/pagination-bar'
-import { Progress } from '../ui/progress'
 import { SearchField } from '../ui/search-field'
 import { SegmentedControl } from '../ui/segmented-control'
 import { Skeleton } from '../ui/skeleton'
-import { CustomerLoyaltyCard } from './CustomerLoyaltyCard'
 
 export type LoyaltyProgramCustomersProps = {
   programId: string
   /** The roster endpoint is gated by the `customers` module. */
   enabled: boolean
+  /** Open a customer's details page. */
+  onOpenCustomer?: (customerId: string) => void
   className?: string
 }
 
@@ -34,19 +34,24 @@ const PAGE_SIZE = 10
  *
  * The roster is the business's own customer list filtered by `programId`, so
  * every row is a real enrollment with the customer's actual stamp balance and
- * enrollment date — never a placeholder. Expanding a row loads that customer's
- * rendered card from the API.
+ * enrollment date — never a placeholder.
+ *
+ * The list is presented with the Clients module's own components (`ClientGrid`
+ * and `ClientTable`), mapped through `toClientSummary`, so the loyalty tab looks
+ * and behaves exactly like the Customers page. Tapping a row opens that
+ * customer's details page — which is where the full loyalty card and ledger
+ * live — rather than re-implementing a second customer view inside the tab.
  */
 export function LoyaltyProgramCustomers({
   programId,
   enabled,
+  onOpenCustomer,
   className,
 }: LoyaltyProgramCustomersProps) {
   const [layout, setLayout] = useState<Layout>('table')
   const [searchInput, setSearchInput] = useState('')
   const search = useDebouncedValue(searchInput, 350)
   const [page, setPage] = useState(1)
-  const [expanded, setExpanded] = useState<string | null>(null)
 
   const query = useProgramCustomers(
     programId,
@@ -65,15 +70,10 @@ export function LoyaltyProgramCustomers({
   const pageCount = query.data?.totalPages ?? 1
   const searching = search.trim().length > 0
 
-  const progress = (row: BusinessCustomer) => {
-    const goal = clientStampGoal(row)
-    const stamps = Math.min(Math.max(0, row.totalStamps), goal)
-    return { goal, stamps }
-  }
-
-  const toggle = (customerId: string) => {
-    setExpanded((current) => (current === customerId ? null : customerId))
-  }
+  const customers = useMemo(
+    () => rows.map((row) => toClientSummary(row, clientStampGoal(row))),
+    [rows],
+  )
 
   const header = (
     <div className="mb-[0.9rem] flex flex-wrap items-center gap-[0.7rem]">
@@ -117,12 +117,29 @@ export function LoyaltyProgramCustomers({
     </div>
   )
 
-  const expandedCard = (row: BusinessCustomer) =>
-    expanded === row.userId ? (
-      <div className="border-t border-line bg-sunken/60 px-[1rem] py-[1rem]">
-        <CustomerLoyaltyCard customerId={row.userId} enabled />
-      </div>
-    ) : null
+  const emptyState = (
+    <EmptyState
+      icon={searching ? undefined : <UsersRound className="size-5" />}
+      title={searching ? 'No matches' : 'No customers yet'}
+      description={
+        searching
+          ? 'Try a different name or email.'
+          : 'Customers appear here once they join this program.'
+      }
+      action={
+        searching ? (
+          <Button
+            onClick={() => {
+              setSearchInput('')
+              setPage(1)
+            }}
+          >
+            Clear search
+          </Button>
+        ) : undefined
+      }
+    />
+  )
 
   return (
     <div className={className}>
@@ -151,131 +168,22 @@ export function LoyaltyProgramCustomers({
             Try again
           </Button>
         </Alert>
-      ) : rows.length === 0 ? (
-        <div className="card">
-          <EmptyState
-            icon={searching ? undefined : <UsersRound className="size-5" />}
-            title={searching ? 'No matches' : 'No customers yet'}
-            description={
-              searching
-                ? 'Try a different name or email.'
-                : 'Customers appear here once they join this program.'
-            }
-            action={
-              searching ? (
-                <Button
-                  onClick={() => {
-                    setSearchInput('')
-                    setPage(1)
-                  }}
-                >
-                  Clear search
-                </Button>
-              ) : undefined
-            }
-          />
-        </div>
       ) : (
         <>
-          <div className="card overflow-hidden p-0">
-            {layout === 'cards' ? (
-              <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,15rem),1fr))] gap-[0.7rem] p-[0.9rem]">
-                {rows.map((row) => {
-                  const { goal, stamps } = progress(row)
-                  return (
-                    <div
-                      key={row.userId}
-                      className="rounded-card border border-line bg-surface p-[0.95rem]"
-                    >
-                      <div className="flex items-center gap-[0.75rem]">
-                        <Avatar name={row.fullName} size="sm" src={row.avatarUrl ?? undefined} decorative />
-                        <div className="min-w-0">
-                          <p className="truncate font-semibold">
-                            {row.fullName || 'Unnamed customer'}
-                          </p>
-                          <p className="truncate text-meta text-muted">
-                            {row.email || row.phoneNumber || '—'}
-                          </p>
-                        </div>
-                      </div>
-                      <Progress
-                        className="mt-[0.9rem]"
-                        value={stamps}
-                        max={goal}
-                        label={`${stamps} of ${goal} stamps`}
-                      />
-                      <div className="mt-[0.7rem] flex justify-between text-caption text-muted">
-                        <span>Last stamp {row.lastStampAt ? formatDate(row.lastStampAt) : '—'}</span>
-                        <span>{formatNumber(row.lifetimeStamps)} lifetime</span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => toggle(row.userId)}
-                        aria-expanded={expanded === row.userId}
-                        className="link mt-[0.7rem] text-caption"
-                      >
-                        {expanded === row.userId ? 'Hide card' : 'View card'}
-                      </button>
-                      {expanded === row.userId ? (
-                        <div className="mt-[0.7rem]">
-                          <CustomerLoyaltyCard customerId={row.userId} enabled />
-                        </div>
-                      ) : null}
-                    </div>
-                  )
-                })}
-              </div>
-            ) : (
-              <ul className="m-0 list-none p-0">
-                {rows.map((row) => {
-                  const { goal, stamps } = progress(row)
-                  return (
-                    <li key={row.userId} className="border-b border-line last:border-b-0">
-                      <button
-                        type="button"
-                        onClick={() => toggle(row.userId)}
-                        aria-expanded={expanded === row.userId}
-                        className="grid w-full grid-cols-[2.2rem_minmax(0,1fr)_7rem_5.2rem_4.5rem] items-center gap-[0.8rem] px-[1rem] py-[0.7rem] text-left transition-colors hover:bg-hover max-[760px]:grid-cols-[2.2rem_minmax(0,1fr)_5.8rem]"
-                      >
-                        <Avatar name={row.fullName} size="sm" src={row.avatarUrl ?? undefined} decorative />
-                        <span className="min-w-0">
-                          <span className="block truncate font-semibold">
-                            {row.fullName || 'Unnamed customer'}
-                          </span>
-                          <span className="block truncate text-meta text-muted">
-                            {row.email || row.phoneNumber || '—'}
-                          </span>
-                        </span>
-                        <span className="min-w-0">
-                          <Progress
-                            value={stamps}
-                            max={goal}
-                            ariaLabel={`${stamps} of ${goal} stamps`}
-                          />
-                          <span className="mt-[0.3rem] block text-caption text-muted">
-                            {stamps} of {goal}
-                          </span>
-                        </span>
-                        <span className="text-caption text-muted max-[760px]:hidden">
-                          <b className="block font-semibold text-fg">
-                            {row.lastStampAt ? formatDate(row.lastStampAt) : '—'}
-                          </b>
-                          Last stamp
-                        </span>
-                        <span className="text-caption text-muted max-[760px]:hidden">
-                          <b className="block font-semibold text-fg">
-                            {formatNumber(row.lifetimeStamps)}
-                          </b>
-                          Lifetime
-                        </span>
-                      </button>
-                      {expandedCard(row)}
-                    </li>
-                  )
-                })}
-              </ul>
-            )}
-          </div>
+          {layout === 'cards' ? (
+            <ClientGrid
+              clients={customers}
+              onOpen={onOpenCustomer ? (client) => onOpenCustomer(client.id) : undefined}
+              empty={emptyState}
+            />
+          ) : (
+            <ClientTable
+              rows={customers}
+              onOpen={onOpenCustomer ? (client) => onOpenCustomer(client.id) : undefined}
+              label="Program customers"
+              empty={emptyState}
+            />
+          )}
 
           <p className="mt-[0.9rem] text-center text-meta text-muted">
             Showing {rows.length} of {formatNumber(total)} customers

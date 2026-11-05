@@ -1,0 +1,111 @@
+import { describe, expect, it } from 'vitest'
+import {
+  applyTemplate,
+  createDefaultConfig,
+  makeSection,
+  mergeConfig,
+  resequence,
+  slugify,
+} from './defaults'
+import { SECTION_CATALOG, normaliseVariant } from './catalog'
+import { TEMPLATES } from './templates'
+
+/**
+ * The Storefront Builder's client-side configuration logic.
+ *
+ * These mirror the server's merge/apply-template rules, so a disagreement here
+ * would show the owner a preview that the published storefront never matches.
+ */
+describe('storefront builder defaults', () => {
+  it('produces a complete, non-empty default configuration', () => {
+    const config = createDefaultConfig()
+    expect(config.templateId).toBe('classic')
+    expect(config.sections.length).toBeGreaterThan(0)
+    expect(config.pages.map((p) => p.kind)).toEqual(['home', 'services', 'about', 'contact'])
+    expect(config.theme.primary).toMatch(/^#/)
+  })
+
+  it('preserves the pre-builder storefront as the default Classic template', () => {
+    // The default business storefront must render exactly as it did before the
+    // builder shipped: a full-bleed centred hero, minimal header/footer and the
+    // same section arrangement.
+    const config = createDefaultConfig()
+    expect(config.templateId).toBe('classic')
+    expect(config.header.variant).toBe('minimal')
+    expect(config.hero.variant).toBe('centered')
+    expect(config.footer.variant).toBe('minimal')
+    expect(config.sections.map((s) => `${s.key}:${s.variant}`)).toEqual([
+      'services:list', 'about:centered', 'gallery:grid',
+      'testimonials:quote', 'booking:minimal', 'contact:minimal',
+    ])
+  })
+
+  it('offers eight genuinely distinct templates', () => {
+    expect(TEMPLATES).toHaveLength(8)
+    const signatures = TEMPLATES.map(
+      (t) => `${t.headerVariant}|${t.heroVariant}|${t.footerVariant}|${t.blueprint.map((b) => `${b.key}:${b.variant}`).join(',')}`,
+    )
+    expect(new Set(signatures).size).toBe(TEMPLATES.length)
+  })
+
+  it('normalises an unknown variant to the section default', () => {
+    expect(normaliseVariant('services', 'not-a-variant')).toBe('cards')
+    expect(normaliseVariant('services', null)).toBe('cards')
+    expect(normaliseVariant('services', 'scroller')).toBe('scroller')
+  })
+
+  it('merges a partial config over the defaults and drops unknown sections', () => {
+    const merged = mergeConfig({
+      sections: [
+        { id: 'a', key: 'services', variant: 'grid', enabled: true, order: 5, title: 'Our menu', description: null, settings: {} },
+        { id: 'b', key: 'not-a-real-section', variant: 'x', enabled: true, order: 9, title: null, description: null, settings: {} },
+      ],
+    })
+    expect(merged.sections).toHaveLength(1)
+    expect(merged.sections[0].key).toBe('services')
+    expect(merged.sections[0].title).toBe('Our menu')
+    // Untouched keys fall back to the platform defaults.
+    expect(merged.theme.primary).toBe(createDefaultConfig().theme.primary)
+  })
+
+  it('switches template design while preserving owner content', () => {
+    const config = createDefaultConfig()
+    config.sections = [makeSection('services', 'grid')]
+    config.sections[0].title = 'Hand-picked treatments'
+    config.sections[0].settings = { note: 'keep me' }
+
+    const applied = applyTemplate(config, 'luxe')
+
+    expect(applied.templateId).toBe('luxe')
+    expect(applied.header.variant).toBe('floating')
+    expect(applied.hero.variant).toBe('premium')
+    // The owner's content survived the design change.
+    const services = applied.sections.find((s) => s.key === 'services')
+    expect(services?.title).toBe('Hand-picked treatments')
+    expect(services?.settings.note).toBe('keep me')
+  })
+
+  it('resolves a legacy template id onto its canonical replacement', () => {
+    const config = createDefaultConfig()
+    // A business saved against an earlier revision still resolves to a template.
+    expect(mergeConfig({ templateId: 'luxury-premium' }).templateId).toBe('luxe')
+    expect(mergeConfig({ templateId: 'modern-minimal' }).templateId).toBe('classic')
+    expect(applyTemplate(config, 'editorial').templateId).toBe('atelier')
+  })
+
+  it('re-sequences section order to 10, 20, 30…', () => {
+    const ordered = resequence([makeSection('stats'), makeSection('faq'), makeSection('contact')])
+    expect(ordered.map((s) => s.order)).toEqual([10, 20, 30])
+  })
+
+  it('every catalogued section exposes at least one variant', () => {
+    for (const section of SECTION_CATALOG) {
+      expect(section.variants.length).toBeGreaterThan(0)
+      expect(section.variants.some((v) => v.value === section.defaultVariant)).toBe(true)
+    }
+  })
+
+  it('slugifies page titles', () => {
+    expect(slugify('Our Treatments & Prices')).toBe('our-treatments-prices')
+  })
+})

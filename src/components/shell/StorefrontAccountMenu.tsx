@@ -1,21 +1,13 @@
 import { Link, useNavigate } from '@tanstack/react-router'
 import {
-  Building2,
-  CalendarCheck,
   LayoutDashboard,
   LogOut,
-  Settings,
   UserRound,
 } from 'lucide-react'
-import { useState } from 'react'
-import { toast } from 'sonner'
-import { errorMessage } from '../../lib/api/client'
 import { useAuth } from '../../lib/auth'
 import { destinationForRole } from '../../lib/auth/guards'
-import { businessApi } from '../../lib/business/api'
-import { useAssociatedBusinesses } from '../../lib/business/use-business'
 import { useStorefront } from '../../lib/storefront'
-import { storefrontHref, tenantUrl } from '../../lib/tenant'
+import { storefrontHref } from '../../lib/tenant'
 import { Avatar } from '../ui/avatar'
 import { Menu } from '../ui/menu'
 import type { MenuItem } from '../ui/menu'
@@ -23,25 +15,16 @@ import type { MenuItem } from '../ui/menu'
 /**
  * Signed-in account menu for a business's storefront header.
  *
- * Two audiences, one control:
- *  - an anonymous visitor gets a sign-in link that returns to this page;
- *  - a signed-in visitor gets their avatar, and a menu built from what their
- *    role can actually reach — an owner sees the business dashboard and its
- *    settings, a staff member sees their console, a customer sees their
- *    bookings and the businesses they belong to.
+ * Authenticated users see:
+ * - My Dashboard (navigation to their dashboard)
+ * - Log Out (complete logout)
  *
- * Nothing here decides access: the destination per role comes from
- * `destinationForRole`, and the dashboard itself re-resolves entitlements and
- * permissions server-side on load.
+ * Anonymous visitors see a sign-in link.
  */
 export function StorefrontAccountMenu() {
   const { user, role, isAuthenticated, signOut } = useAuth()
-  const { canonicalSlug, businessId } = useStorefront()
+  const { canonicalSlug } = useStorefront()
   const navigate = useNavigate()
-  const [switching, setSwitching] = useState<string | null>(null)
-
-  // Customer-only endpoint; owners and staff act in exactly one business.
-  const associated = useAssociatedBusinesses(isAuthenticated && role === 'Customer')
 
   const accountHref = storefrontHref(canonicalSlug, '/account')
 
@@ -64,35 +47,13 @@ export function StorefrontAccountMenu() {
     await navigate({ to: '/auth/sign-in', replace: true })
   }
 
-  /**
-   * Move the customer to another business they belong to.
-   *
-   * The associated-businesses payload has no slug, so the address is resolved
-   * from the business id first and then opened on its canonical host — the same
-   * hand-off a renamed storefront uses.
-   */
-  const switchTo = async (businessId: string) => {
-    setSwitching(businessId)
-    try {
-      const business = await businessApi.byId(businessId)
-      if (!business.slug) {
-        toast.error('That business has no public address yet.')
-        return
-      }
-      window.location.assign(tenantUrl(business.slug))
-    } catch (error) {
-      toast.error(errorMessage(error, 'We could not open that business.'))
-    } finally {
-      setSwitching(null)
-    }
-  }
-
   const items: MenuItem[] = []
 
+  // Show "My Dashboard" for business owners, staff, and admins
   if (role === 'Business' || role === 'Staff' || role === 'Admin') {
     const landing = destinationForRole(role, true)
     items.push({
-      label: 'My dashboard',
+      label: 'My Dashboard',
       icon: <LayoutDashboard className="size-4" />,
       onSelect: () => {
         if (landing.kind === 'external') {
@@ -102,48 +63,22 @@ export function StorefrontAccountMenu() {
         void navigate({ to: landing.to })
       },
     })
-  }
-
-  items.push({
-    label: role === 'Customer' ? 'My bookings' : 'My account',
-    icon: <CalendarCheck className="size-4" />,
-    onSelect: () => {
-      window.location.assign(accountHref)
-    },
-  })
-
-  // Only an owner role can open the workspace settings screen.
-  if (role === 'Business') {
+  } else if (role === 'Customer') {
+    // Customers see "My Dashboard" which links to their account/bookings
     items.push({
-      label: 'Settings',
-      icon: <Settings className="size-4" />,
+      label: 'My Dashboard',
+      icon: <LayoutDashboard className="size-4" />,
       onSelect: () => {
-        void navigate({ to: '/dashboard/settings' })
+        window.location.assign(accountHref)
       },
     })
   }
 
-  // Other businesses this customer belongs to (the one being viewed is the
-  // current context, so it is never offered as a switch target).
-  const others = (associated.data ?? []).filter((entry) => entry.id !== businessId)
-  if (role === 'Customer' && others.length > 0) {
-    for (const entry of others) {
-      items.push({
-        label: switching === entry.id ? `Opening ${entry.name}…` : `Switch to ${entry.name}`,
-        icon: <Building2 className="size-4" />,
-        disabled: switching !== null,
-        onSelect: () => {
-          void switchTo(entry.id)
-        },
-      })
-    }
-  }
-
+  // Log out — shown for all authenticated users
   items.push({
-    label: 'Log out',
+    label: 'Log Out',
     icon: <LogOut className="size-4" />,
     destructive: true,
-    separatorBefore: true,
     onSelect: () => {
       void handleSignOut()
     },

@@ -46,6 +46,13 @@ function ProgramDetailsPage() {
         })
       }
       onBack={() => void navigate({ to: '/dashboard/programs' })}
+      onOpenCustomer={(customerId) =>
+        void navigate({
+          to: '/dashboard/customers/$clientId',
+          params: { clientId: customerId },
+          search: { tab: 'loyalty' },
+        })
+      }
       customersEnabled={hasModule(MODULE.customers)}
     />
   )

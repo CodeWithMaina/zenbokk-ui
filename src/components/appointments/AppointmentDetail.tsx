@@ -44,6 +44,8 @@ export type AppointmentDetailProps = {
   onBack: () => void
   onAction: (action: AppointmentAction) => void
   onOpenAppointment: (appointmentId: string) => void
+  /** Open the customer's details page, when the module can resolve one. */
+  onOpenCustomer?: (customerId: string) => void
   onSaveNote: (note: string | null) => void
   noteSaving?: boolean
   noteError?: string | null
@@ -93,6 +95,7 @@ export function AppointmentDetail({
   onBack,
   onAction,
   onOpenAppointment,
+  onOpenCustomer,
   onSaveNote,
   noteSaving = false,
   noteError,
@@ -134,6 +137,26 @@ export function AppointmentDetail({
     [staffDay.data],
   )
 
+  /**
+   * When this screen is opened directly (its own URL) there is no list row to
+   * paint the header from, so the customer and staff are resolved from the
+   * queries the screen already runs — the customer's own history and the staff
+   * member's day — rather than from the list.
+   */
+  const customer = useMemo(
+    () => (history.data?.customers ?? []).find((entry) => entry.userId === customerId) ?? null,
+    [history.data, customerId],
+  )
+  const staffMember = useMemo(
+    () => (staffDay.data?.staff ?? []).find((entry) => entry.userId === staffUserId) ?? null,
+    [staffDay.data, staffUserId],
+  )
+
+  const customerName = row?.customerName ?? customer?.fullName ?? 'Customer'
+  const customerPhone = row?.customerPhone ?? customer?.phoneNumber ?? null
+  const customerEmail = row?.customerEmail ?? customer?.email ?? null
+  const staffName = row?.staffName ?? staffMember?.fullName ?? null
+
   if (detail.isError) {
     return (
       <div>
@@ -170,15 +193,13 @@ export function AppointmentDetail({
 
       <header className="flex flex-wrap items-center justify-between gap-[0.9rem] pb-[1.1rem] pt-[0.2rem]">
         <div className="flex min-w-0 flex-[1_1_20rem] items-center gap-[0.9rem]">
-          <Avatar size="lg" name={row?.customerName ?? 'Customer'} decorative />
+          <Avatar size="lg" name={customerName} decorative />
           <div className="min-w-0">
-            <h1 className="truncate text-title font-bold tracking-tight">
-              {row?.customerName ?? 'Appointment'}
-            </h1>
+            <h1 className="truncate text-title font-bold tracking-tight">{customerName}</h1>
             <div className="mt-[0.3rem] flex flex-wrap items-center gap-x-[0.8rem] gap-y-[0.3rem] text-meta text-muted">
               <AppointmentStatusBadge status={appointment.status} />
               <span className="tabular">{appointmentReference(appointment.id)}</span>
-              {row?.customerPhone ? <span className="tabular">{row.customerPhone}</span> : null}
+              {customerPhone ? <span className="tabular">{customerPhone}</span> : null}
             </div>
           </div>
         </div>
@@ -211,7 +232,7 @@ export function AppointmentDetail({
             scheduledAt={appointment.scheduledAt}
             endAt={appointment.endAt}
             status={appointment.status}
-            staffName={row?.staffName ?? null}
+            staffName={staffName}
             timing={row ? appointmentTimingLabel(row) : ''}
           />
 
@@ -232,7 +253,7 @@ export function AppointmentDetail({
                   value={`${formatDuration(line.durationMinutes)} · ${money(line.price)}`}
                 />
               ))}
-              <DescriptionRow label="Staff" value={row?.staffName ?? 'Unassigned'} />
+              <DescriptionRow label="Staff" value={staffName ?? 'Unassigned'} />
               <DescriptionRow label="Date" value={formatDate(appointment.scheduledAt)} />
               <DescriptionRow
                 label="Time"
@@ -245,7 +266,7 @@ export function AppointmentDetail({
           </SectionCard>
 
           <SectionCard
-            title={`${(row?.staffName ?? 'Staff').split(' ')[0]}’s day`}
+            title={`${(staffName ?? 'Staff').split(' ')[0]}’s day`}
             description={`${staffDayRows.length} appointment${staffDayRows.length === 1 ? '' : 's'} on ${formatDate(appointment.scheduledAt)}`}
           >
             <StaffDayStrip
@@ -281,17 +302,27 @@ export function AppointmentDetail({
         <div className="flex min-w-0 flex-col gap-[1rem]">
           <SectionCard title="Customer">
             <div className="flex items-center gap-[0.7rem]">
-              <Avatar name={row?.customerName ?? 'Customer'} decorative />
+              <Avatar name={customerName} decorative />
               <div className="min-w-0 flex-1">
-                <p className="truncate font-semibold">{row?.customerName ?? 'Customer'}</p>
+                {onOpenCustomer && customerId ? (
+                  <button
+                    type="button"
+                    onClick={() => onOpenCustomer(customerId)}
+                    className="block max-w-full truncate text-left font-semibold hover:underline focus-visible:shadow-ring focus-visible:outline-none"
+                  >
+                    {customerName}
+                  </button>
+                ) : (
+                  <p className="truncate font-semibold">{customerName}</p>
+                )}
                 <p className="truncate text-meta text-muted tabular">
-                  {row?.customerPhone ?? row?.customerEmail ?? 'No contact on file'}
+                  {customerPhone ?? customerEmail ?? 'No contact on file'}
                 </p>
               </div>
-              {row?.customerPhone ? (
+              {customerPhone ? (
                 <a
-                  href={`tel:${row.customerPhone.replace(/\s/g, '')}`}
-                  aria-label={`Call ${row.customerName}`}
+                  href={`tel:${customerPhone.replace(/\s/g, '')}`}
+                  aria-label={`Call ${customerName}`}
                   className="btn btn-icon"
                 >
                   <Phone className="size-4" aria-hidden="true" />

@@ -56,6 +56,12 @@ export const queryKeys = {
   storefrontSearch: (businessId: string, params: Record<string, unknown>) =>
     ['storefront', businessId, 'search', params] as const,
 
+  /** Owner Storefront Builder state (draft + published + metadata). */
+  storefrontBuilder: () => ['storefront-builder'] as const,
+  /** One business's published storefront (public read; used by the live preview). */
+  storefrontBuilderPublic: (businessId: string) =>
+    ['storefront-builder', 'public', businessId] as const,
+
   dashboard: () => ['dashboard', 'bootstrap'] as const,
   /**
    * One key per dashboard surface, under the `['dashboard','bootstrap']`
@@ -160,6 +166,35 @@ export const queryKeys = {
   adminGrowth: (period: string) => ['admin', 'growth', period] as const,
   adminUsers: (filters: Record<string, unknown>) => ['admin', 'users', filters] as const,
   adminBusinesses: (filters: Record<string, unknown>) => ['admin', 'businesses', filters] as const,
+  /** Roll-up counters for the business-management header. */
+  adminBusinessStats: () => ['admin', 'businesses', 'stats'] as const,
+  /** The business-management list (filtered + paginated). */
+  adminManagedBusinesses: (filters: Record<string, unknown>) =>
+    ['admin', 'businesses', 'managed', filters] as const,
+  /** Full detail for one business. */
+  adminBusinessDetail: (businessId: string) =>
+    ['admin', 'businesses', 'detail', businessId] as const,
+  /** Members of one business. */
+  adminBusinessUsers: (businessId: string, filters: Record<string, unknown>) =>
+    ['admin', 'businesses', 'users', businessId, filters] as const,
+  /** Audit trail for one business. */
+  adminBusinessAudit: (businessId: string, filters: Record<string, unknown>) =>
+    ['admin', 'businesses', 'audit', businessId, filters] as const,
+  /** The subscription-management list. */
+  adminSubscriptions: (filters: Record<string, unknown>) =>
+    ['admin', 'subscriptions', filters] as const,
+  adminSubscriptionStats: () => ['admin', 'subscriptions', 'stats'] as const,
+  adminSubscriptionDetail: (businessId: string) =>
+    ['admin', 'subscriptions', 'detail', businessId] as const,
+  /** The plan (tier) catalogue. */
+  adminTiers: () => ['admin', 'tiers'] as const,
+  adminTier: (tierId: string) => ['admin', 'tiers', tierId] as const,
+  adminTierBusinesses: (tierId: string, filters: Record<string, unknown>) =>
+    ['admin', 'tiers', tierId, 'businesses', filters] as const,
+  /** The module catalogue with usage counts. */
+  adminModuleCatalog: () => ['admin', 'modules', 'catalog'] as const,
+  /** The platform-wide audit feed. */
+  adminAuditLogs: (filters: Record<string, unknown>) => ['admin', 'audit', filters] as const,
 
   staffConsoleAppointments: (filters: Record<string, unknown>) =>
     ['appointments', 'staff', 'console', filters] as const,

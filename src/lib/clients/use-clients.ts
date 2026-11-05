@@ -98,7 +98,10 @@ export function useAdjustStamps() {
         ? clientsApi.awardManualStamps(input)
         : clientsApi.adjustStamps(input),
     onSuccess: () => {
+      // A stamp movement changes the roster's counts *and* every loyalty view
+      // that lists the same customer, so both prefixes are cleared.
       void queryClient.invalidateQueries({ queryKey: ['customers'] })
+      void queryClient.invalidateQueries({ queryKey: ['loyalty'] })
     },
   })
 }

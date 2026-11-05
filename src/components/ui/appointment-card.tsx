@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import type { MouseEvent, ReactNode } from 'react'
 import { formatDuration, money } from '../../lib/format'
 import { cn } from '../../lib/cn'
 import { StatusPill } from './badge'
@@ -33,12 +33,15 @@ export type AppointmentCardData = {
 
 export type AppointmentCardProps = {
   appointment: AppointmentCardData
+  /** When set, the whole card opens the appointment's details page. */
+  onOpen?: () => void
   className?: string
 }
 
 /** Appointment history row from the client detail page. */
 export function AppointmentCard({
   appointment,
+  onOpen,
   className,
 }: AppointmentCardProps) {
   const duration = appointment.services.reduce(
@@ -53,8 +56,21 @@ export function AppointmentCard({
     appointment.total ??
     priced.reduce((sum, line) => sum + (line.price ?? 0), 0)
 
+  /**
+   * The whole card opens the appointment, as in the design. The phone link and
+   * the weekday button keep their own behaviour and never double-fire the card.
+   */
+  const handleCardClick = (event: MouseEvent<HTMLElement>) => {
+    if (!onOpen) return
+    if ((event.target as HTMLElement).closest('a, button, input')) return
+    onOpen()
+  }
+
   return (
-    <article className={cn('card flex gap-[0.9rem] p-[0.9rem]', className)}>
+    <article
+      onClick={onOpen ? handleCardClick : undefined}
+      className={cn('card flex gap-[0.9rem] p-[0.9rem]', onOpen && 'card-link', className)}
+    >
       <div className="flex h-fit min-w-[3.2rem] flex-col items-center rounded-md border border-line bg-hover px-[0.5rem] py-[0.45rem] text-center">
         <b className="text-heading leading-[1.1] font-bold tabular">
           {appointment.day}
@@ -66,7 +82,17 @@ export function AppointmentCard({
 
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-[0.35rem]">
-          <p className="font-semibold">{appointment.weekday}</p>
+          {onOpen ? (
+            <button
+              type="button"
+              onClick={onOpen}
+              className="text-left font-semibold hover:underline focus-visible:shadow-ring focus-visible:outline-none"
+            >
+              {appointment.weekday}
+            </button>
+          ) : (
+            <p className="font-semibold">{appointment.weekday}</p>
+          )}
           <StatusPill status={appointment.status} tone={appointment.statusTone}>
             {appointment.statusLabel ?? appointment.status}
           </StatusPill>

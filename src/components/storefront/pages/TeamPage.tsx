@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { storefrontHref } from '../../../lib/tenant'
+import { isModuleUnavailable } from '../../../lib/api/client'
 import { useStorefront } from '../../../lib/storefront'
 import { matchesQuery, resolveServiceNames, serviceCategories } from '../../../lib/storefront/search'
 import { useStartBooking } from '../../../lib/storefront/use-start-booking'
@@ -69,6 +70,20 @@ export function TeamPage() {
       }),
     [members, role, query, serviceNameById],
   )
+
+  // A withdrawn module is a decision, not a fault: the platform (or the
+  // business) has switched the roster off, so say what is missing rather than
+  // offering a retry that can only fail the same way.
+  if (team.isError && isModuleUnavailable(team.error)) {
+    return (
+      <StorefrontPage eyebrow="Who we are" title="The team">
+        <StorefrontEmptyState
+          title="The team isn’t listed"
+          description="This business doesn’t publish its team here. Call the studio and they’ll tell you who is in."
+        />
+      </StorefrontPage>
+    )
+  }
 
   if (team.isError) {
     return (

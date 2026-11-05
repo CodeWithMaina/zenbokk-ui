@@ -99,7 +99,7 @@ export function ConsoleShell({
 
   return (
     <div className="min-h-svh bg-bg">
-      <div className="mx-auto flex w-full max-w-(--container-page-wide)">
+      <div className="flex w-full">
         <aside className="sticky top-0 hidden h-svh w-[15rem] shrink-0 flex-col gap-[1.1rem] overflow-y-auto border-r border-line bg-surface px-[0.8rem] py-[1rem] lg:flex">
           <Brand name={brand} caption={brandCaption} to={homeTo} />
           <ConsoleNavList sections={nav} />

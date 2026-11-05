@@ -35,6 +35,7 @@ export function StorefrontProvider({
       businessId: bootstrap.businessId,
       business: bootstrap.business,
       landingPage: bootstrap.landingPage,
+      storefront: bootstrap.landingPage.storefront ?? null,
       capabilities: bootstrap.business.capabilities ?? {},
       can: (key) => hasCapability(bootstrap.business.capabilities, key),
     }),

@@ -15,7 +15,7 @@ import {
   StepOption,
   StorefrontBookingStepper,
 } from '../components/storefront/booking/StorefrontBookingStepper'
-import { ApiError, errorMessage } from '../lib/api/client'
+import { ApiError, errorMessage, isModuleUnavailable } from '../lib/api/client'
 import { queryClient, queryKeys } from '../lib/api/query-client'
 import type { Appointment, AvailabilitySlot, DayAvailability, EligibleStaff } from '../lib/api/types'
 import { useAuth } from '../lib/auth'
@@ -54,8 +54,13 @@ const STEPS = [
 
 type StepKey = (typeof STEPS)[number]['key']
 
-function stepIndex(step: StepKey): number {
-  return STEPS.findIndex((entry) => entry.key === step)
+/**
+ * Get visible steps based on whether staff exists.
+ * If there's no staff, skip the staff selection step entirely.
+ */
+function getVisibleSteps(hasStaff: boolean) {
+  if (hasStaff) return STEPS
+  return STEPS.filter((step) => step.key !== 'staff')
 }
 
 /** `2026-05-12` → `Tue 12 May`, without a UTC/DST shift. */
@@ -140,33 +145,47 @@ export function BookingWizardPage() {
   const totalDuration = selectedServices.reduce((sum, s) => sum + s.durationMinutes, 0)
   const totalPrice = selectedServices.reduce((sum, s) => sum + s.price, 0)
 
-  // A restored draft may point at services that no longer exist. Fall back to
-  // the first step instead of leaving the wizard stuck on a dead query.
-  const activeStep: StepKey =
-    draft.step !== 'services' && servicesQuery.isFetched && selectedServices.length === 0
-      ? 'services'
-      : draft.step
-  const activeIndex = Math.max(0, stepIndex(activeStep))
-
   const staffQuery = useStorefrontTeam(
     businessId,
     selectedServiceIds,
     appointmentsEnabled && selectedServiceIds.length > 0,
   )
 
+  // The public capabilities do not expose Staff. Its endpoint is authoritative:
+  // MODULE_DISABLED means solo booking; a pending or failed request does not.
+  const staffResolved = staffQuery.isSuccess || isModuleUnavailable(staffQuery.error)
+  const hasEligibleStaff = !staffResolved || (staffQuery.data ?? []).length > 0
+  const staffId = hasEligibleStaff ? draft.staffId : null
+  const visibleSteps = getVisibleSteps(hasEligibleStaff)
+
+  // Normalize the active step if it's no longer visible
+  let normalizedStep: StepKey = draft.step
+  if (!hasEligibleStaff && draft.step === 'staff') {
+    normalizedStep = 'time'
+  }
+
+  // A restored draft may point at services that no longer exist. Fall back to
+  // the first step instead of leaving the wizard stuck on a dead query.
+  const activeStep: StepKey =
+    normalizedStep !== 'services' && servicesQuery.isFetched && selectedServices.length === 0
+      ? 'services'
+      : normalizedStep
+  const activeIndex = Math.max(0, visibleSteps.findIndex((entry) => entry.key === activeStep))
+
   const availabilityQuery = useQuery({
     queryKey: queryKeys.availability(businessId, {
       serviceIds: selectedServiceIds,
-      staffId: draft.staffId,
+      staffId,
     }),
     queryFn: () =>
       storefrontApi.availability(businessId, {
         serviceIds: selectedServiceIds,
-        staffId: draft.staffId,
+        staffId,
       }),
     enabled:
       appointmentsEnabled &&
       selectedServiceIds.length > 0 &&
+      staffResolved &&
       (activeStep === 'time' || activeStep === 'details' || activeStep === 'payment'),
   })
 
@@ -185,8 +204,8 @@ export function BookingWizardPage() {
     bookableDays[0] ??
     null
 
-  const staffName = draft.staffId
-    ? ((staffQuery.data ?? []).find((member) => member.userId === draft.staffId)?.fullName ?? null)
+  const staffName = staffId
+    ? ((staffQuery.data ?? []).find((member) => member.userId === staffId)?.fullName ?? null)
     : null
 
   const createBooking = useMutation({
@@ -195,7 +214,7 @@ export function BookingWizardPage() {
         {
           businessId,
           serviceIds: selectedServiceIds,
-          staffUserId: draft.staffId,
+          staffUserId: staffId,
           scheduledAt: draft.startsAt ?? '',
           note: draft.notes.trim() || null,
         },
@@ -239,7 +258,9 @@ export function BookingWizardPage() {
       setFailure('Choose at least one service to continue.')
       return
     }
-    goTo('staff')
+    if (!staffResolved) return
+    setFailure(null)
+    update({ step: hasEligibleStaff ? 'staff' : 'time', staffId })
   }
 
   function continueFromTime() {
@@ -298,7 +319,10 @@ export function BookingWizardPage() {
 
   function chooseSlot(slot: AvailabilitySlot) {
     setSelectedDate(slot.localDate)
-    update({ startsAt: slot.startAtUtc, staffId: slot.staffUserId ?? draft.staffId })
+    update({
+      startsAt: slot.startAtUtc,
+      staffId: hasEligibleStaff ? slot.staffUserId ?? staffId : null,
+    })
   }
 
   if (confirmed) {
@@ -355,7 +379,7 @@ export function BookingWizardPage() {
           variant="ghost"
           className="shrink-0"
           aria-label="Back"
-          onClick={() => goTo(STEPS[activeIndex - 1].key)}
+          onClick={() => goTo(visibleSteps[activeIndex - 1].key)}
         >
           <ArrowLeft className="size-4" aria-hidden="true" />
         </Button>
@@ -374,6 +398,7 @@ export function BookingWizardPage() {
                   : submitBooking
         }
         disabled={
+          !staffResolved ||
           (activeStep === 'services' && selectedServices.length === 0) ||
           (activeStep === 'time' && (availabilityQuery.isPending || !selectedSlotAvailable)) ||
           (activeStep === 'payment' && createBooking.isPending)
@@ -410,13 +435,27 @@ export function BookingWizardPage() {
       <div className="sf-book">
         <div>
           <StorefrontBookingStepper
-            steps={STEPS}
+            steps={visibleSteps}
             current={activeIndex}
-            ariaLabel={`Step ${activeIndex + 1} of ${STEPS.length}: ${STEPS[activeIndex].label}`}
+            ariaLabel={`Step ${activeIndex + 1} of ${visibleSteps.length}: ${visibleSteps[activeIndex]?.label}`}
           />
 
           <h1 className="sf-heading">{STEP_TITLES[activeStep].title}</h1>
           <p className="sf-lead">{STEP_TITLES[activeStep].description}</p>
+
+          {staffQuery.isError && !isModuleUnavailable(staffQuery.error) ? (
+            <Alert tone="danger" className="mt-[1rem]">
+              {errorMessage(staffQuery.error, 'We could not load the team.')} Your choices
+              are saved.{' '}
+              <button
+                type="button"
+                className="link font-semibold"
+                onClick={() => void staffQuery.refetch()}
+              >
+                Try again
+              </button>
+            </Alert>
+          ) : null}
 
           {failure ? (
             <Alert tone="danger" className="mt-[1rem]" onDismiss={() => setFailure(null)}>
@@ -639,7 +678,9 @@ export function BookingWizardPage() {
                 </li>
                 <li className="flex items-baseline justify-between gap-[1rem] border-b border-line py-[0.6rem] text-meta">
                   <span>With</span>
-                  <b>{staffName ?? 'First available specialist'}</b>
+                  <b>
+                    {staffName ?? (hasEligibleStaff ? 'First available specialist' : business.name)}
+                  </b>
                 </li>
                 <li className="flex items-baseline justify-between gap-[1rem] border-b border-line py-[0.6rem] text-meta">
                   <span>Duration</span>
@@ -718,7 +759,13 @@ export function BookingWizardPage() {
         </div>
 
         <aside className="sf-book-aside">
-          <StorefrontBookingSummary services={selectedServices} staffName={staffName} when={when} />
+          <StorefrontBookingSummary
+            services={selectedServices}
+            staffName={staffName}
+            when={when}
+            businessName={business.name}
+            hasEligibleStaff={hasEligibleStaff}
+          />
         </aside>
       </div>
 
@@ -729,7 +776,13 @@ export function BookingWizardPage() {
         onToggleExpanded={() => setSummaryOpen((open) => !open)}
         action={primaryAction}
       >
-        <StorefrontBookingSummary services={selectedServices} staffName={staffName} when={when} />
+        <StorefrontBookingSummary
+          services={selectedServices}
+          staffName={staffName}
+          when={when}
+          businessName={business.name}
+          hasEligibleStaff={hasEligibleStaff}
+        />
       </StorefrontBookingActionBar>
     </div>
   )
@@ -762,4 +815,3 @@ const STEP_TITLES: Record<StepKey, { title: string; description: string }> = {
     description: 'Check the details, then confirm. Nothing is charged without your approval.',
   },
 }
-

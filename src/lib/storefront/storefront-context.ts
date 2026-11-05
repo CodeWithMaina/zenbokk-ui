@@ -1,5 +1,10 @@
 import { createContext } from 'react'
-import type { CustomerCapabilities, PublicBusinessProfile, PublicLandingPage } from '../api/types'
+import type {
+  CustomerCapabilities,
+  PublicBusinessProfile,
+  PublicLandingPage,
+  PublicStorefront,
+} from '../api/types'
 import type { CapabilityKey } from '../entitlements'
 
 export type StorefrontContextValue = {
@@ -10,6 +15,13 @@ export type StorefrontContextValue = {
   businessId: string
   business: PublicBusinessProfile
   landingPage: PublicLandingPage
+  /**
+   * The rich Storefront Builder configuration when the business has published
+   * one; null for businesses still on the legacy simple landing page. The public
+   * components read their design from here and fall back to the flat landing-page
+   * fields when it is absent.
+   */
+  storefront: PublicStorefront | null
   capabilities: CustomerCapabilities
   /** Capability gate for storefront sections (services, appointments, gallery…). */
   can: (key: CapabilityKey) => boolean

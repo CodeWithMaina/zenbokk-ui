@@ -211,6 +211,12 @@ function ClientDetailsPage() {
             customerId={clientId}
             enabled={appointmentsEnabled}
             paymentsEnabled={hasModule(MODULE.payments)}
+            onOpenAppointment={(appointmentId) =>
+              void navigate({
+                to: '/dashboard/appointments/$appointmentId',
+                params: { appointmentId },
+              })
+            }
           />
         ) : null}
 

@@ -1,5 +1,6 @@
 import { ArrowLeft, ArrowRight, CalendarPlus, Phone } from 'lucide-react'
 import { formatDuration, getInitials, money } from '../../lib/format'
+import { isModuleUnavailable } from '../../lib/api/client'
 import { useStorefront } from '../../lib/storefront'
 import { resolveServiceNames } from '../../lib/storefront/search'
 import {
@@ -71,6 +72,24 @@ export function StorefrontTeamMemberDetail({
     .split(',')
     .map((value) => value.trim())
     .filter((value) => value.length > 0)
+
+  // The roster is withdrawn (the platform or the business switched the staff
+  // module off), so this profile is simply not published — not broken.
+  if (team.isError && isModuleUnavailable(team.error)) {
+    return (
+      <div className="sf-container py-[clamp(2rem,5vw,3.5rem)]">
+        <StorefrontEmptyState
+          title="We can’t find that person"
+          description="They may no longer be listed on this business’s page."
+          action={
+            <a href={storefrontHref(canonicalSlug, '/team')} className="btn btn-ghost no-underline">
+              Back to the team
+            </a>
+          }
+        />
+      </div>
+    )
+  }
 
   if (team.isError) {
     return (

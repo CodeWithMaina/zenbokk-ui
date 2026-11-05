@@ -29,6 +29,8 @@ export type LoyaltyProgramDetailsProps = {
   onOpenProgram: (programId: string) => void
   /** Return to the programs list. */
   onBack: () => void
+  /** Open a customer's details page from the Customers tab. */
+  onOpenCustomer?: (customerId: string) => void
   /** The roster needs the `customers` module. */
   customersEnabled: boolean
 }
@@ -54,6 +56,7 @@ export function LoyaltyProgramDetails({
   onTabChange,
   onOpenProgram,
   onBack,
+  onOpenCustomer,
   customersEnabled,
 }: LoyaltyProgramDetailsProps) {
   const detail = useProgramDetail(programId)
@@ -198,7 +201,11 @@ export function LoyaltyProgramDetails({
 
           {tab === 'customers' ? (
             customersEnabled ? (
-              <LoyaltyProgramCustomers programId={program.id} enabled />
+              <LoyaltyProgramCustomers
+                programId={program.id}
+                enabled
+                onOpenCustomer={onOpenCustomer}
+              />
             ) : (
               <Alert tone="info" title="Customer management needs the Customers module">
                 This workspace is not entitled to the Customers module, so the enrolled-customer

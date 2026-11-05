@@ -1,4 +1,4 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, Link } from '@tanstack/react-router'
 import { useState } from 'react'
 import { GrowthChart } from '../components/admin/GrowthChart'
 import type { GrowthSeries } from '../components/admin/GrowthChart'
@@ -9,8 +9,12 @@ import { PageHeader } from '../components/ui/page-header'
 import { SegmentedControl } from '../components/ui/segmented-control'
 import { Skeleton } from '../components/ui/skeleton'
 import { useAdminDashboard, useAdminGrowth } from '../lib/admin/use-admin'
+import {
+  useAdminBusinessStats,
+  useAdminSubscriptionStats,
+} from '../lib/admin/use-admin'
 import { errorMessage } from '../lib/api/client'
-import { formatNumber, pluralize } from '../lib/format'
+import { formatNumber, money, pluralize } from '../lib/format'
 
 export const Route = createFileRoute('/admin/')({
   component: AdminOverview,
@@ -29,6 +33,8 @@ function AdminOverview() {
   const [period, setPeriod] = useState<Period>('30d')
   const dashboard = useAdminDashboard()
   const growth = useAdminGrowth(period)
+  const businessStats = useAdminBusinessStats()
+  const subscriptionStats = useAdminSubscriptionStats()
 
   const series: GrowthSeries[] = growth.data
     ? [
@@ -175,6 +181,93 @@ function AdminOverview() {
             </p>
           </div>
         </Card>
+      </div>
+
+      <div className="mt-[1rem] grid gap-[1rem] lg:grid-cols-2">
+        <SectionCard
+          title="Business health"
+          description="Where every workspace stands today."
+          action={
+            <Link to="/admin/businesses" className="link font-semibold">
+              Manage businesses
+            </Link>
+          }
+        >
+          {businessStats.isError ? (
+            <Alert tone="warning">
+              {errorMessage(businessStats.error, 'The business counters did not load.')}
+            </Alert>
+          ) : businessStats.isPending ? (
+            <Skeleton className="h-20 rounded-card" />
+          ) : (
+            <ul className="list-none divide-y divide-line p-0 text-meta">
+              {(
+                [
+                  ['Total businesses', businessStats.data?.total ?? 0],
+                  ['Active', businessStats.data?.active ?? 0],
+                  ['On trial', businessStats.data?.trial ?? 0],
+                  ['Suspended', businessStats.data?.suspended ?? 0],
+                  ['Deactivated', businessStats.data?.deactivated ?? 0],
+                  ['Expiring within 7 days', businessStats.data?.expiringSoon ?? 0],
+                ] as const
+              ).map(([label, value]) => (
+                <li key={label} className="flex items-center justify-between gap-3 py-[0.5rem]">
+                  <span className="text-muted">{label}</span>
+                  <b className="font-semibold tabular">{formatNumber(value)}</b>
+                </li>
+              ))}
+            </ul>
+          )}
+        </SectionCard>
+
+        <SectionCard
+          title="Subscription health"
+          description="Lifecycle distribution and recurring revenue."
+          action={
+            <Link to="/admin/subscriptions" className="link font-semibold">
+              Manage subscriptions
+            </Link>
+          }
+        >
+          {subscriptionStats.isError ? (
+            <Alert tone="warning">
+              {errorMessage(subscriptionStats.error, 'The subscription counters did not load.')}
+            </Alert>
+          ) : subscriptionStats.isPending ? (
+            <Skeleton className="h-20 rounded-card" />
+          ) : (
+            <ul className="list-none divide-y divide-line p-0 text-meta">
+              {(
+                [
+                  ['Active', subscriptionStats.data?.active ?? 0],
+                  ['Trial', subscriptionStats.data?.trial ?? 0],
+                  ['Paused', subscriptionStats.data?.paused ?? 0],
+                  ['Past due', subscriptionStats.data?.pastDue ?? 0],
+                  ['Cancelled', subscriptionStats.data?.canceled ?? 0],
+                  ['Expired', subscriptionStats.data?.expired ?? 0],
+                  ['Renewing within 7 days', subscriptionStats.data?.renewingIn7Days ?? 0],
+                ] as const
+              ).map(([label, value]) => (
+                <li key={label} className="flex items-center justify-between gap-3 py-[0.5rem]">
+                  <span className="text-muted">{label}</span>
+                  <b className="font-semibold tabular">{formatNumber(value)}</b>
+                </li>
+              ))}
+              <li className="flex items-center justify-between gap-3 py-[0.5rem]">
+                <span className="text-muted">Monthly recurring revenue</span>
+                <b className="font-semibold tabular">
+                  {money(Number(subscriptionStats.data?.monthlyRecurringRevenue ?? 0))}
+                </b>
+              </li>
+              <li className="flex items-center justify-between gap-3 py-[0.5rem]">
+                <span className="text-muted">Annual recurring revenue</span>
+                <b className="font-semibold tabular">
+                  {money(Number(subscriptionStats.data?.annualRecurringRevenue ?? 0))}
+                </b>
+              </li>
+            </ul>
+          )}
+        </SectionCard>
       </div>
     </div>
   )

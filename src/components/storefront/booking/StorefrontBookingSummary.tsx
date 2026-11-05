@@ -9,6 +9,10 @@ export type StorefrontBookingSummaryProps = {
   staffName: string | null
   /** Already-formatted appointment date and time, when chosen. */
   when: string | null
+  /** For solo businesses, the business name to show instead of staff. */
+  businessName?: string
+  /** Whether staff exists for this business. */
+  hasEligibleStaff?: boolean
   className?: string
 }
 
@@ -24,6 +28,8 @@ export function StorefrontBookingSummary({
   services,
   staffName,
   when,
+  businessName,
+  hasEligibleStaff = true,
   className,
 }: StorefrontBookingSummaryProps) {
   const total = services.reduce((sum, service) => sum + service.price, 0)
@@ -54,7 +60,9 @@ export function StorefrontBookingSummary({
 
           <div className="sf-summary-row">
             <span>With</span>
-            <span className="text-premium-ink">{staffName ?? 'First available'}</span>
+            <span className="text-premium-ink">
+              {staffName ?? (hasEligibleStaff ? 'First available' : businessName ?? 'Studio')}
+            </span>
           </div>
 
           {when ? (

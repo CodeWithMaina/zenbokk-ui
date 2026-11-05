@@ -62,12 +62,15 @@ function largestImage(variants: ImageVariant[] | null | undefined): string | nul
 }
 
 export function useStorefrontSeo(pathname: string) {
-  const { businessId, business, landingPage, canonicalSlug, slug } = useStorefront()
+  const { businessId, business, landingPage, canonicalSlug, slug, storefront } = useStorefront()
   const hours = useStorefrontOpeningHours(businessId)
 
   useEffect(() => {
-    const title = `${landingPage.heroTitle} · ${business.name}`
+    const title =
+      storefront?.seo.title ??
+      `${landingPage.heroTitle} · ${business.name}`
     const description =
+      storefront?.seo.description ??
       landingPage.heroDescription ??
       landingPage.heroTagline ??
       business.description ??
@@ -84,19 +87,24 @@ export function useStorefrontSeo(pathname: string) {
             ? pathname.slice(slug.length + 1)
             : pathname
     const canonical = tenantUrl(canonicalSlug, relativePath)
-    const image = largestImage(landingPage.heroBackgroundVariants) ?? largestImage(business.logoVariants)
+    const image =
+      largestImage(storefront?.ogImageVariants) ??
+      largestImage(landingPage.heroBackgroundVariants) ??
+      largestImage(business.logoVariants)
 
     document.title = title
 
     upsertMeta('name', 'description', description)
+    if (storefront?.seo.keywords) upsertMeta('name', 'keywords', storefront.seo.keywords)
     // A resolved, active business is indexable; its canonical is the tenant host.
     upsertMeta('name', 'robots', 'index,follow')
     upsertLink('canonical', canonical)
+    upsertLink('icon', largestImage(storefront?.faviconVariants))
 
     upsertMeta('property', 'og:type', 'website')
     upsertMeta('property', 'og:site_name', business.name)
-    upsertMeta('property', 'og:title', title)
-    upsertMeta('property', 'og:description', description)
+    upsertMeta('property', 'og:title', storefront?.seo.ogTitle ?? title)
+    upsertMeta('property', 'og:description', storefront?.seo.ogDescription ?? description)
     upsertMeta('property', 'og:url', canonical)
     upsertMeta('property', 'og:image', image)
 
@@ -139,5 +147,5 @@ export function useStorefrontSeo(pathname: string) {
       document.head.appendChild(script)
     }
     script.textContent = JSON.stringify(structuredData)
-  }, [business, canonicalSlug, hours.data, landingPage, pathname, slug])
+  }, [business, canonicalSlug, hours.data, landingPage, pathname, slug, storefront])
 }

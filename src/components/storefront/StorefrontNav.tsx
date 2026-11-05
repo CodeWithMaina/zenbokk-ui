@@ -25,7 +25,7 @@ import { StorefrontThemeToggle } from './StorefrontThemeToggle'
  * it agrees with the wizard and the tray at all times.
  */
 export function StorefrontNav() {
-  const { business, canonicalSlug, landingPage, can, businessId } = useStorefront()
+  const { business, canonicalSlug, landingPage, can, businessId, storefront } = useStorefront()
   const pathname = useLocation({ select: (location) => location.pathname })
   const { count } = useBookingTray(businessId)
   const [menuOpen, setMenuOpen] = useState(false)
@@ -100,9 +100,22 @@ export function StorefrontNav() {
 
   const overlay = isHome && !scrolled && !menuOpen
 
+  // The header is the owner's configuration when the builder has published one:
+  // its variant, transparency, stickiness, brand visibility and CTA all come from
+  // there. A business still on the legacy page keeps the platform header.
+  const header = storefront?.header ?? null
+  const headerVariant = header?.variant ?? 'minimal'
+  const showBrandName = header?.showBusinessName ?? true
+  const ctaEnabled = header?.ctaEnabled ?? true
+  const ctaLabel = header?.ctaLabel ?? landingPage.primaryCta.label ?? 'Book an appointment'
+
   return (
     <>
-      <header className={cn('sf-header', overlay ? 'is-overlay' : 'is-solid')}>
+      <header
+        className={cn('sf-header', `is-${headerVariant}`, overlay ? 'is-overlay' : 'is-solid')}
+        data-sf-header={headerVariant}
+        style={header ? { background: overlay && header.transparent ? 'transparent' : header.background, color: header.textColor } : undefined}
+      >
         <div className="sf-container">
           <div className="sf-header-inner">
             <a href={homeHref} className="sf-brand" aria-label={`${business.name} home`}>
@@ -113,10 +126,12 @@ export function StorefrontNav() {
                   getInitials(business.name).slice(0, 1)
                 )}
               </span>
-              <span className="sf-brand-name">
-                {business.name}
-                {business.category ? <small>{business.category}</small> : null}
-              </span>
+              {showBrandName ? (
+                <span className="sf-brand-name">
+                  {business.name}
+                  {business.category ? <small>{business.category}</small> : null}
+                </span>
+              ) : null}
             </a>
 
             <nav className="sf-nav" aria-label="Storefront">
@@ -159,10 +174,10 @@ export function StorefrontNav() {
               <StorefrontThemeToggle />
               <StorefrontAccountMenu />
 
-              {canBook ? (
+              {canBook && ctaEnabled ? (
                 <a href={bookHref} className="btn btn-primary sf-header-book no-underline">
                   <CalendarPlus className="size-[0.95rem]" aria-hidden="true" />
-                  Book now
+                  {ctaLabel}
                 </a>
               ) : null}
 
@@ -212,7 +227,7 @@ export function StorefrontNav() {
               onClick={() => setMenuOpen(false)}
             >
               <CalendarPlus className="size-[1rem]" aria-hidden="true" />
-              {landingPage.primaryCta.label || 'Book an appointment'}
+              {landingPage.primaryCta.label || ctaLabel}
             </a>
           ) : null}
           <p className="mt-[1rem]">

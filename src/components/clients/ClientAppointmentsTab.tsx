@@ -23,6 +23,8 @@ export type ClientAppointmentsTabProps = {
   enabled: boolean
   /** Payments module access, so a row only offers payment when it can load. */
   paymentsEnabled: boolean
+  /** Open an appointment's details page. */
+  onOpenAppointment?: (appointmentId: string) => void
 }
 
 type StatusFilter = 'all' | (typeof APPOINTMENT_STATUSES)[number]
@@ -82,6 +84,7 @@ export function ClientAppointmentsTab({
   customerId,
   enabled,
   paymentsEnabled,
+  onOpenAppointment,
 }: ClientAppointmentsTabProps) {
   const [status, setStatus] = useState<StatusFilter>('all')
   const [page, setPage] = useState(1)
@@ -189,7 +192,14 @@ export function ClientAppointmentsTab({
         <ul className="m-0 flex list-none flex-col gap-[0.7rem] p-0">
           {rows.map((appointment) => (
             <li key={appointment.id}>
-              <AppointmentCard appointment={toAppointmentCard(appointment, services)} />
+              <AppointmentCard
+                appointment={toAppointmentCard(appointment, services)}
+                onOpen={
+                  onOpenAppointment
+                    ? () => onOpenAppointment(appointment.id)
+                    : undefined
+                }
+              />
               <ClientAppointmentPayment
                 appointmentId={appointment.id}
                 enabled={paymentsEnabled}

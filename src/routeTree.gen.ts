@@ -34,7 +34,11 @@ import { Route as SlugGalleryRouteImport } from './routes/$slug.gallery'
 import { Route as SlugReviewsRouteImport } from './routes/$slug.reviews'
 import { Route as SlugSearchRouteImport } from './routes/$slug.search'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
+import { Route as AdminAuditRouteImport } from './routes/admin.audit'
 import { Route as AdminBusinessesRouteImport } from './routes/admin.businesses'
+import { Route as AdminModulesRouteImport } from './routes/admin.modules'
+import { Route as AdminPlansRouteImport } from './routes/admin.plans'
+import { Route as AdminSubscriptionsRouteImport } from './routes/admin.subscriptions'
 import { Route as AdminUsersRouteImport } from './routes/admin.users'
 import { Route as AuthForgotPasswordRouteImport } from './routes/auth.forgot-password'
 import { Route as AuthResetPasswordRouteImport } from './routes/auth.reset-password'
@@ -71,6 +75,11 @@ import { Route as SlugServicesIndexRouteImport } from './routes/$slug.services.i
 import { Route as SlugServicesServiceIdRouteImport } from './routes/$slug.services.$serviceId'
 import { Route as SlugTeamIndexRouteImport } from './routes/$slug.team.index'
 import { Route as SlugTeamStaffIdRouteImport } from './routes/$slug.team.$staffId'
+import { Route as AdminBusinessesBusinessIdRouteImport } from './routes/admin.businesses.$businessId'
+import { Route as AdminPlansTierIdRouteImport } from './routes/admin.plans.$tierId'
+import { Route as AdminSubscriptionsBusinessIdRouteImport } from './routes/admin.subscriptions.$businessId'
+import { Route as DashboardAppointmentsIndexRouteImport } from './routes/dashboard.appointments.index'
+import { Route as DashboardAppointmentsAppointmentIdRouteImport } from './routes/dashboard.appointments.$appointmentId'
 import { Route as DashboardCustomersIndexRouteImport } from './routes/dashboard.customers.index'
 import { Route as DashboardCustomersClientIdRouteImport } from './routes/dashboard.customers.$clientId'
 import { Route as DashboardProgramsIndexRouteImport } from './routes/dashboard.programs.index'
@@ -80,6 +89,9 @@ import { Route as DashboardServicesServiceIdRouteImport } from './routes/dashboa
 import { Route as DashboardServicesNewRouteImport } from './routes/dashboard.services.new'
 import { Route as DashboardStaffIndexRouteImport } from './routes/dashboard.staff.index'
 import { Route as DashboardStaffStaffIdRouteImport } from './routes/dashboard.staff.$staffId'
+import { Route as DashboardStorefrontIndexRouteImport } from './routes/dashboard.storefront.index'
+import { Route as DashboardStorefrontBuilderRouteImport } from './routes/dashboard.storefront.builder'
+import { Route as DashboardStorefrontTemplatesRouteImport } from './routes/dashboard.storefront.templates'
 import { Route as DashboardServicesServiceIdIndexRouteImport } from './routes/dashboard.services.$serviceId.index'
 import { Route as DashboardServicesServiceIdEditRouteImport } from './routes/dashboard.services.$serviceId.edit'
 
@@ -208,9 +220,29 @@ const AdminIndexRoute = AdminIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminAuditRoute = AdminAuditRouteImport.update({
+  id: '/audit',
+  path: '/audit',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminBusinessesRoute = AdminBusinessesRouteImport.update({
   id: '/businesses',
   path: '/businesses',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminModulesRoute = AdminModulesRouteImport.update({
+  id: '/modules',
+  path: '/modules',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminPlansRoute = AdminPlansRouteImport.update({
+  id: '/plans',
+  path: '/plans',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminSubscriptionsRoute = AdminSubscriptionsRouteImport.update({
+  id: '/subscriptions',
+  path: '/subscriptions',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminUsersRoute = AdminUsersRouteImport.update({
@@ -393,6 +425,35 @@ const SlugTeamStaffIdRoute = SlugTeamStaffIdRouteImport.update({
   path: '/team/$staffId',
   getParentRoute: () => SlugRoute,
 } as any)
+const AdminBusinessesBusinessIdRoute =
+  AdminBusinessesBusinessIdRouteImport.update({
+    id: '/$businessId',
+    path: '/$businessId',
+    getParentRoute: () => AdminBusinessesRoute,
+  } as any)
+const AdminPlansTierIdRoute = AdminPlansTierIdRouteImport.update({
+  id: '/$tierId',
+  path: '/$tierId',
+  getParentRoute: () => AdminPlansRoute,
+} as any)
+const AdminSubscriptionsBusinessIdRoute =
+  AdminSubscriptionsBusinessIdRouteImport.update({
+    id: '/$businessId',
+    path: '/$businessId',
+    getParentRoute: () => AdminSubscriptionsRoute,
+  } as any)
+const DashboardAppointmentsIndexRoute =
+  DashboardAppointmentsIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => DashboardAppointmentsRoute,
+  } as any)
+const DashboardAppointmentsAppointmentIdRoute =
+  DashboardAppointmentsAppointmentIdRouteImport.update({
+    id: '/$appointmentId',
+    path: '/$appointmentId',
+    getParentRoute: () => DashboardAppointmentsRoute,
+  } as any)
 const DashboardCustomersIndexRoute = DashboardCustomersIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -441,6 +502,24 @@ const DashboardStaffStaffIdRoute = DashboardStaffStaffIdRouteImport.update({
   path: '/$staffId',
   getParentRoute: () => DashboardStaffRoute,
 } as any)
+const DashboardStorefrontIndexRoute =
+  DashboardStorefrontIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => DashboardStorefrontRoute,
+  } as any)
+const DashboardStorefrontBuilderRoute =
+  DashboardStorefrontBuilderRouteImport.update({
+    id: '/builder',
+    path: '/builder',
+    getParentRoute: () => DashboardStorefrontRoute,
+  } as any)
+const DashboardStorefrontTemplatesRoute =
+  DashboardStorefrontTemplatesRouteImport.update({
+    id: '/templates',
+    path: '/templates',
+    getParentRoute: () => DashboardStorefrontRoute,
+  } as any)
 const DashboardServicesServiceIdIndexRoute =
   DashboardServicesServiceIdIndexRouteImport.update({
     id: '/',
@@ -478,7 +557,11 @@ export interface FileRoutesByFullPath {
   '/$slug/gallery': typeof SlugGalleryRoute
   '/$slug/reviews': typeof SlugReviewsRoute
   '/$slug/search': typeof SlugSearchRoute
-  '/admin/businesses': typeof AdminBusinessesRoute
+  '/admin/audit': typeof AdminAuditRoute
+  '/admin/businesses': typeof AdminBusinessesRouteWithChildren
+  '/admin/modules': typeof AdminModulesRoute
+  '/admin/plans': typeof AdminPlansRouteWithChildren
+  '/admin/subscriptions': typeof AdminSubscriptionsRouteWithChildren
   '/admin/users': typeof AdminUsersRoute
   '/auth/forgot-password': typeof AuthForgotPasswordRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
@@ -486,7 +569,7 @@ export interface FileRoutesByFullPath {
   '/auth/sign-up': typeof AuthSignUpRoute
   '/auth/verify': typeof AuthVerifyRoute
   '/dashboard/analytics': typeof DashboardAnalyticsRoute
-  '/dashboard/appointments': typeof DashboardAppointmentsRoute
+  '/dashboard/appointments': typeof DashboardAppointmentsRouteWithChildren
   '/dashboard/attendance': typeof DashboardAttendanceRoute
   '/dashboard/card-design': typeof DashboardCardDesignRoute
   '/dashboard/customers': typeof DashboardCustomersRouteWithChildren
@@ -502,7 +585,7 @@ export interface FileRoutesByFullPath {
   '/dashboard/settings': typeof DashboardSettingsRoute
   '/dashboard/staff': typeof DashboardStaffRouteWithChildren
   '/dashboard/stamps': typeof DashboardStampsRoute
-  '/dashboard/storefront': typeof DashboardStorefrontRoute
+  '/dashboard/storefront': typeof DashboardStorefrontRouteWithChildren
   '/invitations/accept': typeof InvitationsAcceptRoute
   '/services/$serviceId': typeof ServicesServiceIdRoute
   '/staff/appointments': typeof StaffAppointmentsRoute
@@ -515,17 +598,25 @@ export interface FileRoutesByFullPath {
   '/team/': typeof TeamIndexRoute
   '/$slug/services/$serviceId': typeof SlugServicesServiceIdRoute
   '/$slug/team/$staffId': typeof SlugTeamStaffIdRoute
+  '/admin/businesses/$businessId': typeof AdminBusinessesBusinessIdRoute
+  '/admin/plans/$tierId': typeof AdminPlansTierIdRoute
+  '/admin/subscriptions/$businessId': typeof AdminSubscriptionsBusinessIdRoute
+  '/dashboard/appointments/$appointmentId': typeof DashboardAppointmentsAppointmentIdRoute
   '/dashboard/customers/$clientId': typeof DashboardCustomersClientIdRoute
   '/dashboard/programs/$programId': typeof DashboardProgramsProgramIdRoute
   '/dashboard/services/$serviceId': typeof DashboardServicesServiceIdRouteWithChildren
   '/dashboard/services/new': typeof DashboardServicesNewRoute
   '/dashboard/staff/$staffId': typeof DashboardStaffStaffIdRoute
+  '/dashboard/storefront/builder': typeof DashboardStorefrontBuilderRoute
+  '/dashboard/storefront/templates': typeof DashboardStorefrontTemplatesRoute
   '/$slug/services/': typeof SlugServicesIndexRoute
   '/$slug/team/': typeof SlugTeamIndexRoute
+  '/dashboard/appointments/': typeof DashboardAppointmentsIndexRoute
   '/dashboard/customers/': typeof DashboardCustomersIndexRoute
   '/dashboard/programs/': typeof DashboardProgramsIndexRoute
   '/dashboard/services/': typeof DashboardServicesIndexRoute
   '/dashboard/staff/': typeof DashboardStaffIndexRoute
+  '/dashboard/storefront/': typeof DashboardStorefrontIndexRoute
   '/dashboard/services/$serviceId/edit': typeof DashboardServicesServiceIdEditRoute
   '/dashboard/services/$serviceId/': typeof DashboardServicesServiceIdIndexRoute
 }
@@ -549,7 +640,11 @@ export interface FileRoutesByTo {
   '/$slug/gallery': typeof SlugGalleryRoute
   '/$slug/reviews': typeof SlugReviewsRoute
   '/$slug/search': typeof SlugSearchRoute
-  '/admin/businesses': typeof AdminBusinessesRoute
+  '/admin/audit': typeof AdminAuditRoute
+  '/admin/businesses': typeof AdminBusinessesRouteWithChildren
+  '/admin/modules': typeof AdminModulesRoute
+  '/admin/plans': typeof AdminPlansRouteWithChildren
+  '/admin/subscriptions': typeof AdminSubscriptionsRouteWithChildren
   '/admin/users': typeof AdminUsersRoute
   '/auth/forgot-password': typeof AuthForgotPasswordRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
@@ -557,7 +652,6 @@ export interface FileRoutesByTo {
   '/auth/sign-up': typeof AuthSignUpRoute
   '/auth/verify': typeof AuthVerifyRoute
   '/dashboard/analytics': typeof DashboardAnalyticsRoute
-  '/dashboard/appointments': typeof DashboardAppointmentsRoute
   '/dashboard/attendance': typeof DashboardAttendanceRoute
   '/dashboard/card-design': typeof DashboardCardDesignRoute
   '/dashboard/gallery': typeof DashboardGalleryRoute
@@ -569,7 +663,6 @@ export interface FileRoutesByTo {
   '/dashboard/rewards': typeof DashboardRewardsRoute
   '/dashboard/settings': typeof DashboardSettingsRoute
   '/dashboard/stamps': typeof DashboardStampsRoute
-  '/dashboard/storefront': typeof DashboardStorefrontRoute
   '/invitations/accept': typeof InvitationsAcceptRoute
   '/services/$serviceId': typeof ServicesServiceIdRoute
   '/staff/appointments': typeof StaffAppointmentsRoute
@@ -582,16 +675,24 @@ export interface FileRoutesByTo {
   '/team': typeof TeamIndexRoute
   '/$slug/services/$serviceId': typeof SlugServicesServiceIdRoute
   '/$slug/team/$staffId': typeof SlugTeamStaffIdRoute
+  '/admin/businesses/$businessId': typeof AdminBusinessesBusinessIdRoute
+  '/admin/plans/$tierId': typeof AdminPlansTierIdRoute
+  '/admin/subscriptions/$businessId': typeof AdminSubscriptionsBusinessIdRoute
+  '/dashboard/appointments/$appointmentId': typeof DashboardAppointmentsAppointmentIdRoute
   '/dashboard/customers/$clientId': typeof DashboardCustomersClientIdRoute
   '/dashboard/programs/$programId': typeof DashboardProgramsProgramIdRoute
   '/dashboard/services/new': typeof DashboardServicesNewRoute
   '/dashboard/staff/$staffId': typeof DashboardStaffStaffIdRoute
+  '/dashboard/storefront/builder': typeof DashboardStorefrontBuilderRoute
+  '/dashboard/storefront/templates': typeof DashboardStorefrontTemplatesRoute
   '/$slug/services': typeof SlugServicesIndexRoute
   '/$slug/team': typeof SlugTeamIndexRoute
+  '/dashboard/appointments': typeof DashboardAppointmentsIndexRoute
   '/dashboard/customers': typeof DashboardCustomersIndexRoute
   '/dashboard/programs': typeof DashboardProgramsIndexRoute
   '/dashboard/services': typeof DashboardServicesIndexRoute
   '/dashboard/staff': typeof DashboardStaffIndexRoute
+  '/dashboard/storefront': typeof DashboardStorefrontIndexRoute
   '/dashboard/services/$serviceId/edit': typeof DashboardServicesServiceIdEditRoute
   '/dashboard/services/$serviceId': typeof DashboardServicesServiceIdIndexRoute
 }
@@ -620,7 +721,11 @@ export interface FileRoutesById {
   '/$slug/gallery': typeof SlugGalleryRoute
   '/$slug/reviews': typeof SlugReviewsRoute
   '/$slug/search': typeof SlugSearchRoute
-  '/admin/businesses': typeof AdminBusinessesRoute
+  '/admin/audit': typeof AdminAuditRoute
+  '/admin/businesses': typeof AdminBusinessesRouteWithChildren
+  '/admin/modules': typeof AdminModulesRoute
+  '/admin/plans': typeof AdminPlansRouteWithChildren
+  '/admin/subscriptions': typeof AdminSubscriptionsRouteWithChildren
   '/admin/users': typeof AdminUsersRoute
   '/auth/forgot-password': typeof AuthForgotPasswordRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
@@ -628,7 +733,7 @@ export interface FileRoutesById {
   '/auth/sign-up': typeof AuthSignUpRoute
   '/auth/verify': typeof AuthVerifyRoute
   '/dashboard/analytics': typeof DashboardAnalyticsRoute
-  '/dashboard/appointments': typeof DashboardAppointmentsRoute
+  '/dashboard/appointments': typeof DashboardAppointmentsRouteWithChildren
   '/dashboard/attendance': typeof DashboardAttendanceRoute
   '/dashboard/card-design': typeof DashboardCardDesignRoute
   '/dashboard/customers': typeof DashboardCustomersRouteWithChildren
@@ -644,7 +749,7 @@ export interface FileRoutesById {
   '/dashboard/settings': typeof DashboardSettingsRoute
   '/dashboard/staff': typeof DashboardStaffRouteWithChildren
   '/dashboard/stamps': typeof DashboardStampsRoute
-  '/dashboard/storefront': typeof DashboardStorefrontRoute
+  '/dashboard/storefront': typeof DashboardStorefrontRouteWithChildren
   '/invitations/accept': typeof InvitationsAcceptRoute
   '/services/$serviceId': typeof ServicesServiceIdRoute
   '/staff/appointments': typeof StaffAppointmentsRoute
@@ -657,17 +762,25 @@ export interface FileRoutesById {
   '/team/': typeof TeamIndexRoute
   '/$slug/services/$serviceId': typeof SlugServicesServiceIdRoute
   '/$slug/team/$staffId': typeof SlugTeamStaffIdRoute
+  '/admin/businesses/$businessId': typeof AdminBusinessesBusinessIdRoute
+  '/admin/plans/$tierId': typeof AdminPlansTierIdRoute
+  '/admin/subscriptions/$businessId': typeof AdminSubscriptionsBusinessIdRoute
+  '/dashboard/appointments/$appointmentId': typeof DashboardAppointmentsAppointmentIdRoute
   '/dashboard/customers/$clientId': typeof DashboardCustomersClientIdRoute
   '/dashboard/programs/$programId': typeof DashboardProgramsProgramIdRoute
   '/dashboard/services/$serviceId': typeof DashboardServicesServiceIdRouteWithChildren
   '/dashboard/services/new': typeof DashboardServicesNewRoute
   '/dashboard/staff/$staffId': typeof DashboardStaffStaffIdRoute
+  '/dashboard/storefront/builder': typeof DashboardStorefrontBuilderRoute
+  '/dashboard/storefront/templates': typeof DashboardStorefrontTemplatesRoute
   '/$slug/services/': typeof SlugServicesIndexRoute
   '/$slug/team/': typeof SlugTeamIndexRoute
+  '/dashboard/appointments/': typeof DashboardAppointmentsIndexRoute
   '/dashboard/customers/': typeof DashboardCustomersIndexRoute
   '/dashboard/programs/': typeof DashboardProgramsIndexRoute
   '/dashboard/services/': typeof DashboardServicesIndexRoute
   '/dashboard/staff/': typeof DashboardStaffIndexRoute
+  '/dashboard/storefront/': typeof DashboardStorefrontIndexRoute
   '/dashboard/services/$serviceId/edit': typeof DashboardServicesServiceIdEditRoute
   '/dashboard/services/$serviceId/': typeof DashboardServicesServiceIdIndexRoute
 }
@@ -697,7 +810,11 @@ export interface FileRouteTypes {
     | '/$slug/gallery'
     | '/$slug/reviews'
     | '/$slug/search'
+    | '/admin/audit'
     | '/admin/businesses'
+    | '/admin/modules'
+    | '/admin/plans'
+    | '/admin/subscriptions'
     | '/admin/users'
     | '/auth/forgot-password'
     | '/auth/reset-password'
@@ -734,17 +851,25 @@ export interface FileRouteTypes {
     | '/team/'
     | '/$slug/services/$serviceId'
     | '/$slug/team/$staffId'
+    | '/admin/businesses/$businessId'
+    | '/admin/plans/$tierId'
+    | '/admin/subscriptions/$businessId'
+    | '/dashboard/appointments/$appointmentId'
     | '/dashboard/customers/$clientId'
     | '/dashboard/programs/$programId'
     | '/dashboard/services/$serviceId'
     | '/dashboard/services/new'
     | '/dashboard/staff/$staffId'
+    | '/dashboard/storefront/builder'
+    | '/dashboard/storefront/templates'
     | '/$slug/services/'
     | '/$slug/team/'
+    | '/dashboard/appointments/'
     | '/dashboard/customers/'
     | '/dashboard/programs/'
     | '/dashboard/services/'
     | '/dashboard/staff/'
+    | '/dashboard/storefront/'
     | '/dashboard/services/$serviceId/edit'
     | '/dashboard/services/$serviceId/'
   fileRoutesByTo: FileRoutesByTo
@@ -768,7 +893,11 @@ export interface FileRouteTypes {
     | '/$slug/gallery'
     | '/$slug/reviews'
     | '/$slug/search'
+    | '/admin/audit'
     | '/admin/businesses'
+    | '/admin/modules'
+    | '/admin/plans'
+    | '/admin/subscriptions'
     | '/admin/users'
     | '/auth/forgot-password'
     | '/auth/reset-password'
@@ -776,7 +905,6 @@ export interface FileRouteTypes {
     | '/auth/sign-up'
     | '/auth/verify'
     | '/dashboard/analytics'
-    | '/dashboard/appointments'
     | '/dashboard/attendance'
     | '/dashboard/card-design'
     | '/dashboard/gallery'
@@ -788,7 +916,6 @@ export interface FileRouteTypes {
     | '/dashboard/rewards'
     | '/dashboard/settings'
     | '/dashboard/stamps'
-    | '/dashboard/storefront'
     | '/invitations/accept'
     | '/services/$serviceId'
     | '/staff/appointments'
@@ -801,16 +928,24 @@ export interface FileRouteTypes {
     | '/team'
     | '/$slug/services/$serviceId'
     | '/$slug/team/$staffId'
+    | '/admin/businesses/$businessId'
+    | '/admin/plans/$tierId'
+    | '/admin/subscriptions/$businessId'
+    | '/dashboard/appointments/$appointmentId'
     | '/dashboard/customers/$clientId'
     | '/dashboard/programs/$programId'
     | '/dashboard/services/new'
     | '/dashboard/staff/$staffId'
+    | '/dashboard/storefront/builder'
+    | '/dashboard/storefront/templates'
     | '/$slug/services'
     | '/$slug/team'
+    | '/dashboard/appointments'
     | '/dashboard/customers'
     | '/dashboard/programs'
     | '/dashboard/services'
     | '/dashboard/staff'
+    | '/dashboard/storefront'
     | '/dashboard/services/$serviceId/edit'
     | '/dashboard/services/$serviceId'
   id:
@@ -838,7 +973,11 @@ export interface FileRouteTypes {
     | '/$slug/gallery'
     | '/$slug/reviews'
     | '/$slug/search'
+    | '/admin/audit'
     | '/admin/businesses'
+    | '/admin/modules'
+    | '/admin/plans'
+    | '/admin/subscriptions'
     | '/admin/users'
     | '/auth/forgot-password'
     | '/auth/reset-password'
@@ -875,17 +1014,25 @@ export interface FileRouteTypes {
     | '/team/'
     | '/$slug/services/$serviceId'
     | '/$slug/team/$staffId'
+    | '/admin/businesses/$businessId'
+    | '/admin/plans/$tierId'
+    | '/admin/subscriptions/$businessId'
+    | '/dashboard/appointments/$appointmentId'
     | '/dashboard/customers/$clientId'
     | '/dashboard/programs/$programId'
     | '/dashboard/services/$serviceId'
     | '/dashboard/services/new'
     | '/dashboard/staff/$staffId'
+    | '/dashboard/storefront/builder'
+    | '/dashboard/storefront/templates'
     | '/$slug/services/'
     | '/$slug/team/'
+    | '/dashboard/appointments/'
     | '/dashboard/customers/'
     | '/dashboard/programs/'
     | '/dashboard/services/'
     | '/dashboard/staff/'
+    | '/dashboard/storefront/'
     | '/dashboard/services/$serviceId/edit'
     | '/dashboard/services/$serviceId/'
   fileRoutesById: FileRoutesById
@@ -1091,11 +1238,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminIndexRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/audit': {
+      id: '/admin/audit'
+      path: '/audit'
+      fullPath: '/admin/audit'
+      preLoaderRoute: typeof AdminAuditRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/businesses': {
       id: '/admin/businesses'
       path: '/businesses'
       fullPath: '/admin/businesses'
       preLoaderRoute: typeof AdminBusinessesRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/modules': {
+      id: '/admin/modules'
+      path: '/modules'
+      fullPath: '/admin/modules'
+      preLoaderRoute: typeof AdminModulesRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/plans': {
+      id: '/admin/plans'
+      path: '/plans'
+      fullPath: '/admin/plans'
+      preLoaderRoute: typeof AdminPlansRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/subscriptions': {
+      id: '/admin/subscriptions'
+      path: '/subscriptions'
+      fullPath: '/admin/subscriptions'
+      preLoaderRoute: typeof AdminSubscriptionsRouteImport
       parentRoute: typeof AdminRoute
     }
     '/admin/users': {
@@ -1350,6 +1525,41 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SlugTeamStaffIdRouteImport
       parentRoute: typeof SlugRoute
     }
+    '/admin/businesses/$businessId': {
+      id: '/admin/businesses/$businessId'
+      path: '/$businessId'
+      fullPath: '/admin/businesses/$businessId'
+      preLoaderRoute: typeof AdminBusinessesBusinessIdRouteImport
+      parentRoute: typeof AdminBusinessesRoute
+    }
+    '/admin/plans/$tierId': {
+      id: '/admin/plans/$tierId'
+      path: '/$tierId'
+      fullPath: '/admin/plans/$tierId'
+      preLoaderRoute: typeof AdminPlansTierIdRouteImport
+      parentRoute: typeof AdminPlansRoute
+    }
+    '/admin/subscriptions/$businessId': {
+      id: '/admin/subscriptions/$businessId'
+      path: '/$businessId'
+      fullPath: '/admin/subscriptions/$businessId'
+      preLoaderRoute: typeof AdminSubscriptionsBusinessIdRouteImport
+      parentRoute: typeof AdminSubscriptionsRoute
+    }
+    '/dashboard/appointments/': {
+      id: '/dashboard/appointments/'
+      path: '/'
+      fullPath: '/dashboard/appointments/'
+      preLoaderRoute: typeof DashboardAppointmentsIndexRouteImport
+      parentRoute: typeof DashboardAppointmentsRoute
+    }
+    '/dashboard/appointments/$appointmentId': {
+      id: '/dashboard/appointments/$appointmentId'
+      path: '/$appointmentId'
+      fullPath: '/dashboard/appointments/$appointmentId'
+      preLoaderRoute: typeof DashboardAppointmentsAppointmentIdRouteImport
+      parentRoute: typeof DashboardAppointmentsRoute
+    }
     '/dashboard/customers/': {
       id: '/dashboard/customers/'
       path: '/'
@@ -1413,6 +1623,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardStaffStaffIdRouteImport
       parentRoute: typeof DashboardStaffRoute
     }
+    '/dashboard/storefront/': {
+      id: '/dashboard/storefront/'
+      path: '/'
+      fullPath: '/dashboard/storefront/'
+      preLoaderRoute: typeof DashboardStorefrontIndexRouteImport
+      parentRoute: typeof DashboardStorefrontRoute
+    }
+    '/dashboard/storefront/builder': {
+      id: '/dashboard/storefront/builder'
+      path: '/builder'
+      fullPath: '/dashboard/storefront/builder'
+      preLoaderRoute: typeof DashboardStorefrontBuilderRouteImport
+      parentRoute: typeof DashboardStorefrontRoute
+    }
+    '/dashboard/storefront/templates': {
+      id: '/dashboard/storefront/templates'
+      path: '/templates'
+      fullPath: '/dashboard/storefront/templates'
+      preLoaderRoute: typeof DashboardStorefrontTemplatesRouteImport
+      parentRoute: typeof DashboardStorefrontRoute
+    }
     '/dashboard/services/$serviceId/': {
       id: '/dashboard/services/$serviceId/'
       path: '/'
@@ -1462,14 +1693,57 @@ const SlugRouteChildren: SlugRouteChildren = {
 
 const SlugRouteWithChildren = SlugRoute._addFileChildren(SlugRouteChildren)
 
+interface AdminBusinessesRouteChildren {
+  AdminBusinessesBusinessIdRoute: typeof AdminBusinessesBusinessIdRoute
+}
+
+const AdminBusinessesRouteChildren: AdminBusinessesRouteChildren = {
+  AdminBusinessesBusinessIdRoute: AdminBusinessesBusinessIdRoute,
+}
+
+const AdminBusinessesRouteWithChildren = AdminBusinessesRoute._addFileChildren(
+  AdminBusinessesRouteChildren,
+)
+
+interface AdminPlansRouteChildren {
+  AdminPlansTierIdRoute: typeof AdminPlansTierIdRoute
+}
+
+const AdminPlansRouteChildren: AdminPlansRouteChildren = {
+  AdminPlansTierIdRoute: AdminPlansTierIdRoute,
+}
+
+const AdminPlansRouteWithChildren = AdminPlansRoute._addFileChildren(
+  AdminPlansRouteChildren,
+)
+
+interface AdminSubscriptionsRouteChildren {
+  AdminSubscriptionsBusinessIdRoute: typeof AdminSubscriptionsBusinessIdRoute
+}
+
+const AdminSubscriptionsRouteChildren: AdminSubscriptionsRouteChildren = {
+  AdminSubscriptionsBusinessIdRoute: AdminSubscriptionsBusinessIdRoute,
+}
+
+const AdminSubscriptionsRouteWithChildren =
+  AdminSubscriptionsRoute._addFileChildren(AdminSubscriptionsRouteChildren)
+
 interface AdminRouteChildren {
-  AdminBusinessesRoute: typeof AdminBusinessesRoute
+  AdminAuditRoute: typeof AdminAuditRoute
+  AdminBusinessesRoute: typeof AdminBusinessesRouteWithChildren
+  AdminModulesRoute: typeof AdminModulesRoute
+  AdminPlansRoute: typeof AdminPlansRouteWithChildren
+  AdminSubscriptionsRoute: typeof AdminSubscriptionsRouteWithChildren
   AdminUsersRoute: typeof AdminUsersRoute
   AdminIndexRoute: typeof AdminIndexRoute
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
-  AdminBusinessesRoute: AdminBusinessesRoute,
+  AdminAuditRoute: AdminAuditRoute,
+  AdminBusinessesRoute: AdminBusinessesRouteWithChildren,
+  AdminModulesRoute: AdminModulesRoute,
+  AdminPlansRoute: AdminPlansRouteWithChildren,
+  AdminSubscriptionsRoute: AdminSubscriptionsRouteWithChildren,
   AdminUsersRoute: AdminUsersRoute,
   AdminIndexRoute: AdminIndexRoute,
 }
@@ -1493,6 +1767,22 @@ const AuthRouteChildren: AuthRouteChildren = {
 }
 
 const AuthRouteWithChildren = AuthRoute._addFileChildren(AuthRouteChildren)
+
+interface DashboardAppointmentsRouteChildren {
+  DashboardAppointmentsAppointmentIdRoute: typeof DashboardAppointmentsAppointmentIdRoute
+  DashboardAppointmentsIndexRoute: typeof DashboardAppointmentsIndexRoute
+}
+
+const DashboardAppointmentsRouteChildren: DashboardAppointmentsRouteChildren = {
+  DashboardAppointmentsAppointmentIdRoute:
+    DashboardAppointmentsAppointmentIdRoute,
+  DashboardAppointmentsIndexRoute: DashboardAppointmentsIndexRoute,
+}
+
+const DashboardAppointmentsRouteWithChildren =
+  DashboardAppointmentsRoute._addFileChildren(
+    DashboardAppointmentsRouteChildren,
+  )
 
 interface DashboardCustomersRouteChildren {
   DashboardCustomersClientIdRoute: typeof DashboardCustomersClientIdRoute
@@ -1565,9 +1855,24 @@ const DashboardStaffRouteWithChildren = DashboardStaffRoute._addFileChildren(
   DashboardStaffRouteChildren,
 )
 
+interface DashboardStorefrontRouteChildren {
+  DashboardStorefrontBuilderRoute: typeof DashboardStorefrontBuilderRoute
+  DashboardStorefrontTemplatesRoute: typeof DashboardStorefrontTemplatesRoute
+  DashboardStorefrontIndexRoute: typeof DashboardStorefrontIndexRoute
+}
+
+const DashboardStorefrontRouteChildren: DashboardStorefrontRouteChildren = {
+  DashboardStorefrontBuilderRoute: DashboardStorefrontBuilderRoute,
+  DashboardStorefrontTemplatesRoute: DashboardStorefrontTemplatesRoute,
+  DashboardStorefrontIndexRoute: DashboardStorefrontIndexRoute,
+}
+
+const DashboardStorefrontRouteWithChildren =
+  DashboardStorefrontRoute._addFileChildren(DashboardStorefrontRouteChildren)
+
 interface DashboardRouteChildren {
   DashboardAnalyticsRoute: typeof DashboardAnalyticsRoute
-  DashboardAppointmentsRoute: typeof DashboardAppointmentsRoute
+  DashboardAppointmentsRoute: typeof DashboardAppointmentsRouteWithChildren
   DashboardAttendanceRoute: typeof DashboardAttendanceRoute
   DashboardCardDesignRoute: typeof DashboardCardDesignRoute
   DashboardCustomersRoute: typeof DashboardCustomersRouteWithChildren
@@ -1583,13 +1888,13 @@ interface DashboardRouteChildren {
   DashboardSettingsRoute: typeof DashboardSettingsRoute
   DashboardStaffRoute: typeof DashboardStaffRouteWithChildren
   DashboardStampsRoute: typeof DashboardStampsRoute
-  DashboardStorefrontRoute: typeof DashboardStorefrontRoute
+  DashboardStorefrontRoute: typeof DashboardStorefrontRouteWithChildren
   DashboardIndexRoute: typeof DashboardIndexRoute
 }
 
 const DashboardRouteChildren: DashboardRouteChildren = {
   DashboardAnalyticsRoute: DashboardAnalyticsRoute,
-  DashboardAppointmentsRoute: DashboardAppointmentsRoute,
+  DashboardAppointmentsRoute: DashboardAppointmentsRouteWithChildren,
   DashboardAttendanceRoute: DashboardAttendanceRoute,
   DashboardCardDesignRoute: DashboardCardDesignRoute,
   DashboardCustomersRoute: DashboardCustomersRouteWithChildren,
@@ -1605,7 +1910,7 @@ const DashboardRouteChildren: DashboardRouteChildren = {
   DashboardSettingsRoute: DashboardSettingsRoute,
   DashboardStaffRoute: DashboardStaffRouteWithChildren,
   DashboardStampsRoute: DashboardStampsRoute,
-  DashboardStorefrontRoute: DashboardStorefrontRoute,
+  DashboardStorefrontRoute: DashboardStorefrontRouteWithChildren,
   DashboardIndexRoute: DashboardIndexRoute,
 }
 

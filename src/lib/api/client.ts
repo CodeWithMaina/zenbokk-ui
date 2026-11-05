@@ -268,3 +268,15 @@ export function errorMessage(
   return fallback
 }
 
+/**
+ * True when the failure is an entitlement decision rather than a fault.
+ *
+ * The API answers `403 MODULE_DISABLED` when the business — or the platform —
+ * has switched off the module behind a surface. That is a deliberate state, so a
+ * screen should describe it ("this isn't listed") instead of offering a retry
+ * that can only fail the same way. Every other failure is a real error.
+ */
+export function isModuleUnavailable(error: unknown): boolean {
+  return error instanceof ApiError && error.isModuleDisabled
+}
+

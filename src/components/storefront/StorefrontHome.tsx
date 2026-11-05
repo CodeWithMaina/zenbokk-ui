@@ -1,16 +1,50 @@
 import { StorefrontHero } from './StorefrontHero'
+import { StorefrontRenderer } from './StorefrontBlocks'
+import { useStorefront } from '../../lib/storefront'
+import { storefrontHref } from '../../lib/tenant'
 
 /**
  * A business's storefront home.
  *
- * The home page is the hero and nothing else. Services, the team, about and
- * contact are each their own page (see `./pages`), reached from the navigation
- * or from the hero's own actions — so the landing screen stays a single,
- * uninterrupted statement of who the business is, and every other destination
- * has a real, linkable address.
+ * When the owner has published a Storefront Builder configuration, the home page
+ * is the ordered sequence of sections they composed — rendered by the same
+ * schema-driven renderer the builder previews with. A business still on the
+ * legacy simple landing page keeps the original hero-only home, so nothing about
+ * an un-migrated storefront changes.
  */
 export function StorefrontHome() {
-  return <StorefrontHero />
+  const { storefront, business, can, canonicalSlug, landingPage } = useStorefront()
+
+  if (!storefront) return <StorefrontHero />
+
+  const resolveHref = (kind: string) => {
+    const path =
+      kind === 'book'
+        ? '/book'
+        : kind === 'services'
+          ? '/services'
+          : kind === 'contact'
+            ? '/contact'
+            : kind === 'reviews'
+              ? '/reviews'
+              : ''
+    return storefrontHref(canonicalSlug, path)
+  }
+
+  return (
+    <StorefrontRenderer
+      config={storefront}
+      business={business}
+      can={can}
+      heroVariants={
+        storefront.heroBackgroundVariants.length > 0
+          ? storefront.heroBackgroundVariants
+          : landingPage.heroBackgroundVariants
+      }
+      heroCarouselVariants={storefront.heroCarouselVariants}
+      resolveHref={resolveHref}
+    />
+  )
 }
 
 
