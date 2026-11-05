@@ -207,6 +207,12 @@ export type PublicLandingPage = {
   sections: PublicLandingPageSection[]
   primaryCta: LandingPageCta
   secondaryCta: LandingPageCta
+  /**
+   * The rich Storefront Builder projection when the business has published one.
+   * Null/absent for businesses still on the legacy simple landing page, in which
+   * case the flat fields above remain the source of truth for the renderer.
+   */
+  storefront?: PublicStorefront | null
 }
 
 export type StorefrontBootstrap = {
@@ -1646,5 +1652,660 @@ export type StorefrontSearchResponse = {
   totalPages: number
   /** The business's active, published category names. */
   categories: string[]
+}
+
+// ─────────────────────────────────────────────────────────────
+//  Platform administration — business management
+//  Mirrors Application/DTOs/AdminBusinessManagementDTOs.cs.
+// ─────────────────────────────────────────────────────────────
+
+/** Platform-administration lifecycle of a business (independent of soft delete). */
+export type BusinessStatus = 'active' | 'suspended' | 'deactivated'
+
+/** Subscription lifecycle states the backend can persist. */
+export type SubscriptionStatus =
+  | 'active'
+  | 'trial'
+  | 'past_due'
+  | 'paused'
+  | 'canceled'
+  | 'expired'
+  | 'deactivated'
+
+/** Subscription-plan lifecycle (tier) states. */
+export type PlanLifecycle = 'Draft' | 'Active' | 'Inactive' | 'Archived'
+
+/** `GET /v1/admin/businesses/stats`. */
+export type AdminBusinessStats = {
+  total: number
+  active: number
+  suspended: number
+  deactivated: number
+  trial: number
+  activeSubscriptions: number
+  expiredSubscriptions: number
+  expiringSoon: number
+  noSubscription: number
+}
+
+/** One row of `GET /v1/admin/businesses/managed`. */
+export type AdminBusinessListItem = {
+  id: string
+  name: string
+  category: string
+  location: string
+  logoUrl: string | null
+  slug: string | null
+  tenantUrl: string | null
+  email: string | null
+  phoneNumber: string | null
+  status: string
+  ownerId: string | null
+  ownerName: string
+  ownerEmail: string
+  planKey: string | null
+  planName: string | null
+  subscriptionStatus: string | null
+  subscriptionEndsAt: string | null
+  enabledModules: string[]
+  totalStaff: number
+  totalCustomers: number
+  totalStamps: number
+  lastActivityAt: string | null
+  createdAt: string
+}
+
+export type AdminBusinessOwnerInfo = {
+  id: string | null
+  fullName: string
+  email: string
+  phoneNumber: string | null
+  avatarUrl: string | null
+}
+
+export type AdminBusinessSubscriptionInfo = {
+  subscriptionId: string | null
+  planId: string | null
+  planKey: string | null
+  planName: string | null
+  billingInterval: string | null
+  price: number | null
+  status: string | null
+  startsAt: string | null
+  currentPeriodStartsAt: string | null
+  endsAt: string | null
+  canceledAt: string | null
+  pausedAt: string | null
+  pauseReason: string | null
+  isTrial: boolean
+  daysUntilExpiry: number | null
+}
+
+/** `GET /v1/admin/businesses/{id}/profile`. */
+export type AdminBusinessDetail = {
+  id: string
+  name: string
+  category: string
+  location: string
+  description: string | null
+  logoUrl: string | null
+  email: string | null
+  phoneNumber: string | null
+  mpesaNumber: string | null
+  timeZoneId: string | null
+  slug: string | null
+  tenantUrl: string | null
+  status: string
+  suspendedAt: string | null
+  suspendedReason: string | null
+  deactivatedAt: string | null
+  createdAt: string
+  lastActivityAt: string | null
+  owner: AdminBusinessOwnerInfo
+  subscription: AdminBusinessSubscriptionInfo | null
+  totalStaff: number
+  totalCustomers: number
+  totalStamps: number
+  totalRedemptions: number
+  programCount: number
+}
+
+/** `PUT /v1/admin/businesses/{id}` — every field optional; null leaves it unchanged. */
+export type AdminBusinessUpdateRequest = {
+  name?: string | null
+  category?: string | null
+  location?: string | null
+  description?: string | null
+  email?: string | null
+  phoneNumber?: string | null
+  mpesaNumber?: string | null
+  logoUrl?: string | null
+  timeZoneId?: string | null
+  reason?: string | null
+}
+
+/** One member of a business (`GET /v1/admin/businesses/{id}/users`). */
+export type AdminBusinessUserItem = {
+  userId: string
+  fullName: string
+  email: string
+  phoneNumber: string | null
+  role: string
+  status: string
+  joinedAt: string
+  endedAt: string | null
+  globalRole: string
+  isVerified: boolean
+}
+
+// ─────────────────────────────────────────────────────────────
+//  Platform administration — subscription management
+// ─────────────────────────────────────────────────────────────
+
+/** `GET /v1/admin/subscriptions/stats`. */
+export type AdminSubscriptionStats = {
+  total: number
+  active: number
+  trial: number
+  paused: number
+  canceled: number
+  expired: number
+  pastDue: number
+  deactivated: number
+  renewingIn7Days: number
+  monthlyRecurringRevenue: number
+  annualRecurringRevenue: number
+}
+
+/** One row of `GET /v1/admin/subscriptions`. */
+export type AdminSubscriptionListItem = {
+  subscriptionId: string
+  businessId: string
+  businessName: string
+  businessStatus: string
+  planId: string
+  planKey: string
+  planName: string
+  billingInterval: string
+  price: number
+  status: string
+  startsAt: string | null
+  endsAt: string | null
+  pausedAt: string | null
+  canceledAt: string | null
+  createdAt: string
+  enabledModuleCount: number
+}
+
+/** Result of a subscription lifecycle action. */
+export type AdminSubscriptionActionResult = {
+  businessId: string
+  affectedRows: number
+  status: string | null
+  endsAt: string | null
+  message: string
+}
+
+// ─────────────────────────────────────────────────────────────
+//  Platform administration — plan (tier) catalogue
+//  Mirrors Application/DTOs/SubscriptionAdminDTOs.cs.
+// ─────────────────────────────────────────────────────────────
+
+/** A module membership on a plan (`AdminTierDetail.modules` / tier module editor). */
+export type TierModuleView = {
+  key: string
+  name: string
+  description: string | null
+  isCore: boolean
+  visibility: string
+  included: boolean
+  dependencies: string[]
+}
+
+/** A plan (tier) row. */
+export type AdminTierSummary = {
+  id: string
+  key: string
+  name: string
+  description: string | null
+  price: number
+  billingInterval: string
+  lifecycle: string
+  isDefault: boolean
+  displayOrder: number | null
+  moduleCount: number
+  businessCount: number
+  createdAt: string
+  updatedAt: string | null
+}
+
+/** Full plan (tier) detail, including its module set. */
+export type AdminTierDetail = {
+  id: string
+  key: string
+  name: string
+  description: string | null
+  price: number
+  billingInterval: string
+  lifecycle: string
+  isDefault: boolean
+  displayOrder: number | null
+  publishedAt: string | null
+  deactivatedAt: string | null
+  archivedAt: string | null
+  lastPublishedByUserId: string | null
+  createdAt: string
+  moduleCount: number
+  businessCount: number
+  modules: TierModuleView[]
+}
+
+/** `POST /v1/admin/subscription-tiers`. */
+export type AdminTierCreateRequest = {
+  key: string
+  name: string
+  description?: string | null
+  price: number
+  billingInterval: string
+  displayOrder?: number | null
+  isDefault?: boolean
+  moduleKeys?: string[]
+}
+
+/** `PUT /v1/admin/subscription-tiers/{id}`. */
+export type AdminTierUpdateRequest = {
+  name?: string | null
+  description?: string | null
+  price?: number | null
+  billingInterval?: string | null
+  displayOrder?: number | null
+}
+
+/** `PUT /v1/admin/subscription-tiers/{id}/modules`. */
+export type AdminTierModulesRequest = {
+  moduleKeys: string[]
+}
+
+/** Response of the tier module endpoints. */
+export type AdminTierModulesResponse = {
+  tierId: string
+  modules: TierModuleView[]
+}
+
+/** A business subscribed to a plan (`GET /v1/admin/subscription-tiers/{id}/businesses`). */
+export type AdminTierBusinessItem = {
+  id: string
+  name: string
+  category: string | null
+  location: string | null
+  status: string
+  startsAt: string | null
+  endsAt: string | null
+  moduleCount: number
+}
+
+/** A module with its resolved effective access for one business. */
+export type AdminBusinessEffectiveModule = {
+  key: string
+  name: string
+  description: string | null
+  isCore: boolean
+  isEnabled: boolean
+  hasAccess: boolean
+  source: string
+  reason: string | null
+  dependencies: string[]
+}
+
+/** Aggregate business → subscription view (`GET /v1/admin/subscriptions/{businessId}`). */
+export type AdminBusinessSubscriptionDetail = {
+  businessId: string
+  businessName: string
+  currentTier: AdminTierSummary | null
+  subscriptionStatus: string | null
+  startsAt: string | null
+  endsAt: string | null
+  effectiveModules: AdminBusinessEffectiveModule[]
+  auditHistory: SubscriptionAuditLogEntry[]
+}
+
+/** One append-only subscription/business audit record. */
+export type SubscriptionAuditLogEntry = {
+  id: string
+  action: string
+  actorUserId: string | null
+  actorName: string | null
+  targetBusinessId: string | null
+  targetPlanId: string | null
+  payload: Record<string, unknown> | null
+  reason: string | null
+  createdAt: string
+}
+
+// ─────────────────────────────────────────────────────────────
+//  Platform administration — module catalogue
+// ─────────────────────────────────────────────────────────────
+
+/** One module of the admin catalogue (`GET /v1/admin/module-catalog`). */
+export type AdminModuleCatalogItem = {
+  key: string
+  name: string
+  description: string | null
+  isCore: boolean
+  visibility: string
+  version: string
+  isActive: boolean
+  dependencies: string[]
+  planCount: number
+  businessCount: number
+}
+
+/** `GET /v1/admin/module-catalog`. */
+export type AdminModuleCatalogResponse = {
+  modules: AdminModuleCatalogItem[]
+}
+
+/** `PUT /v1/admin/modules/{key}`. */
+export type AdminModuleUpdateRequest = {
+  name?: string | null
+  description?: string | null
+  isActive?: boolean | null
+  reason?: string | null
+}
+
+
+// ─────────────────────────────────────────────────────────────
+//  Storefront Builder (rich, section-based storefront)
+//  Mirrors PunchedApi/Application/DTOs/StorefrontBuilderDTOs.cs.
+// ─────────────────────────────────────────────────────────────
+
+/** Global design tokens, applied as CSS variables across the storefront. */
+export type StorefrontTheme = {
+  primary: string
+  secondary: string
+  accent: string
+  background: string
+  surface: string
+  text: string
+  mutedText: string
+  buttonBackground: string
+  buttonText: string
+  border: string
+  headingFont: string
+  bodyFont: string
+  headingWeight: number
+  bodyWeight: number
+  baseFontSize: number
+  headingScale: string
+  lineHeight: string
+  letterSpacing: string
+  contentWidth: number
+  sectionSpacing: string
+  containerPadding: string
+  radius: string
+  cardStyle: string
+  shadow: string
+  imageRatio: string
+  /** `rounded` | `pill` | `square` | `outline` | `filled`. */
+  buttonStyle: string
+  /** `solid` | `gradient` | `image`. */
+  backgroundStyle: string
+  backgroundImageMediaId: string | null
+  gradientFrom: string
+  gradientTo: string
+}
+
+export type StorefrontHeader = {
+  variant: string
+  showLogo: boolean
+  logoMediaId: string | null
+  logoSize: string
+  showBusinessName: boolean
+  sticky: boolean
+  transparent: boolean
+  background: string
+  textColor: string
+  alignment: string
+  spacing: string
+  mobileStyle: string
+  ctaEnabled: boolean
+  ctaLabel: string
+  ctaType: string
+}
+
+export type StorefrontHero = {
+  variant: string
+  enabled: boolean
+  eyebrow: string | null
+  heading: string | null
+  subheading: string | null
+  description: string | null
+  primaryCtaLabel: string
+  primaryCtaType: string
+  secondaryCtaLabel: string
+  secondaryCtaType: string
+  backgroundMediaId: string | null
+  carouselMediaIds: string[]
+  /** Optional background video for the `video` hero variant (direct MP4/WebM URL). */
+  videoUrl: string | null
+  overlayOpacity: number
+  backgroundColor: string
+  textAlign: string
+  height: string
+  contentWidth: string
+  imagePosition: string
+  mobileLayout: string
+  showLogo: boolean
+  showFacts: boolean
+}
+
+/** One independently-configurable storefront section instance. */
+export type StorefrontSection = {
+  id: string
+  key: string
+  variant: string
+  enabled: boolean
+  order: number
+  title: string | null
+  description: string | null
+  settings: Record<string, string>
+}
+
+export type StorefrontSocialLink = {
+  platform: string
+  url: string
+}
+
+export type StorefrontNavLink = {
+  label: string
+  href: string
+}
+
+export type StorefrontFooter = {
+  variant: string
+  showLogo: boolean
+  logoMediaId: string | null
+  description: string | null
+  showContact: boolean
+  showAddress: boolean
+  showHours: boolean
+  showSocial: boolean
+  socials: StorefrontSocialLink[]
+  showNav: boolean
+  showLegal: boolean
+  legalLinks: StorefrontNavLink[]
+  copyright: string | null
+  backgroundColor: string
+  textColor: string
+}
+
+export type StorefrontPage = {
+  id: string
+  title: string
+  slug: string
+  /** home | services | about | contact | team | gallery | reviews | booking | custom */
+  kind: string
+  showInNav: boolean
+  order: number
+  seoTitle: string | null
+  seoDescription: string | null
+}
+
+export type StorefrontSeo = {
+  title: string | null
+  description: string | null
+  ogTitle: string | null
+  ogDescription: string | null
+  ogImageMediaId: string | null
+  faviconMediaId: string | null
+  keywords: string | null
+}
+
+/** The complete storefront configuration (draft or published). */
+export type StorefrontConfig = {
+  templateId: string
+  theme: StorefrontTheme
+  header: StorefrontHeader
+  hero: StorefrontHero
+  sections: StorefrontSection[]
+  footer: StorefrontFooter
+  pages: StorefrontPage[]
+  seo: StorefrontSeo
+}
+
+/** The public, sanitized projection of the published storefront. */
+export type PublicStorefront = StorefrontConfig & {
+  isPublished: boolean
+  publishedAt: string | null
+  heroBackgroundVariants: ImageVariant[]
+  heroCarouselVariants: ImageVariant[][]
+  themeBackgroundVariants: ImageVariant[]
+  headerLogoVariants: ImageVariant[]
+  footerLogoVariants: ImageVariant[]
+  ogImageVariants: ImageVariant[]
+  faviconVariants: ImageVariant[]
+}
+
+/** Owner builder state: draft + published + publication metadata. */
+export type StorefrontBuilderState = {
+  businessId: string
+  templateId: string
+  isPublished: boolean
+  publishedAt: string | null
+  updatedAt: string | null
+  hasDraft: boolean
+  hasUnpublishedChanges: boolean
+  draft: StorefrontConfig
+  published: StorefrontConfig | null
+}
+
+/** Component variant selections and configurations for the three-component landing page builder. */
+
+export type NavigationVariantConfig = {
+  variant: string
+  logoMediaId: string | null
+  logoSize: string
+  showBusinessName: boolean
+  businessNameLabel: string | null
+  navigationLinks: StorefrontNavLink[]
+  ctaEnabled: boolean
+  ctaLabel: string | null
+  ctaDestination: string | null
+  backgroundColor: string
+  textColor: string
+  linkColor: string
+  borderStyle: string
+  borderColor: string
+  boxShadow: string
+  transparency: number
+  headerHeight: string
+  horizontalSpacing: string
+  verticalSpacing: string
+  sticky: boolean
+  scrollBehavior: string
+  mobileStyle: string
+}
+
+export type HeroVariantConfig = {
+  variant: string
+  // Content
+  eyebrow: string | null
+  heading: string
+  description: string | null
+  primaryCtaLabel: string
+  primaryCtaDestination: string | null
+  secondaryCtaLabel: string | null
+  secondaryCtaDestination: string | null
+  decorativeText: string | null
+  // Background
+  backgroundStyle: 'solid' | 'gradient' | 'image' | 'video'
+  backgroundMediaId: string | null
+  backgroundColor: string
+  gradientFrom: string
+  gradientTo: string
+  videoUrl: string | null
+  imagePosition: string
+  imageFocalPoint: string
+  imageScale: number
+  overlayColor: string
+  overlayOpacity: number
+  // Layout
+  height: string
+  contentAlignment: string
+  textAlign: string
+  contentMaxWidth: string
+  horizontalPosition: string
+  verticalPosition: string
+  sectionPadding: string
+  // Typography
+  headingFont: string
+  headingSize: string
+  headingWeight: number
+  headingColor: string
+  bodyFont: string
+  bodySize: string
+  bodyColor: string
+  lineHeight: string
+  letterSpacing: string
+  // CTA
+  buttonStyle: string
+  buttonColor: string
+  buttonTextColor: string
+  buttonBorderRadius: string
+  buttonSize: string
+  buttonAlignment: string
+  primaryCtaVisible: boolean
+  secondaryCtaVisible: boolean
+}
+
+export type FooterVariantConfig = {
+  variant: string
+  logoMediaId: string | null
+  logoVisible: boolean
+  businessNameVisible: boolean
+  descriptionText: string | null
+  showContact: boolean
+  phoneNumber: string | null
+  email: string | null
+  address: string | null
+  showNavigation: boolean
+  navigationLinks: StorefrontNavLink[]
+  showSocial: boolean
+  socialLinks: StorefrontSocialLink[]
+  showCopyright: boolean
+  copyrightText: string | null
+  backgroundColor: string
+  textColor: string
+  linkColor: string
+  spacing: string
+  contentAlignment: string
+}
+
+export type SaveStorefrontDraftRequest = {
+  config: StorefrontConfig
+}
+
+export type PublishStorefrontRequest = {
+  config?: StorefrontConfig | null
 }
 

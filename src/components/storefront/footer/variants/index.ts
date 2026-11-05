@@ -1,0 +1,7 @@
+export { FooterClassic } from './FooterClassic'
+export { FooterMinimal } from './FooterMinimal'
+export { FooterPremium } from './FooterPremium'
+export { FooterCentered } from './FooterCentered'
+export { FooterModern } from './FooterModern'
+export { FooterEditorial } from './FooterEditorial'
+export { FooterDark } from './FooterDark'
