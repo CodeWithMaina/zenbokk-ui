@@ -1,5 +1,5 @@
-import { createFileRoute } from '@tanstack/react-router'
-import { BadgeCheck, Ban, Clock, Loader2, RefreshCw, ShieldAlert, Wallet } from 'lucide-react'
+import { createFileRoute, Link } from '@tanstack/react-router'
+import { BadgeCheck, Ban, Clock, Loader2, RefreshCw, Settings2, ShieldAlert, Wallet } from 'lucide-react'
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { Alert } from '../components/ui/alert'
@@ -12,7 +12,11 @@ import { PageHeader } from '../components/ui/page-header'
 import { Skeleton } from '../components/ui/skeleton'
 import { errorMessage } from '../lib/api/client'
 import { formatDay, money } from '../lib/format'
-import { usePaymentVerificationActions, usePaymentVerificationQueue } from '../lib/payments/api'
+import {
+  usePaymentConfig,
+  usePaymentVerificationActions,
+  usePaymentVerificationQueue,
+} from '../lib/payments/api'
 import type { PaymentVerificationItem } from '../lib/payments/api'
 
 export const Route = createFileRoute('/dashboard/payments')({
@@ -87,6 +91,10 @@ function PaymentVerificationPage() {
 
   const queue = usePaymentVerificationQueue({ status: lens, pageSize: 50 })
   const { approve, reject, markUnderReview } = usePaymentVerificationActions()
+  // The queue is empty until customers can actually pay, so the screen says why and
+  // points at the one screen that fixes it rather than looking broken.
+  const config = usePaymentConfig()
+  const needsSetup = config.isSuccess && !config.data.hasManualMpesaDetails
 
   const data = queue.data
   const items = data?.items ?? []
@@ -156,6 +164,23 @@ function PaymentVerificationPage() {
           </Button>
         ))}
       </div>
+
+      {needsSetup ? (
+        <Alert tone="warning" className="mt-4" title="Customers cannot pay by M-PESA yet">
+          <div className="mt-[0.4rem]">
+            Add the PayBill or Till your customers should send to, and the booking fee you collect
+            up front. Until then your booking page offers cash only and nothing lands in this queue.
+          </div>
+          <Link
+            to="/dashboard/settings"
+            search={{ section: 'payments' }}
+            className="link mt-[0.5rem] inline-flex items-center gap-[0.3rem] font-semibold no-underline"
+          >
+            <Settings2 className="size-4" aria-hidden="true" />
+            Set up M-PESA payments
+          </Link>
+        </Alert>
+      ) : null}
 
       {queue.isError ? (
         <Alert tone="danger" className="mt-4">

@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react'
 import {
   BusinessSettings,
   NotificationSettings,
+  PaymentsSettings,
   PreferencesSettings,
   ProfileSettings,
   SecuritySettings,
@@ -113,6 +114,9 @@ function SettingsPage() {
         {section === 'profile' ? <ProfileSettings onDirtyChange={handleDirtyChange} /> : null}
         {section === 'business' ? (
           <BusinessSettings onOpenSupport={openSupport} onDirtyChange={handleDirtyChange} />
+        ) : null}
+        {section === 'payments' ? (
+          <PaymentsSettings onDirtyChange={handleDirtyChange} />
         ) : null}
         {section === 'preferences' ? <PreferencesSettings /> : null}
         {section === 'notifications' ? (

@@ -1,4 +1,4 @@
-import { Bell, Building2, LifeBuoy, Settings2, ShieldCheck, UserRound } from 'lucide-react'
+import { Bell, Building2, LifeBuoy, Settings2, ShieldCheck, UserRound, Wallet } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
 /**
@@ -11,6 +11,7 @@ import type { LucideIcon } from 'lucide-react'
 export type SettingsSectionId =
   | 'profile'
   | 'business'
+  | 'payments'
   | 'preferences'
   | 'notifications'
   | 'security'
@@ -23,6 +24,10 @@ export const SETTINGS_SECTIONS: readonly {
 }[] = [
   { id: 'profile', label: 'Profile', icon: UserRound },
   { id: 'business', label: 'Business', icon: Building2 },
+  // Payments sits with the business settings because it is business configuration —
+  // the PayBill/Till a customer sends to, and the share of a booking collected up
+  // front. Nothing here is a personal preference.
+  { id: 'payments', label: 'Payments', icon: Wallet },
   { id: 'preferences', label: 'Preferences', icon: Settings2 },
   { id: 'notifications', label: 'Notifications', icon: Bell },
   { id: 'security', label: 'Security', icon: ShieldCheck },

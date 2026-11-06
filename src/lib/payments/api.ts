@@ -72,6 +72,63 @@ export type PaymentVerificationEvent = {
   createdAt: string
 }
 
+/**
+ * The business's own payment configuration (`GET /v1/payment-config`).
+ *
+ * Two independent M-PESA channels live here and are easy to confuse:
+ *
+ *  - `mpesaEnabled` + `mpesaShortCode` is the **Daraja** path. The platform pushes
+ *    the prompt to the customer's handset, which needs a shortcode and Safaricom
+ *    credentials (`hasCredentials`).
+ *  - `manualMpesaEnabled` + a PayBill/Till is the **manual** path. The customer
+ *    sends the money themselves and pastes the confirmation for the owner to check.
+ *    It needs no credentials at all.
+ *
+ * Secrets are never returned; only `hasCredentials`.
+ */
+export type PaymentConfig = {
+  businessId: string
+  cashEnabled: boolean
+  mpesaEnabled: boolean
+  /** `paybill` | `till`. */
+  mpesaAccountType: string
+  mpesaShortCode: string | null
+  hasCredentials: boolean
+  credentialsUpdatedAt: string | null
+  manualMpesaEnabled: boolean
+  mpesaPaybillNumber: string | null
+  mpesaPaybillAccount: string | null
+  mpesaTillNumber: string | null
+  mpesaPayeeName: string | null
+  mpesaInstructions: string | null
+  /** Percentage of the service total collected up front (0–100). */
+  bookingFeePercentage: number
+  /** Manual M-PESA is on AND has a payable PayBill or Till. */
+  hasManualMpesaDetails: boolean
+}
+
+/**
+ * What the owner can change. Omitted secret fields keep their stored value, and an
+ * omitted `bookingFeePercentage` keeps the stored percentage — so a client that does
+ * not know about a setting cannot silently reset it.
+ */
+export type SavePaymentConfig = {
+  cashEnabled: boolean
+  mpesaEnabled: boolean
+  mpesaAccountType: string
+  mpesaShortCode?: string | null
+  consumerKey?: string | null
+  consumerSecret?: string | null
+  passkey?: string | null
+  manualMpesaEnabled: boolean
+  mpesaPaybillNumber?: string | null
+  mpesaPaybillAccount?: string | null
+  mpesaTillNumber?: string | null
+  mpesaPayeeName?: string | null
+  mpesaInstructions?: string | null
+  bookingFeePercentage?: number | null
+}
+
 export type CreatePaymentRequest = {
   appointmentId: string
   /** `cash` or `mpesa`. */
@@ -248,6 +305,20 @@ export const paymentsApi = {
       body: { reason },
     })
   },
+
+  /**
+   * The business's payment configuration (owner only).
+   *
+   * Secrets never come back — only `hasCredentials` — so this is safe to render.
+   */
+  config(): Promise<PaymentConfig> {
+    return apiGet<PaymentConfig>('/v1/payment-config')
+  },
+
+  /** Save the payment configuration. Omitted secrets and percentage keep their stored value. */
+  saveConfig(body: SavePaymentConfig): Promise<PaymentConfig> {
+    return apiRequest<PaymentConfig>('/v1/payment-config', { method: 'PUT', body })
+  },
 }
 
 export function useAppointmentPaymentSummary(appointmentId: string, enabled: boolean) {
@@ -342,6 +413,31 @@ export function usePaymentVerificationActions() {
   })
 
   return { markUnderReview, approve, reject }
+}
+
+/** The business's payment configuration. Owner-only, so it is only fetched on demand. */
+export function usePaymentConfig(enabled = true) {
+  return useQuery({
+    queryKey: ['payments', 'config'] as const,
+    queryFn: () => paymentsApi.config(),
+    enabled,
+    staleTime: 60_000,
+  })
+}
+
+/** Saving the configuration. Secrets and the percentage are only sent when known. */
+export function useSavePaymentConfig() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (body: SavePaymentConfig) => paymentsApi.saveConfig(body),
+    onSuccess: (config) => {
+      queryClient.setQueryData(['payments', 'config'], config)
+      // The storefront reads `payment-details` from the same underlying row, so a
+      // change here must not leave a stale public payload cached anywhere.
+      void queryClient.invalidateQueries({ queryKey: ['payments', 'public-details'] })
+    },
+  })
 }
 
 /**

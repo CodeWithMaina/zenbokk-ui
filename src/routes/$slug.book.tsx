@@ -129,6 +129,17 @@ export function BookingWizardPage() {
   // `sessionStorage`, not in the app's session store — a guest has no profile.
   const [guestVerified, setGuestVerified] = useState(() => Boolean(guestTokenFor(businessId)))
   const [guestName, setGuestName] = useState(() => readGuestSession(businessId)?.fullName ?? '')
+  /**
+   * The signed-in identity cannot book as a customer here.
+   *
+   * A business or staff account browsing a storefront gets a flat 403 from
+   * `POST /v1/appointments` — and the API answers a failed policy with no response
+   * body, so without this the visitor would read a bare "you do not have access" and
+   * have no way forward. Falling back to the guest flow gives them a real path: the
+   * booking is made under the number they verify, independent of the session they
+   * arrived with.
+   */
+  const [asGuest, setAsGuest] = useState(false)
 
   const appointmentsEnabled = can(CAPABILITY.appointments)
   const paymentsEnabled = can(CAPABILITY.payments)
@@ -162,6 +173,16 @@ export function BookingWizardPage() {
   const selectedServiceIds = selectedServices.map((service) => service.id)
   const totalDuration = selectedServices.reduce((sum, s) => sum + s.durationMinutes, 0)
   const totalPrice = selectedServices.reduce((sum, s) => sum + s.price, 0)
+
+  /**
+   * Does this booking need a verified guest session rather than the app session?
+   *
+   * True for a signed-out visitor, and for a signed-in identity the API will not
+   * accept as a customer (a business or staff account). In both cases the booking is
+   * made with a short-lived customer token the visitor obtained by proving their own
+   * number — which is why the verification panel is offered in both.
+   */
+  const needsGuestVerification = !isAuthenticated || asGuest
 
   /**
    * The fee the customer is about to send.
@@ -251,7 +272,7 @@ export function BookingWizardPage() {
         // A verified guest books with their own short-lived token; a signed-in
         // customer books with their session. The API derives the customer from
         // whichever token arrives — it is never taken from the request body.
-        isAuthenticated ? null : guestTokenFor(businessId),
+        needsGuestVerification ? guestTokenFor(businessId) : null,
       ),
     onSuccess: (appointment) => {
       clearBookingDraft(businessId)
@@ -272,7 +293,25 @@ export function BookingWizardPage() {
         setFailure('Sign in again to finish this booking. Your choices are saved.')
         return
       }
-      if (error instanceof ApiError && (error.status === 409 || error.code === 'OVERBOOKING')) {
+      if (error instanceof ApiError && error.status === 409) {
+        setFailure('That time was taken while you were booking. Pick another time.')
+        update({ step: 'time', startsAt: null })
+        void availabilityQuery.refetch()
+        return
+      }
+      if (error instanceof ApiError && (error.status === 403 || error.code === 'OVERBOOKING')) {
+        if (error.status === 403 && isAuthenticated) {
+          // The API refuses `POST /v1/appointments` for any identity that is not a
+          // Customer — a business owner browsing their own storefront, for instance —
+          // and it does so with an empty 403, which reads as a dead end. Offer the one
+          // route that works: verify a number and book as that customer.
+          setAsGuest(true)
+          setFailure(
+            'Your account can’t book as a customer here. Verify your own number below to finish.',
+          )
+          void queryClient.invalidateQueries({ queryKey: ['appointments'] })
+          return
+        }
         setFailure('That time was taken while you were booking. Pick another time.')
         update({ step: 'time', startsAt: null })
         void availabilityQuery.refetch()
@@ -306,7 +345,7 @@ export function BookingWizardPage() {
   }
 
   function submitBooking() {
-    if (!isAuthenticated && !guestTokenFor(businessId)) {
+    if (needsGuestVerification && !guestTokenFor(businessId)) {
       // The draft is already in sessionStorage, and the verification panel is on
       // this step — nothing is lost by asking the visitor to finish it first.
       setFailure('Verify your number to confirm this booking. Your choices are saved.')
@@ -789,13 +828,20 @@ export function BookingWizardPage() {
                 </Alert>
               )}
 
-              {!isAuthenticated ? (
+              {needsGuestVerification ? (
                 guestVerified ? (
                   <Alert tone="success" className="mt-[1rem]">
                     Verified{guestName ? ` as ${guestName}` : ''}. Confirm below to book.
                   </Alert>
                 ) : (
                   <div className="mt-[1.2rem]">
+                    {asGuest ? (
+                      <Alert tone="warning" className="mb-[0.9rem]">
+                        You’re signed in to a business account, so you can’t book as a customer on
+                        this page. Verify your own number below and the booking will be made under
+                        it.
+                      </Alert>
+                    ) : null}
                     <GuestVerifyPanel
                       businessId={businessId}
                       onVerified={(session) => {
@@ -805,15 +851,21 @@ export function BookingWizardPage() {
                       }}
                     />
                     <p className="mt-[0.7rem] text-caption text-subtle">
-                      Already have an account?{' '}
-                      <Link
-                        to="/auth/sign-in"
-                        search={{ redirect: storefrontHref(canonicalSlug, '/book') }}
-                        className="link font-semibold"
-                      >
-                        Sign in
-                      </Link>{' '}
-                      instead. Your choices are saved either way.
+                      {asGuest ? (
+                        'Your choices are saved.'
+                      ) : (
+                        <>
+                          Already have an account?{' '}
+                          <Link
+                            to="/auth/sign-in"
+                            search={{ redirect: storefrontHref(canonicalSlug, '/book') }}
+                            className="link font-semibold"
+                          >
+                            Sign in
+                          </Link>{' '}
+                          instead. Your choices are saved either way.
+                        </>
+                      )}
                     </p>
                   </div>
                 )
