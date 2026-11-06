@@ -208,6 +208,30 @@ export const queryKeys = {
   /** Resolved notification preference matrix for the caller. */
   notificationPreferences: (businessId: string | null) =>
     ['notifications', 'preferences', businessId] as const,
+  /** Business notification workspace (overview/channels/preferences/templates). */
+  businessNotificationOverview: (businessId: string, range: string) =>
+    ['notifications', 'business', businessId, 'overview', range] as const,
+  businessNotificationChannels: (businessId: string) =>
+    ['notifications', 'business', businessId, 'channels'] as const,
+  businessNotificationPreferences: (businessId: string) =>
+    ['notifications', 'business', businessId, 'preferences'] as const,
+  businessNotificationTemplates: (businessId: string, filters: Record<string, unknown>) =>
+    ['notifications', 'business', businessId, 'templates', filters] as const,
+  businessNotificationVariables: (businessId: string, type: string) =>
+    ['notifications', 'business', businessId, 'variables', type] as const,
+  /** Admin notification module. */
+  adminNotificationLogs: (filters: Record<string, unknown>) =>
+    ['admin', 'notifications', 'logs', filters] as const,
+  adminNotificationLog: (id: string) => ['admin', 'notifications', 'logs', id] as const,
+  adminNotificationDelivery: () => ['admin', 'notifications', 'delivery'] as const,
+  adminNotificationProviders: () => ['admin', 'notifications', 'providers'] as const,
+  adminNotificationTemplates: () => ['admin', 'notifications', 'templates'] as const,
+  adminNotificationBusinesses: (filters: Record<string, unknown>) =>
+    ['admin', 'notifications', 'businesses', filters] as const,
+  adminNotificationBusiness: (businessId: string) =>
+    ['admin', 'notifications', 'businesses', businessId] as const,
+  adminNotificationAnalytics: (filters: Record<string, unknown>) =>
+    ['admin', 'notifications', 'analytics', filters] as const,
   /** Platform support channels (server-configured). */
   supportContact: () => ['support', 'contact'] as const,
   /** One media record by id — resolves avatar/logo/cover variants to a URL. */

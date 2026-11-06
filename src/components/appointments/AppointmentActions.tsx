@@ -62,12 +62,14 @@ export function availableActions(status: string): AppointmentAction[] {
 
 /** True when this row can be confirmed in bulk. */
 export function isBulkConfirmable(status: string): boolean {
+  // A booking awaiting its fee is confirmed by verifying the payment, not by a bulk
+  // confirm tap — so it is deliberately excluded here.
   return status === 'booked'
 }
 
 /** True when this row can be cancelled in bulk. */
 export function isBulkCancellable(status: string): boolean {
-  return status === 'booked' || status === 'confirmed'
+  return status === 'booked' || status === 'confirmed' || status === 'pending_payment'
 }
 
 export function appointmentActionItems(

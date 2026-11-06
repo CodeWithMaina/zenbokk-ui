@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { Eye, Monitor, Redo2, Rocket, RotateCcw, Save, Smartphone, Tablet, Undo2 } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Button } from '../components/ui/button'
 import { Card } from '../components/ui/card'
 import { PageHeader } from '../components/ui/page-header'
@@ -47,8 +47,49 @@ function StorefrontBuilderPage() {
   const publish = usePublishStorefront(business.id)
   const reset = useResetStorefrontDraft(business.id)
 
+  const [autosaveStatus, setAutosaveStatus] = useState<'idle' | 'saving' | 'error'>('idle')
+  const autosaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const lastSavedConfigRef = useRef<string>('')
+
   const { can } = useEditorCapabilities(hasModule, business)
   const previewProfile = useMemo(() => toPreviewProfile(business, can), [business, can])
+
+  // Autosave on config changes with debounce (3 seconds)
+  useEffect(() => {
+    if (!editor.dirty) {
+      setAutosaveStatus('idle')
+      return
+    }
+
+    // Cancel previous timeout
+    if (autosaveTimeoutRef.current) clearTimeout(autosaveTimeoutRef.current)
+
+    setAutosaveStatus('saving')
+    autosaveTimeoutRef.current = setTimeout(async () => {
+      try {
+        const configStr = JSON.stringify(editor.config)
+        if (configStr === lastSavedConfigRef.current) {
+          setAutosaveStatus('idle')
+          return
+        }
+
+        const next = await save.mutateAsync(editor.config)
+        if (next?.draft) {
+          editor.markSaved(mergeConfig(next.draft))
+          lastSavedConfigRef.current = JSON.stringify(next.draft)
+          setAutosaveStatus('idle')
+        }
+      } catch (error) {
+        console.error('Autosave failed:', error)
+        setAutosaveStatus('error')
+        // Will retry on next change
+      }
+    }, 3000)
+
+    return () => {
+      if (autosaveTimeoutRef.current) clearTimeout(autosaveTimeoutRef.current)
+    }
+  }, [editor.config, editor.dirty, save])
 
   // Warn before losing unsaved draft edits on a hard navigation.
   useEffect(() => {
@@ -148,7 +189,17 @@ function StorefrontBuilderPage() {
       />
 
       <div className="mb-[0.8rem] flex flex-wrap items-center gap-[0.6rem] text-meta">
-        {editor.dirty ? (
+        {editor.dirty && autosaveStatus === 'saving' ? (
+          <span className="inline-flex items-center gap-[0.4rem] text-muted">
+            <span className="inline-block size-[0.45rem] rounded-round bg-muted animate-pulse" aria-hidden="true" />
+            Autosaving…
+          </span>
+        ) : autosaveStatus === 'error' ? (
+          <span className="inline-flex items-center gap-[0.4rem] text-error">
+            <span className="size-[0.45rem] rounded-round bg-error" aria-hidden="true" />
+            Autosave failed
+          </span>
+        ) : editor.dirty ? (
           <span className="inline-flex items-center gap-[0.4rem] text-warning">
             <span className="size-[0.45rem] rounded-round bg-warning" aria-hidden="true" />
             Unsaved changes

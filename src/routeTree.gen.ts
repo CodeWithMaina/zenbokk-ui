@@ -37,6 +37,7 @@ import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as AdminAuditRouteImport } from './routes/admin.audit'
 import { Route as AdminBusinessesRouteImport } from './routes/admin.businesses'
 import { Route as AdminModulesRouteImport } from './routes/admin.modules'
+import { Route as AdminNotificationsRouteImport } from './routes/admin.notifications'
 import { Route as AdminPlansRouteImport } from './routes/admin.plans'
 import { Route as AdminSubscriptionsRouteImport } from './routes/admin.subscriptions'
 import { Route as AdminUsersRouteImport } from './routes/admin.users'
@@ -76,6 +77,14 @@ import { Route as SlugServicesServiceIdRouteImport } from './routes/$slug.servic
 import { Route as SlugTeamIndexRouteImport } from './routes/$slug.team.index'
 import { Route as SlugTeamStaffIdRouteImport } from './routes/$slug.team.$staffId'
 import { Route as AdminBusinessesBusinessIdRouteImport } from './routes/admin.businesses.$businessId'
+import { Route as AdminNotificationsIndexRouteImport } from './routes/admin.notifications.index'
+import { Route as AdminNotificationsAnalyticsRouteImport } from './routes/admin.notifications.analytics'
+import { Route as AdminNotificationsBusinessesRouteImport } from './routes/admin.notifications.businesses'
+import { Route as AdminNotificationsDeliveryRouteImport } from './routes/admin.notifications.delivery'
+import { Route as AdminNotificationsFailuresRouteImport } from './routes/admin.notifications.failures'
+import { Route as AdminNotificationsLogsRouteImport } from './routes/admin.notifications.logs'
+import { Route as AdminNotificationsProvidersRouteImport } from './routes/admin.notifications.providers'
+import { Route as AdminNotificationsTemplatesRouteImport } from './routes/admin.notifications.templates'
 import { Route as AdminPlansTierIdRouteImport } from './routes/admin.plans.$tierId'
 import { Route as AdminSubscriptionsBusinessIdRouteImport } from './routes/admin.subscriptions.$businessId'
 import { Route as DashboardAppointmentsIndexRouteImport } from './routes/dashboard.appointments.index'
@@ -233,6 +242,11 @@ const AdminBusinessesRoute = AdminBusinessesRouteImport.update({
 const AdminModulesRoute = AdminModulesRouteImport.update({
   id: '/modules',
   path: '/modules',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminNotificationsRoute = AdminNotificationsRouteImport.update({
+  id: '/notifications',
+  path: '/notifications',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminPlansRoute = AdminPlansRouteImport.update({
@@ -431,6 +445,52 @@ const AdminBusinessesBusinessIdRoute =
     path: '/$businessId',
     getParentRoute: () => AdminBusinessesRoute,
   } as any)
+const AdminNotificationsIndexRoute = AdminNotificationsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AdminNotificationsRoute,
+} as any)
+const AdminNotificationsAnalyticsRoute =
+  AdminNotificationsAnalyticsRouteImport.update({
+    id: '/analytics',
+    path: '/analytics',
+    getParentRoute: () => AdminNotificationsRoute,
+  } as any)
+const AdminNotificationsBusinessesRoute =
+  AdminNotificationsBusinessesRouteImport.update({
+    id: '/businesses',
+    path: '/businesses',
+    getParentRoute: () => AdminNotificationsRoute,
+  } as any)
+const AdminNotificationsDeliveryRoute =
+  AdminNotificationsDeliveryRouteImport.update({
+    id: '/delivery',
+    path: '/delivery',
+    getParentRoute: () => AdminNotificationsRoute,
+  } as any)
+const AdminNotificationsFailuresRoute =
+  AdminNotificationsFailuresRouteImport.update({
+    id: '/failures',
+    path: '/failures',
+    getParentRoute: () => AdminNotificationsRoute,
+  } as any)
+const AdminNotificationsLogsRoute = AdminNotificationsLogsRouteImport.update({
+  id: '/logs',
+  path: '/logs',
+  getParentRoute: () => AdminNotificationsRoute,
+} as any)
+const AdminNotificationsProvidersRoute =
+  AdminNotificationsProvidersRouteImport.update({
+    id: '/providers',
+    path: '/providers',
+    getParentRoute: () => AdminNotificationsRoute,
+  } as any)
+const AdminNotificationsTemplatesRoute =
+  AdminNotificationsTemplatesRouteImport.update({
+    id: '/templates',
+    path: '/templates',
+    getParentRoute: () => AdminNotificationsRoute,
+  } as any)
 const AdminPlansTierIdRoute = AdminPlansTierIdRouteImport.update({
   id: '/$tierId',
   path: '/$tierId',
@@ -560,6 +620,7 @@ export interface FileRoutesByFullPath {
   '/admin/audit': typeof AdminAuditRoute
   '/admin/businesses': typeof AdminBusinessesRouteWithChildren
   '/admin/modules': typeof AdminModulesRoute
+  '/admin/notifications': typeof AdminNotificationsRouteWithChildren
   '/admin/plans': typeof AdminPlansRouteWithChildren
   '/admin/subscriptions': typeof AdminSubscriptionsRouteWithChildren
   '/admin/users': typeof AdminUsersRoute
@@ -599,6 +660,13 @@ export interface FileRoutesByFullPath {
   '/$slug/services/$serviceId': typeof SlugServicesServiceIdRoute
   '/$slug/team/$staffId': typeof SlugTeamStaffIdRoute
   '/admin/businesses/$businessId': typeof AdminBusinessesBusinessIdRoute
+  '/admin/notifications/analytics': typeof AdminNotificationsAnalyticsRoute
+  '/admin/notifications/businesses': typeof AdminNotificationsBusinessesRoute
+  '/admin/notifications/delivery': typeof AdminNotificationsDeliveryRoute
+  '/admin/notifications/failures': typeof AdminNotificationsFailuresRoute
+  '/admin/notifications/logs': typeof AdminNotificationsLogsRoute
+  '/admin/notifications/providers': typeof AdminNotificationsProvidersRoute
+  '/admin/notifications/templates': typeof AdminNotificationsTemplatesRoute
   '/admin/plans/$tierId': typeof AdminPlansTierIdRoute
   '/admin/subscriptions/$businessId': typeof AdminSubscriptionsBusinessIdRoute
   '/dashboard/appointments/$appointmentId': typeof DashboardAppointmentsAppointmentIdRoute
@@ -611,6 +679,7 @@ export interface FileRoutesByFullPath {
   '/dashboard/storefront/templates': typeof DashboardStorefrontTemplatesRoute
   '/$slug/services/': typeof SlugServicesIndexRoute
   '/$slug/team/': typeof SlugTeamIndexRoute
+  '/admin/notifications/': typeof AdminNotificationsIndexRoute
   '/dashboard/appointments/': typeof DashboardAppointmentsIndexRoute
   '/dashboard/customers/': typeof DashboardCustomersIndexRoute
   '/dashboard/programs/': typeof DashboardProgramsIndexRoute
@@ -676,6 +745,13 @@ export interface FileRoutesByTo {
   '/$slug/services/$serviceId': typeof SlugServicesServiceIdRoute
   '/$slug/team/$staffId': typeof SlugTeamStaffIdRoute
   '/admin/businesses/$businessId': typeof AdminBusinessesBusinessIdRoute
+  '/admin/notifications/analytics': typeof AdminNotificationsAnalyticsRoute
+  '/admin/notifications/businesses': typeof AdminNotificationsBusinessesRoute
+  '/admin/notifications/delivery': typeof AdminNotificationsDeliveryRoute
+  '/admin/notifications/failures': typeof AdminNotificationsFailuresRoute
+  '/admin/notifications/logs': typeof AdminNotificationsLogsRoute
+  '/admin/notifications/providers': typeof AdminNotificationsProvidersRoute
+  '/admin/notifications/templates': typeof AdminNotificationsTemplatesRoute
   '/admin/plans/$tierId': typeof AdminPlansTierIdRoute
   '/admin/subscriptions/$businessId': typeof AdminSubscriptionsBusinessIdRoute
   '/dashboard/appointments/$appointmentId': typeof DashboardAppointmentsAppointmentIdRoute
@@ -687,6 +763,7 @@ export interface FileRoutesByTo {
   '/dashboard/storefront/templates': typeof DashboardStorefrontTemplatesRoute
   '/$slug/services': typeof SlugServicesIndexRoute
   '/$slug/team': typeof SlugTeamIndexRoute
+  '/admin/notifications': typeof AdminNotificationsIndexRoute
   '/dashboard/appointments': typeof DashboardAppointmentsIndexRoute
   '/dashboard/customers': typeof DashboardCustomersIndexRoute
   '/dashboard/programs': typeof DashboardProgramsIndexRoute
@@ -724,6 +801,7 @@ export interface FileRoutesById {
   '/admin/audit': typeof AdminAuditRoute
   '/admin/businesses': typeof AdminBusinessesRouteWithChildren
   '/admin/modules': typeof AdminModulesRoute
+  '/admin/notifications': typeof AdminNotificationsRouteWithChildren
   '/admin/plans': typeof AdminPlansRouteWithChildren
   '/admin/subscriptions': typeof AdminSubscriptionsRouteWithChildren
   '/admin/users': typeof AdminUsersRoute
@@ -763,6 +841,13 @@ export interface FileRoutesById {
   '/$slug/services/$serviceId': typeof SlugServicesServiceIdRoute
   '/$slug/team/$staffId': typeof SlugTeamStaffIdRoute
   '/admin/businesses/$businessId': typeof AdminBusinessesBusinessIdRoute
+  '/admin/notifications/analytics': typeof AdminNotificationsAnalyticsRoute
+  '/admin/notifications/businesses': typeof AdminNotificationsBusinessesRoute
+  '/admin/notifications/delivery': typeof AdminNotificationsDeliveryRoute
+  '/admin/notifications/failures': typeof AdminNotificationsFailuresRoute
+  '/admin/notifications/logs': typeof AdminNotificationsLogsRoute
+  '/admin/notifications/providers': typeof AdminNotificationsProvidersRoute
+  '/admin/notifications/templates': typeof AdminNotificationsTemplatesRoute
   '/admin/plans/$tierId': typeof AdminPlansTierIdRoute
   '/admin/subscriptions/$businessId': typeof AdminSubscriptionsBusinessIdRoute
   '/dashboard/appointments/$appointmentId': typeof DashboardAppointmentsAppointmentIdRoute
@@ -775,6 +860,7 @@ export interface FileRoutesById {
   '/dashboard/storefront/templates': typeof DashboardStorefrontTemplatesRoute
   '/$slug/services/': typeof SlugServicesIndexRoute
   '/$slug/team/': typeof SlugTeamIndexRoute
+  '/admin/notifications/': typeof AdminNotificationsIndexRoute
   '/dashboard/appointments/': typeof DashboardAppointmentsIndexRoute
   '/dashboard/customers/': typeof DashboardCustomersIndexRoute
   '/dashboard/programs/': typeof DashboardProgramsIndexRoute
@@ -813,6 +899,7 @@ export interface FileRouteTypes {
     | '/admin/audit'
     | '/admin/businesses'
     | '/admin/modules'
+    | '/admin/notifications'
     | '/admin/plans'
     | '/admin/subscriptions'
     | '/admin/users'
@@ -852,6 +939,13 @@ export interface FileRouteTypes {
     | '/$slug/services/$serviceId'
     | '/$slug/team/$staffId'
     | '/admin/businesses/$businessId'
+    | '/admin/notifications/analytics'
+    | '/admin/notifications/businesses'
+    | '/admin/notifications/delivery'
+    | '/admin/notifications/failures'
+    | '/admin/notifications/logs'
+    | '/admin/notifications/providers'
+    | '/admin/notifications/templates'
     | '/admin/plans/$tierId'
     | '/admin/subscriptions/$businessId'
     | '/dashboard/appointments/$appointmentId'
@@ -864,6 +958,7 @@ export interface FileRouteTypes {
     | '/dashboard/storefront/templates'
     | '/$slug/services/'
     | '/$slug/team/'
+    | '/admin/notifications/'
     | '/dashboard/appointments/'
     | '/dashboard/customers/'
     | '/dashboard/programs/'
@@ -929,6 +1024,13 @@ export interface FileRouteTypes {
     | '/$slug/services/$serviceId'
     | '/$slug/team/$staffId'
     | '/admin/businesses/$businessId'
+    | '/admin/notifications/analytics'
+    | '/admin/notifications/businesses'
+    | '/admin/notifications/delivery'
+    | '/admin/notifications/failures'
+    | '/admin/notifications/logs'
+    | '/admin/notifications/providers'
+    | '/admin/notifications/templates'
     | '/admin/plans/$tierId'
     | '/admin/subscriptions/$businessId'
     | '/dashboard/appointments/$appointmentId'
@@ -940,6 +1042,7 @@ export interface FileRouteTypes {
     | '/dashboard/storefront/templates'
     | '/$slug/services'
     | '/$slug/team'
+    | '/admin/notifications'
     | '/dashboard/appointments'
     | '/dashboard/customers'
     | '/dashboard/programs'
@@ -976,6 +1079,7 @@ export interface FileRouteTypes {
     | '/admin/audit'
     | '/admin/businesses'
     | '/admin/modules'
+    | '/admin/notifications'
     | '/admin/plans'
     | '/admin/subscriptions'
     | '/admin/users'
@@ -1015,6 +1119,13 @@ export interface FileRouteTypes {
     | '/$slug/services/$serviceId'
     | '/$slug/team/$staffId'
     | '/admin/businesses/$businessId'
+    | '/admin/notifications/analytics'
+    | '/admin/notifications/businesses'
+    | '/admin/notifications/delivery'
+    | '/admin/notifications/failures'
+    | '/admin/notifications/logs'
+    | '/admin/notifications/providers'
+    | '/admin/notifications/templates'
     | '/admin/plans/$tierId'
     | '/admin/subscriptions/$businessId'
     | '/dashboard/appointments/$appointmentId'
@@ -1027,6 +1138,7 @@ export interface FileRouteTypes {
     | '/dashboard/storefront/templates'
     | '/$slug/services/'
     | '/$slug/team/'
+    | '/admin/notifications/'
     | '/dashboard/appointments/'
     | '/dashboard/customers/'
     | '/dashboard/programs/'
@@ -1257,6 +1369,13 @@ declare module '@tanstack/react-router' {
       path: '/modules'
       fullPath: '/admin/modules'
       preLoaderRoute: typeof AdminModulesRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/notifications': {
+      id: '/admin/notifications'
+      path: '/notifications'
+      fullPath: '/admin/notifications'
+      preLoaderRoute: typeof AdminNotificationsRouteImport
       parentRoute: typeof AdminRoute
     }
     '/admin/plans': {
@@ -1532,6 +1651,62 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminBusinessesBusinessIdRouteImport
       parentRoute: typeof AdminBusinessesRoute
     }
+    '/admin/notifications/': {
+      id: '/admin/notifications/'
+      path: '/'
+      fullPath: '/admin/notifications/'
+      preLoaderRoute: typeof AdminNotificationsIndexRouteImport
+      parentRoute: typeof AdminNotificationsRoute
+    }
+    '/admin/notifications/analytics': {
+      id: '/admin/notifications/analytics'
+      path: '/analytics'
+      fullPath: '/admin/notifications/analytics'
+      preLoaderRoute: typeof AdminNotificationsAnalyticsRouteImport
+      parentRoute: typeof AdminNotificationsRoute
+    }
+    '/admin/notifications/businesses': {
+      id: '/admin/notifications/businesses'
+      path: '/businesses'
+      fullPath: '/admin/notifications/businesses'
+      preLoaderRoute: typeof AdminNotificationsBusinessesRouteImport
+      parentRoute: typeof AdminNotificationsRoute
+    }
+    '/admin/notifications/delivery': {
+      id: '/admin/notifications/delivery'
+      path: '/delivery'
+      fullPath: '/admin/notifications/delivery'
+      preLoaderRoute: typeof AdminNotificationsDeliveryRouteImport
+      parentRoute: typeof AdminNotificationsRoute
+    }
+    '/admin/notifications/failures': {
+      id: '/admin/notifications/failures'
+      path: '/failures'
+      fullPath: '/admin/notifications/failures'
+      preLoaderRoute: typeof AdminNotificationsFailuresRouteImport
+      parentRoute: typeof AdminNotificationsRoute
+    }
+    '/admin/notifications/logs': {
+      id: '/admin/notifications/logs'
+      path: '/logs'
+      fullPath: '/admin/notifications/logs'
+      preLoaderRoute: typeof AdminNotificationsLogsRouteImport
+      parentRoute: typeof AdminNotificationsRoute
+    }
+    '/admin/notifications/providers': {
+      id: '/admin/notifications/providers'
+      path: '/providers'
+      fullPath: '/admin/notifications/providers'
+      preLoaderRoute: typeof AdminNotificationsProvidersRouteImport
+      parentRoute: typeof AdminNotificationsRoute
+    }
+    '/admin/notifications/templates': {
+      id: '/admin/notifications/templates'
+      path: '/templates'
+      fullPath: '/admin/notifications/templates'
+      preLoaderRoute: typeof AdminNotificationsTemplatesRouteImport
+      parentRoute: typeof AdminNotificationsRoute
+    }
     '/admin/plans/$tierId': {
       id: '/admin/plans/$tierId'
       path: '/$tierId'
@@ -1705,6 +1880,31 @@ const AdminBusinessesRouteWithChildren = AdminBusinessesRoute._addFileChildren(
   AdminBusinessesRouteChildren,
 )
 
+interface AdminNotificationsRouteChildren {
+  AdminNotificationsAnalyticsRoute: typeof AdminNotificationsAnalyticsRoute
+  AdminNotificationsBusinessesRoute: typeof AdminNotificationsBusinessesRoute
+  AdminNotificationsDeliveryRoute: typeof AdminNotificationsDeliveryRoute
+  AdminNotificationsFailuresRoute: typeof AdminNotificationsFailuresRoute
+  AdminNotificationsLogsRoute: typeof AdminNotificationsLogsRoute
+  AdminNotificationsProvidersRoute: typeof AdminNotificationsProvidersRoute
+  AdminNotificationsTemplatesRoute: typeof AdminNotificationsTemplatesRoute
+  AdminNotificationsIndexRoute: typeof AdminNotificationsIndexRoute
+}
+
+const AdminNotificationsRouteChildren: AdminNotificationsRouteChildren = {
+  AdminNotificationsAnalyticsRoute: AdminNotificationsAnalyticsRoute,
+  AdminNotificationsBusinessesRoute: AdminNotificationsBusinessesRoute,
+  AdminNotificationsDeliveryRoute: AdminNotificationsDeliveryRoute,
+  AdminNotificationsFailuresRoute: AdminNotificationsFailuresRoute,
+  AdminNotificationsLogsRoute: AdminNotificationsLogsRoute,
+  AdminNotificationsProvidersRoute: AdminNotificationsProvidersRoute,
+  AdminNotificationsTemplatesRoute: AdminNotificationsTemplatesRoute,
+  AdminNotificationsIndexRoute: AdminNotificationsIndexRoute,
+}
+
+const AdminNotificationsRouteWithChildren =
+  AdminNotificationsRoute._addFileChildren(AdminNotificationsRouteChildren)
+
 interface AdminPlansRouteChildren {
   AdminPlansTierIdRoute: typeof AdminPlansTierIdRoute
 }
@@ -1732,6 +1932,7 @@ interface AdminRouteChildren {
   AdminAuditRoute: typeof AdminAuditRoute
   AdminBusinessesRoute: typeof AdminBusinessesRouteWithChildren
   AdminModulesRoute: typeof AdminModulesRoute
+  AdminNotificationsRoute: typeof AdminNotificationsRouteWithChildren
   AdminPlansRoute: typeof AdminPlansRouteWithChildren
   AdminSubscriptionsRoute: typeof AdminSubscriptionsRouteWithChildren
   AdminUsersRoute: typeof AdminUsersRoute
@@ -1742,6 +1943,7 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminAuditRoute: AdminAuditRoute,
   AdminBusinessesRoute: AdminBusinessesRouteWithChildren,
   AdminModulesRoute: AdminModulesRoute,
+  AdminNotificationsRoute: AdminNotificationsRouteWithChildren,
   AdminPlansRoute: AdminPlansRouteWithChildren,
   AdminSubscriptionsRoute: AdminSubscriptionsRouteWithChildren,
   AdminUsersRoute: AdminUsersRoute,

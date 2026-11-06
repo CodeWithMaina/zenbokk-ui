@@ -3,7 +3,7 @@ import type { CapabilityKey } from '../../lib/entitlements'
 import { MODULE } from '../../lib/entitlements'
 import type { PublicBusinessProfile, StorefrontConfig } from '../../lib/api/types'
 import type { DashboardBusiness } from '../../lib/api/types'
-import { StorefrontRenderer } from '../storefront/StorefrontBlocks'
+import { StorefrontRenderer } from '../storefront/StorefrontBlocksNew'
 
 /** Maps a customer capability onto the module that backs it (mirrors the API). */
 const CAPABILITY_MODULE: Record<string, string> = {

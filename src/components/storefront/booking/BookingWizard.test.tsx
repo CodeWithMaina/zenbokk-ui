@@ -131,6 +131,52 @@ describe('BookingWizardPage', () => {
     expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Continue' })).toBeDisabled()
   })
+
+  it('shows the M-PESA instructions and the paste field on the payment step, and asks to send with it', async () => {
+    const user = userEvent.setup()
+    server.use(
+      http.get(`${base}/services/:businessId/staff`, () => ok([])),
+      calendarHandler(),
+      // The business collects manually, so the wizard can show what to send and take
+      // the confirmation in the same step.
+      http.get(`${base}/businesses/:businessId/payment-details`, () =>
+        ok({
+          businessId: TEST_BUSINESS_ID,
+          businessName: 'Nuru Studio',
+          currency: 'KES',
+          enabled: true,
+          accountType: 'paybill',
+          paybillNumber: '247247',
+          paybillAccount: '12345',
+          tillNumber: null,
+          payeeName: 'NURU STUDIO',
+          instructions: null,
+          bookingFeePercentage: 50,
+          cashEnabled: true,
+        }),
+      ),
+    )
+    restoreDraft('payment')
+    renderStorefront(<BookingWizardPage />)
+
+    expect(await screen.findByRole('heading', { name: /pay your booking fee by m-pesa/i }))
+      .toBeInTheDocument()
+    // The business's own numbers, and the fee the server will charge (50% of the
+    // seeded 900 service), are on screen before anything is sent.
+    expect(screen.getByText('247247')).toBeInTheDocument()
+    expect(screen.getByText('12345')).toBeInTheDocument()
+    expect(screen.getByText('KES 450')).toBeInTheDocument()
+
+    // Without a paste the button just books; with one it also sends the payment.
+    expect(screen.getByRole('button', { name: /confirm booking/i })).toBeInTheDocument()
+    await user.type(
+      screen.getByLabelText(/paste your m-pesa confirmation message/i),
+      'QJK42NUM01 Confirmed. Ksh1,750.00 sent to NURU STUDIO.',
+    )
+    expect(
+      await screen.findByRole('button', { name: /confirm and send payment/i }),
+    ).toBeInTheDocument()
+  })
 })
 
 describe('StorefrontBookingSummary', () => {

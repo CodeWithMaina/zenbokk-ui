@@ -2,17 +2,30 @@ import { ArrowRight, CalendarPlus } from 'lucide-react'
 import { formatDay, formatDuration, money } from '../../../lib/format'
 import type { Appointment, ServiceCatalogItem } from '../../../lib/api/types'
 import { storefrontHref } from '../../../lib/tenant'
+import { useAppointmentPaymentSummary, usePublicPaymentDetails } from '../../../lib/payments/api'
 import { StorefrontPaymentPanel } from '../StorefrontPaymentPanel'
+import { StorefrontMpesaPanel } from './StorefrontMpesaPanel'
 
 export type StorefrontBookingDoneProps = {
   appointment: Appointment
   services: ServiceCatalogItem[]
   staffName: string | null
   canonicalSlug: string
+  /** The business the appointment was booked at — needed to read its payment setup. */
+  businessId: string
   /** The visitor's own number, offered as the M-Pesa default. */
   defaultPhone?: string | null
   /** True when the business takes payments through Punched. */
   canPay: boolean
+  /** Short-lived guest token, when the visitor booked without an account. */
+  guestToken?: string | null
+  /**
+   * A confirmation the customer pasted during the wizard's payment step.
+   *
+   * Handed straight to the payment panel, which creates the booking-fee payment and
+   * submits it — the paste is part of the booking flow, not a chore after it.
+   */
+  autoSubmitMessage?: string | null
 }
 
 /**
@@ -20,16 +33,31 @@ export type StorefrontBookingDoneProps = {
  *
  * Everything on it is what the server returned: the appointment's own id as the
  * reference, the time it stored, the services it recorded. Nothing is generated
- * in the browser, and the payment panel is the real payment path — it says
- * "awaiting confirmation" until the provider's callback says otherwise.
+ * in the browser.
+ *
+ * Two payment paths are offered, and which one appears is decided by the
+ * business's own configuration, not by the page:
+ *
+ *  - **Manual M-PESA** — the business published a PayBill or Till, so the customer
+ *    sends the booking fee themselves and pastes the confirmation. The fee shown is
+ *    the server's (`GET /v1/payments/appointment/{id}`), computed from the
+ *    business's configured percentage.
+ *  - **Daraja STK** — the business has a working payment account, so the platform
+ *    pushes the prompt to the customer's handset and the provider's callback settles
+ *    it.
+ *
+ * Neither path can be settled by anything the browser does.
  */
 export function StorefrontBookingDone({
   appointment,
   services,
   staffName,
   canonicalSlug,
+  businessId,
   defaultPhone,
   canPay,
+  guestToken,
+  autoSubmitMessage,
 }: StorefrontBookingDoneProps) {
   const scheduled = new Date(appointment.scheduledAt)
   // Prefer what the server recorded over what the page had selected: if the
@@ -50,6 +78,19 @@ export function StorefrontBookingDone({
         }))
   const total = recorded.reduce((sum, service) => sum + service.price, 0)
   const duration = recorded.reduce((sum, service) => sum + service.durationMinutes, 0)
+
+  // The business's own payment setup decides which path is offered. The manual
+  // channel wins when it is configured, because it is the one the business has
+  // explicitly asked customers to use — but it still needs the `payments` module,
+  // because every payment endpoint is gated on it.
+  const publicDetails = usePublicPaymentDetails(businessId, canPay)
+  const manualMpesa = canPay && publicDetails.data?.enabled === true
+
+  // Only fetched when it can be shown: a booking that owes nothing up front must
+  // not pay for a request it will not use.
+  const summary = useAppointmentPaymentSummary(appointment.id, manualMpesa)
+  const bookingFee = summary.data?.bookingFee ?? 0
+  const serviceTotal = summary.data?.serviceTotal ?? total
 
   return (
     <div className="sf-container py-[clamp(2rem,6vw,4rem)]">
@@ -96,7 +137,18 @@ export function StorefrontBookingDone({
           </div>
         </div>
 
-        {canPay ? (
+        {manualMpesa ? (
+          <div className="text-left">
+            <StorefrontMpesaPanel
+              businessId={businessId}
+              appointmentId={appointment.id}
+              serviceTotal={serviceTotal}
+              bookingFee={bookingFee}
+              guestToken={guestToken}
+              autoSubmitMessage={autoSubmitMessage}
+            />
+          </div>
+        ) : canPay ? (
           <div className="text-left">
             <StorefrontPaymentPanel
               appointmentId={appointment.id}

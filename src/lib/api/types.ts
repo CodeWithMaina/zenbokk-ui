@@ -503,10 +503,16 @@ export type AppointmentPayment = {
 export type AppointmentPaymentSummary = {
   appointmentId: string
   serviceTotal: number
+  /** What the business asks for up front, from its configured booking-fee percentage. */
+  bookingFee: number
+  /** The configured percentage `bookingFee` was computed from. */
+  bookingFeePercentage: number
   amountPaid: number
   balance: number
   /** `unpaid` | `partially_paid` | `paid`. */
   paymentStatus: string
+  /** `none` | `pending` | `awaiting_verification` | `verified` | `rejected`. */
+  verificationStatus: string
   payments: AppointmentPayment[]
 }
 

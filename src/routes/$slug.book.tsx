@@ -11,6 +11,7 @@ import {
   StorefrontBookingActionBar,
   StorefrontBookingSummary,
 } from '../components/storefront/booking/StorefrontBookingSummary'
+import { MpesaInstructions } from '../components/storefront/booking/MpesaInstructions'
 import {
   StepOption,
   StorefrontBookingStepper,
@@ -37,6 +38,7 @@ import {
   useStorefrontServices,
   useStorefrontTeam,
 } from '../lib/storefront/use-storefront-catalog'
+import { usePublicPaymentDetails } from '../lib/payments/api'
 import { storefrontApi } from '../lib/storefront/api'
 import { storefrontHref } from '../lib/tenant'
 
@@ -111,6 +113,16 @@ export function BookingWizardPage() {
   const [confirmed, setConfirmed] = useState<Appointment | null>(null)
   const [summaryOpen, setSummaryOpen] = useState(false)
   const [paymentChoice, setPaymentChoice] = useState<'mpesa' | 'studio' | null>(null)
+  /**
+   * The M-PESA confirmation the customer pastes while booking.
+   *
+   * It is carried to the confirmation screen, which creates the booking-fee payment
+   * and submits it — the appointment has to exist before a payment can be attached to
+   * it, so the paste is collected here and sent the moment the booking lands. Empty is
+   * a perfectly good value: the customer can pay later and paste on the confirmation
+   * screen instead.
+   */
+  const [mpesaMessage, setMpesaMessage] = useState('')
 
   // A guest who has already verified in this session (or in a previous step of
   // the same session) is not asked again. The token itself lives in
@@ -121,6 +133,12 @@ export function BookingWizardPage() {
   const appointmentsEnabled = can(CAPABILITY.appointments)
   const paymentsEnabled = can(CAPABILITY.payments)
   const currency = 'KES'
+
+  // The business's own payment setup, read before the appointment exists so the
+  // customer can see exactly what to send and paste the confirmation in the same
+  // step. Gated on the module because every payment endpoint needs it.
+  const publicPayment = usePublicPaymentDetails(businessId, paymentsEnabled)
+  const manualMpesa = paymentsEnabled && publicPayment.data?.enabled === true
 
   function update(changes: Partial<BookingDraft>) {
     setDraft((current) => {
@@ -144,6 +162,18 @@ export function BookingWizardPage() {
   const selectedServiceIds = selectedServices.map((service) => service.id)
   const totalDuration = selectedServices.reduce((sum, s) => sum + s.durationMinutes, 0)
   const totalPrice = selectedServices.reduce((sum, s) => sum + s.price, 0)
+
+  /**
+   * The fee the customer is about to send.
+   *
+   * Computed the same way the server computes it (the configured percentage of the
+   * service total, rounded to 2dp) so the number on screen is the number the server
+   * compares the pasted amount against. The server's own figure still wins once the
+   * payment exists — this is only what the customer is told to send.
+   */
+  const bookingFeePreview = manualMpesa
+    ? Math.round(totalPrice * (publicPayment.data?.bookingFeePercentage ?? 0)) / 100
+    : 0
 
   const staffQuery = useStorefrontTeam(
     businessId,
@@ -332,8 +362,11 @@ export function BookingWizardPage() {
         services={selectedServices}
         staffName={staffName}
         canonicalSlug={canonicalSlug}
+        businessId={businessId}
         defaultPhone={user?.phone ?? null}
         canPay={paymentsEnabled}
+        guestToken={guestTokenFor(businessId)}
+        autoSubmitMessage={mpesaMessage.trim() || null}
       />
     )
   }
@@ -411,7 +444,7 @@ export function BookingWizardPage() {
           </>
         ) : activeStep === 'payment' ? (
           <>
-            Confirm booking
+            {manualMpesa && mpesaMessage.trim() ? 'Confirm and send payment' : 'Confirm booking'}
             <ArrowRight className="size-4" aria-hidden="true" />
           </>
         ) : (
@@ -692,7 +725,38 @@ export function BookingWizardPage() {
                 </li>
               </ul>
 
-              {paymentsEnabled ? (
+              {manualMpesa ? (
+                <div className="mt-[1.2rem]">
+                  <h2 className="text-label font-semibold">Pay your booking fee by M-PESA</h2>
+                  <div className="mt-[0.6rem] rounded-card border border-line bg-surface p-[1rem]">
+                    <MpesaInstructions
+                      details={publicPayment.data!}
+                      amount={bookingFeePreview}
+                      serviceTotal={totalPrice}
+                    />
+                  </div>
+
+                  <div className="mt-[0.9rem]">
+                    <label className="label" htmlFor="sf-book-mpesa-message">
+                      Paste your M-PESA confirmation message{' '}
+                      <span className="text-subtle">(you can also do this after booking)</span>
+                    </label>
+                    <textarea
+                      id="sf-book-mpesa-message"
+                      className="textarea"
+                      rows={3}
+                      value={mpesaMessage}
+                      placeholder="QJK42NUM01 Confirmed. Ksh500.00 sent to …"
+                      onChange={(event) => setMpesaMessage(event.target.value)}
+                    />
+                    <p className="mt-[0.4rem] text-caption text-subtle">
+                      {mpesaMessage.trim()
+                        ? 'We will send this for the studio to check as soon as your booking is in.'
+                        : `Send ${money(bookingFeePreview, currency)} to the details above, then paste the SMS here. Your booking is held either way.`}
+                    </p>
+                  </div>
+                </div>
+              ) : paymentsEnabled ? (
                 <div className="mt-[1.2rem]">
                   <h2 className="text-label font-semibold">How would you like to pay?</h2>
                   <div className="mt-[0.6rem]">

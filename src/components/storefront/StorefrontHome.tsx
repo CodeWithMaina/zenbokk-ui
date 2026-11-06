@@ -1,5 +1,5 @@
 import { StorefrontHero } from './StorefrontHero'
-import { StorefrontRenderer } from './StorefrontBlocks'
+import { StorefrontRenderer as StorefrontRendererNew } from './StorefrontBlocksNew'
 import { useStorefront } from '../../lib/storefront'
 import { storefrontHref } from '../../lib/tenant'
 
@@ -7,13 +7,11 @@ import { storefrontHref } from '../../lib/tenant'
  * A business's storefront home.
  *
  * When the owner has published a Storefront Builder configuration, the home page
- * is the ordered sequence of sections they composed — rendered by the same
- * schema-driven renderer the builder previews with. A business still on the
- * legacy simple landing page keeps the original hero-only home, so nothing about
- * an un-migrated storefront changes.
+ * is rendered using the new three-component architecture (navigation, hero, footer).
+ * A business still on the legacy simple landing page keeps the original hero-only home.
  */
 export function StorefrontHome() {
-  const { storefront, business, can, canonicalSlug, landingPage } = useStorefront()
+  const { storefront, business, can, canonicalSlug } = useStorefront()
 
   if (!storefront) return <StorefrontHero />
 
@@ -32,16 +30,10 @@ export function StorefrontHome() {
   }
 
   return (
-    <StorefrontRenderer
+    <StorefrontRendererNew
       config={storefront}
       business={business}
       can={can}
-      heroVariants={
-        storefront.heroBackgroundVariants.length > 0
-          ? storefront.heroBackgroundVariants
-          : landingPage.heroBackgroundVariants
-      }
-      heroCarouselVariants={storefront.heroCarouselVariants}
       resolveHref={resolveHref}
     />
   )

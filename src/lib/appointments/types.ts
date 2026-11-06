@@ -36,6 +36,9 @@ export type { AppointmentStatus }
  * Terminal statuses have no entry, so no action is ever offered on them.
  */
 const ALLOWED_TRANSITIONS: Record<AppointmentStatus, readonly AppointmentStatus[]> = {
+  // A booking awaiting its fee is confirmed by verifying the payment, not by a
+  // confirm tap, and is never moved straight to completed/no_show.
+  pending_payment: ['confirmed', 'cancelled'],
   booked: ['confirmed', 'cancelled', 'no_show'],
   confirmed: ['completed', 'cancelled', 'no_show'],
   completed: [],
@@ -54,7 +57,11 @@ export function allowedTransitions(status: string): readonly AppointmentStatus[]
  * would actually clash; a completed or cancelled appointment never blocks a
  * slot, which is what makes a reschedule's old interval free immediately.
  */
-export const RESERVING_STATUSES: readonly AppointmentStatus[] = ['booked', 'confirmed']
+export const RESERVING_STATUSES: readonly AppointmentStatus[] = [
+  'pending_payment',
+  'booked',
+  'confirmed',
+]
 
 export function reservesStaffTime(status: string): boolean {
   return RESERVING_STATUSES.includes(status as AppointmentStatus)

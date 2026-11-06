@@ -3103,8 +3103,7 @@ html {
     z-index: var(--z-scrim);
     display: flex;
     flex-direction: column;
-    padding: calc(4.2rem + env(safe-area-inset-top, 0px)) 1.6rem
-      calc(1.6rem + env(safe-area-inset-bottom, 0px));
+    padding: 0;
     background: var(--bg);
     color: var(--fg);
     opacity: 0;
@@ -3117,52 +3116,232 @@ html {
     opacity: 1;
     visibility: visible;
   }
-  .sf-menu a.sf-menu-link {
-    padding: 0.65rem 0;
-    font-family: var(--font-display);
-    font-size: clamp(2.1rem, 9vw, 3rem);
-    font-weight: 500;
-    line-height: 1.1;
+
+  /* Menu header with business branding */
+  .sf-menu-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: calc(1rem + env(safe-area-inset-top, 0px)) 1.6rem 1rem;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .sf-menu-brand {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    flex: 1;
     text-decoration: none;
+    color: inherit;
+  }
+
+  .sf-menu-brand-mark {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: calc(var(--sf-radius, 0.65rem) * 0.75);
+    background: var(--surface-raised);
+    flex-shrink: 0;
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: var(--accent);
+  }
+
+  .sf-menu-brand-mark img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: calc(var(--sf-radius, 0.65rem) * 0.75);
+  }
+
+  .sf-menu-brand-name {
+    font-size: 1.05rem;
+    font-weight: 600;
+    line-height: 1.2;
+    margin: 0;
+    color: var(--fg);
+  }
+
+  .sf-menu-brand-category {
+    font-size: 0.8rem;
+    color: var(--fg-muted);
+    margin: 0.15rem 0 0;
+    line-height: 1.2;
+  }
+
+  .sf-menu-close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    padding: 0;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: calc(var(--sf-radius, 0.65rem) * 0.75);
+    cursor: pointer;
+    color: var(--fg);
+    transition:
+      background-color 0.2s,
+      border-color 0.2s;
+  }
+
+  .sf-menu-close:hover {
+    background: var(--hover);
+    border-color: var(--line-strong);
+  }
+
+  /* Navigation links in menu */
+  .sf-menu-nav {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    padding: 1rem 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .sf-menu a.sf-menu-link {
+    padding: 0.95rem 1.6rem;
+    font-family: var(--font-display);
+    font-size: clamp(1.4rem, 5vw, 1.8rem);
+    font-weight: 500;
+    line-height: 1.2;
+    text-decoration: none;
+    color: var(--fg);
+    border-left: 3px solid transparent;
     opacity: 0;
-    transform: translateY(1rem);
+    transform: translateX(-0.5rem);
     transition:
       opacity 0.5s var(--ease-standard),
-      transform 0.7s var(--ease-standard);
+      transform 0.7s var(--ease-standard),
+      background-color 0.2s,
+      color 0.2s;
   }
+
   .sf-menu.is-open a.sf-menu-link {
     opacity: 1;
     transform: none;
   }
+
   .sf-menu.is-open a.sf-menu-link:nth-child(1) {
-    transition-delay: 0.05s;
-  }
-  .sf-menu.is-open a.sf-menu-link:nth-child(2) {
     transition-delay: 0.1s;
   }
-  .sf-menu.is-open a.sf-menu-link:nth-child(3) {
+  .sf-menu.is-open a.sf-menu-link:nth-child(2) {
     transition-delay: 0.15s;
   }
-  .sf-menu.is-open a.sf-menu-link:nth-child(4) {
+  .sf-menu.is-open a.sf-menu-link:nth-child(3) {
     transition-delay: 0.2s;
   }
-  .sf-menu.is-open a.sf-menu-link:nth-child(5) {
+  .sf-menu.is-open a.sf-menu-link:nth-child(4) {
     transition-delay: 0.25s;
   }
-  .sf-menu.is-open a.sf-menu-link:nth-child(6) {
+  .sf-menu.is-open a.sf-menu-link:nth-child(5) {
     transition-delay: 0.3s;
   }
+  .sf-menu.is-open a.sf-menu-link:nth-child(6) {
+    transition-delay: 0.35s;
+  }
+
+  .sf-menu a.sf-menu-link:hover {
+    background: var(--hover);
+  }
+
   .sf-menu a.sf-menu-link[aria-current='page'] {
     color: var(--accent);
-    font-style: italic;
+    background: var(--accent-soft);
+    border-left-color: var(--accent);
   }
+
+  /* Menu footer with actions and contact */
   .sf-menu-foot {
     margin-top: auto;
-    padding-top: 1.6rem;
+    padding: 1.5rem 1.6rem calc(1.5rem + env(safe-area-inset-bottom, 0px));
     border-top: 1px solid var(--line);
-    font-size: var(--text-meta);
+    display: flex;
+    flex-direction: column;
+    gap: 1.2rem;
+  }
+
+  /* Dashboard and logout action buttons */
+  .sf-menu-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+  }
+
+  .sf-menu-action-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    padding: 0.75rem 1rem;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: calc(var(--sf-radius, 0.65rem) * 0.75);
+    color: var(--fg);
+    font-size: 0.95rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition:
+      background-color 0.2s,
+      border-color 0.2s,
+      color 0.2s;
+  }
+
+  .sf-menu-action-btn:hover {
+    background: var(--hover);
+    border-color: var(--line-strong);
+  }
+
+  .sf-menu-action-btn.is-logout {
+    color: var(--danger-ink);
+    border-color: var(--danger-line);
+    background: var(--danger-soft);
+  }
+
+  .sf-menu-action-btn.is-logout:hover {
+    background: var(--danger-ink);
+    color: var(--on-danger);
+    border-color: var(--danger-ink);
+  }
+
+  /* Contact information in footer */
+  .sf-menu-contact {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .sf-menu-contact-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.6rem;
+    margin: 0;
+    font-size: 0.9rem;
+    line-height: 1.4;
     color: var(--fg-muted);
   }
+
+  .sf-menu-contact-label {
+    flex-shrink: 0;
+    width: 1.2rem;
+    text-align: center;
+    line-height: 1.4;
+  }
+
+  .sf-menu-contact-item .link {
+    color: var(--link);
+    text-decoration: none;
+  }
+
+  .sf-menu-contact-item .link:hover {
+    text-decoration: underline;
+  }
+
   @media (min-width: 45.01rem) {
     .sf-menu {
       display: none;
@@ -3908,33 +4087,186 @@ html {
 
 @layer components {
   /* ---- footer ---------------------------------------------------------- */
-  .sf-footer { background: var(--sf-primary, #12110f); color: #efe6d2; padding-block: clamp(2.4rem, 5vw, 3.6rem); }
-  .sf-footer .link { color: inherit; }
-  .sf-footer-brand { display: grid; gap: 0.5rem; max-width: 26rem; }
-  .sf-footer-logo { width: 2.6rem; height: 2.6rem; border-radius: 999px; object-fit: cover; }
-  .sf-footer-name { margin: 0; font-family: var(--sf-font-heading, inherit); font-size: 1.15rem; }
-  .sf-footer-desc { margin: 0; font-size: 0.88rem; opacity: 0.75; }
-  .sf-footer-title { margin: 0 0 0.5rem; font-size: 0.72rem; letter-spacing: 0.2em; text-transform: uppercase; opacity: 0.7; }
-  .sf-footer-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.4rem; font-size: 0.9rem; }
-  .sf-footer-list.is-inline { display: flex; flex-wrap: wrap; gap: 0.4rem 1rem; }
-  .sf-footer-list li { display: flex; align-items: center; gap: 0.5rem; }
-  .sf-footer-icon { width: 0.95rem; height: 0.95rem; opacity: 0.7; flex-shrink: 0; }
-  .sf-footer-legal { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.6rem; font-size: 0.8rem; opacity: 0.7; }
-  .sf-footer-grid { display: grid; gap: 1.8rem; grid-template-columns: 1fr; }
-  @media (min-width: 760px) { .sf-footer-grid { grid-template-columns: 1.4fr 1fr 1fr; } }
-  .sf-footer-grid.is-contact { grid-template-columns: 1fr; }
-  @media (min-width: 760px) { .sf-footer-grid.is-contact { grid-template-columns: 1.6fr 1fr 1fr; } }
-  .sf-footer-grid-foot { grid-column: 1 / -1; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.6rem; border-top: 1px solid color-mix(in srgb, currentColor 20%, transparent); padding-top: 1rem; }
-  .sf-footer-minimal { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem; }
-  .sf-footer-minimal-side { display: grid; gap: 0.4rem; text-align: right; }
-  .sf-footer-centered { display: grid; gap: 1.2rem; justify-items: center; text-align: center; }
-  .sf-footer-centered .sf-footer-brand { max-width: 34rem; }
-  .sf-footer-centered .sf-footer-nav ul { justify-content: center; display: flex; flex-wrap: wrap; gap: 1rem; }
-  .sf-footer-editorial { display: grid; gap: 1.6rem; }
-  .sf-footer-editorial .sf-footer-brand { max-width: 40rem; }
-  .sf-footer-editorial-grid { display: grid; gap: 1.6rem; }
-  @media (min-width: 760px) { .sf-footer-editorial-grid { grid-template-columns: 1fr 1fr auto; } }
-  .sf-footer-copy { font-size: 0.8rem; opacity: 0.7; }
+  .sf-footer {
+    background: var(--sf-primary, #12110f);
+    color: #efe6d2;
+    padding-block: clamp(2.4rem, 5vw, 3.6rem);
+    border-top: 1px solid color-mix(in srgb, currentColor 15%, transparent);
+  }
+  .sf-footer .link {
+    color: inherit;
+    transition: opacity 0.2s;
+  }
+  .sf-footer .link:hover {
+    opacity: 0.85;
+  }
+
+  /* Brand section improvements */
+  .sf-footer-brand {
+    display: grid;
+    gap: 0.8rem;
+    max-width: 26rem;
+  }
+  .sf-footer-logo {
+    width: 2.8rem;
+    height: 2.8rem;
+    border-radius: calc(var(--sf-radius, 0.65rem) * 1.2);
+    object-fit: cover;
+    opacity: 0.95;
+  }
+  .sf-footer-name {
+    margin: 0;
+    font-family: var(--sf-font-heading, inherit);
+    font-size: 1.25rem;
+    font-weight: 600;
+    line-height: 1.3;
+  }
+  .sf-footer-desc {
+    margin: 0;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    opacity: 0.8;
+  }
+
+  /* Improved typography and spacing */
+  .sf-footer-title {
+    margin: 0 0 0.8rem;
+    font-size: 0.8rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    opacity: 0.75;
+    font-weight: 600;
+  }
+
+  .sf-footer-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 0.6rem;
+    font-size: 0.95rem;
+    line-height: 1.5;
+  }
+  .sf-footer-list.is-inline {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.8rem 1.2rem;
+  }
+  .sf-footer-list li {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+  }
+
+  /* Icon improvements */
+  .sf-footer-icon {
+    width: 1rem;
+    height: 1rem;
+    opacity: 0.75;
+    flex-shrink: 0;
+    transition: opacity 0.2s;
+  }
+  .sf-footer-list:hover .sf-footer-icon {
+    opacity: 0.95;
+  }
+
+  /* Legal section polishing */
+  .sf-footer-legal {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 0.8rem 1.2rem;
+    font-size: 0.85rem;
+    opacity: 0.75;
+    line-height: 1.4;
+  }
+
+  /* Grid layout improvements */
+  .sf-footer-grid {
+    display: grid;
+    gap: 2.4rem;
+    grid-template-columns: 1fr;
+  }
+  @media (min-width: 760px) {
+    .sf-footer-grid {
+      grid-template-columns: 1.4fr 1fr 1fr;
+    }
+  }
+  .sf-footer-grid.is-contact {
+    grid-template-columns: 1fr;
+  }
+  @media (min-width: 760px) {
+    .sf-footer-grid.is-contact {
+      grid-template-columns: 1.6fr 1fr 1fr;
+    }
+  }
+  .sf-footer-grid-foot {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    border-top: 1px solid color-mix(in srgb, currentColor 20%, transparent);
+    padding-top: 1.5rem;
+    margin-top: 0.5rem;
+  }
+
+  /* Minimal variant */
+  .sf-footer-minimal {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.5rem;
+  }
+  .sf-footer-minimal-side {
+    display: grid;
+    gap: 0.8rem;
+    text-align: right;
+  }
+
+  /* Centered variant */
+  .sf-footer-centered {
+    display: grid;
+    gap: 1.6rem;
+    justify-items: center;
+    text-align: center;
+  }
+  .sf-footer-centered .sf-footer-brand {
+    max-width: 34rem;
+  }
+  .sf-footer-centered .sf-footer-nav ul {
+    justify-content: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.2rem;
+  }
+
+  /* Editorial variant */
+  .sf-footer-editorial {
+    display: grid;
+    gap: 1.8rem;
+  }
+  .sf-footer-editorial .sf-footer-brand {
+    max-width: 40rem;
+  }
+  .sf-footer-editorial-grid {
+    display: grid;
+    gap: 2rem;
+  }
+  @media (min-width: 760px) {
+    .sf-footer-editorial-grid {
+      grid-template-columns: 1fr 1fr auto;
+    }
+  }
+
+  /* Copyright/footer copy */
+  .sf-footer-copy {
+    font-size: 0.85rem;
+    opacity: 0.75;
+    line-height: 1.4;
+  }
 
   /* ---- builder console (owner) ----------------------------------------- */
   .sfb-shell { display: grid; gap: 0; grid-template-columns: 1fr; }

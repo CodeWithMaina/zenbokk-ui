@@ -1,7 +1,9 @@
-import { useLocation } from '@tanstack/react-router'
-import { CalendarPlus, Search, ShoppingBag, X } from 'lucide-react'
+import { useLocation, useNavigate } from '@tanstack/react-router'
+import { CalendarPlus, LayoutDashboard, LogOut, Search, ShoppingBag, X } from 'lucide-react'
 import { useEffect, useId, useState } from 'react'
 import { getInitials } from '../../lib/format'
+import { useAuth } from '../../lib/auth'
+import { destinationForRole } from '../../lib/auth/guards'
 import { useStorefront } from '../../lib/storefront'
 import { resolveNavigation, sectionLabel, sectionPath } from '../../lib/storefront/sections'
 import { useBookingTray } from '../../lib/storefront/use-booking-tray'
@@ -28,6 +30,8 @@ export function StorefrontNav() {
   const { business, canonicalSlug, landingPage, can, businessId, storefront } = useStorefront()
   const pathname = useLocation({ select: (location) => location.pathname })
   const { count } = useBookingTray(businessId)
+  const { isAuthenticated, signOut, role } = useAuth()
+  const navigate = useNavigate()
   const [menuOpen, setMenuOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
   const menuId = useId()
@@ -97,6 +101,23 @@ export function StorefrontNav() {
     window.addEventListener('scroll', onScroll, { passive: true })
     return () => window.removeEventListener('scroll', onScroll)
   }, [])
+
+  const handleSignOut = async () => {
+    await signOut()
+    setMenuOpen(false)
+    await navigate({ to: '/auth/sign-in', replace: true })
+  }
+
+  const handleDashboardClick = async () => {
+    if (!isAuthenticated || !role) return
+    const landing = destinationForRole(role, true)
+    if (landing.kind === 'external') {
+      window.location.assign(landing.href)
+      return
+    }
+    setMenuOpen(false)
+    await navigate({ to: landing.to })
+  }
 
   const overlay = isHome && !scrolled && !menuOpen
 
@@ -203,23 +224,54 @@ export function StorefrontNav() {
         </div>
       </header>
 
+      {/* Enhanced mobile menu drawer */}
       <div id={menuId} className={cn('sf-menu', menuOpen && 'is-open')}>
-        {links.map((link) => (
-          <a
-            key={link.key}
-            href={link.href}
-            className="sf-menu-link"
-            aria-current={link.href === pathname ? 'page' : undefined}
-            onClick={() => setMenuOpen(false)}
-          >
-            {link.label}
+        {/* Business header in drawer */}
+        <div className="sf-menu-header">
+          <a href={homeHref} className="sf-menu-brand" onClick={() => setMenuOpen(false)}>
+            <span className="sf-menu-brand-mark">
+              {business.logoUrl ? (
+                <img src={business.logoUrl} alt="" className="size-full object-cover" />
+              ) : (
+                getInitials(business.name).slice(0, 1)
+              )}
+            </span>
+            <div>
+              <p className="sf-menu-brand-name">{business.name}</p>
+              {business.category && <p className="sf-menu-brand-category">{business.category}</p>}
+            </div>
           </a>
-        ))}
-        <a href={searchHref} className="sf-menu-link" onClick={() => setMenuOpen(false)}>
-          Search
-        </a>
+          <button
+            type="button"
+            className="sf-menu-close"
+            onClick={() => setMenuOpen(false)}
+            aria-label="Close menu"
+          >
+            <X className="size-[1.25rem]" aria-hidden="true" />
+          </button>
+        </div>
 
+        {/* Navigation links */}
+        <nav className="sf-menu-nav">
+          {links.map((link) => (
+            <a
+              key={link.key}
+              href={link.href}
+              className="sf-menu-link"
+              aria-current={link.href === pathname ? 'page' : undefined}
+              onClick={() => setMenuOpen(false)}
+            >
+              {link.label}
+            </a>
+          ))}
+          <a href={searchHref} className="sf-menu-link" onClick={() => setMenuOpen(false)}>
+            Search
+          </a>
+        </nav>
+
+        {/* Footer section with buttons and contact info */}
         <div className="sf-menu-foot">
+          {/* Primary CTA button */}
           {canBook ? (
             <a
               href={bookHref}
@@ -230,17 +282,56 @@ export function StorefrontNav() {
               {landingPage.primaryCta.label || ctaLabel}
             </a>
           ) : null}
-          <p className="mt-[1rem]">
-            {business.location}
-            {business.phoneNumber ? (
-              <>
-                <br />
+
+          {/* Authenticated user actions */}
+          {isAuthenticated && (
+            <div className="sf-menu-actions">
+              <button
+                type="button"
+                onClick={handleDashboardClick}
+                className="sf-menu-action-btn"
+                title="Go to your dashboard"
+              >
+                <LayoutDashboard className="size-[1.1rem]" aria-hidden="true" />
+                <span>My Dashboard</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleSignOut()}
+                className="sf-menu-action-btn is-logout"
+                title="Sign out of your account"
+              >
+                <LogOut className="size-[1.1rem]" aria-hidden="true" />
+                <span>Log Out</span>
+              </button>
+            </div>
+          )}
+
+          {/* Contact information */}
+          <div className="sf-menu-contact">
+            {business.location && (
+              <p className="sf-menu-contact-item">
+                <span className="sf-menu-contact-label">📍</span>
+                {business.location}
+              </p>
+            )}
+            {business.phoneNumber && (
+              <p className="sf-menu-contact-item">
+                <span className="sf-menu-contact-label">📞</span>
                 <a href={`tel:${business.phoneNumber}`} className="link">
                   {business.phoneNumber}
                 </a>
-              </>
-            ) : null}
-          </p>
+              </p>
+            )}
+            {business.email && (
+              <p className="sf-menu-contact-item">
+                <span className="sf-menu-contact-label">✉️</span>
+                <a href={`mailto:${business.email}`} className="link">
+                  {business.email}
+                </a>
+              </p>
+            )}
+          </div>
         </div>
       </div>
     </>

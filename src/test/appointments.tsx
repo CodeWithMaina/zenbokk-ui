@@ -165,9 +165,12 @@ export function makePaymentSummary(
   return {
     appointmentId: TEST_APPOINTMENT_ID,
     serviceTotal: 3500,
+    bookingFee: 1750,
+    bookingFeePercentage: 50,
     amountPaid: 0,
     balance: 3500,
     paymentStatus: 'unpaid',
+    verificationStatus: 'none',
     payments: [],
     ...overrides,
   }

@@ -43,6 +43,27 @@ export const handlers = [
 
   http.get(`${base}/businesses/:businessId/gallery`, () => ok(makeGallery(3))),
 
+  // The storefront reads the business's payment setup before the appointment exists,
+  // so it can show the M-PESA instructions and collect the pasted confirmation in the
+  // booking wizard. The default is "no manual M-PESA": a test that cares about the
+  // channel overrides this handler with its own details.
+  http.get(`${base}/businesses/:businessId/payment-details`, () =>
+    ok({
+      businessId: TEST_BUSINESS_ID,
+      businessName: 'Test Studio',
+      currency: 'KES',
+      enabled: false,
+      accountType: null,
+      paybillNumber: null,
+      paybillAccount: null,
+      tillNumber: null,
+      payeeName: null,
+      instructions: null,
+      bookingFeePercentage: 0,
+      cashEnabled: true,
+    }),
+  ),
+
   http.get(`${base}/businesses/:businessId/opening-hours`, () => ok(makeOpeningHours())),
 
   http.get(`${base}/businesses/:businessId/search`, ({ request }) => {
