@@ -17,6 +17,7 @@ import type {
   CalendarMode,
 } from '../../lib/appointments'
 import { formatDuration, money } from '../../lib/format'
+import { Avatar } from '../ui/avatar'
 import { Chip } from '../ui/chip'
 import { Field, Input } from '../ui/field'
 import { FilterDrawer } from '../ui/filter-drawer'
@@ -49,6 +50,12 @@ export type AppointmentFiltersProps = {
   onChange: (next: Filters) => void
   onReset: () => void
   staff: readonly StaffDashboardItem[]
+  /**
+   * Whether the optional Staff module is entitled for this business. When false the
+   * whole Staff group is omitted — not merely disabled — so a business without the
+   * module is never offered a staff filter at all.
+   */
+  staffEnabled?: boolean
   services: readonly ServiceDashboardItem[]
   /** Rows the drawer's result count reflects. */
   resultCount: number
@@ -84,6 +91,7 @@ export function AppointmentFilters({
   onChange,
   onReset,
   staff,
+  staffEnabled = true,
   services,
   resultCount,
   counts,
@@ -193,6 +201,7 @@ export function AppointmentFilters({
         </FilterGroup>
       ) : null}
 
+      {staffEnabled ? (
       <FilterGroup title="Staff">
         <div className="space-y-[0.45rem]">
           <OptionRow
@@ -206,7 +215,17 @@ export function AppointmentFilters({
             <OptionRow
               key={member.userId}
               role="radio"
-              title={member.fullName}
+              title={
+                <span className="flex items-center gap-[0.5rem]">
+                  <Avatar
+                    size="sm"
+                    name={member.fullName}
+                    src={member.avatarUrl ?? undefined}
+                    decorative
+                  />
+                  {member.fullName}
+                </span>
+              }
               description={member.email}
               selected={filters.staffId === member.userId}
               onSelectedChange={() => patch({ staffId: member.userId })}
@@ -218,6 +237,7 @@ export function AppointmentFilters({
           ) : null}
         </div>
       </FilterGroup>
+      ) : null}
 
       <FilterGroup title="Service">
         <div className="space-y-[0.45rem]">

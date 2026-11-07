@@ -6,3 +6,4 @@
 export * from './types'
 export * from './api'
 export * from './use-appointments'
+export * from './use-entity-search'

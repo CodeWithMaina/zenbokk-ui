@@ -2,13 +2,16 @@ import { useMemo, useState } from 'react'
 import type { CustomerDashboardItem, ServiceDashboardItem, StaffDashboardItem } from '../../lib/api/types'
 import { toDateValue } from '../../lib/appointments'
 import { useAppointmentAvailability } from '../../lib/appointments'
+import type { StaffOption } from '../../lib/appointments'
 import { cn } from '../../lib/cn'
 import { formatDuration, formatTime, money } from '../../lib/format'
+import { Avatar } from '../ui/avatar'
 import { Button } from '../ui/button'
 import { Drawer } from '../ui/drawer'
 import { Field, Input, Select, Textarea } from '../ui/field'
 import { SearchField } from '../ui/search-field'
 import { Skeleton } from '../ui/skeleton'
+import { SearchableStaffSelector } from './SearchableStaffSelector'
 
 export type BookingMode = 'new' | 'reschedule' | 'rebook'
 
@@ -43,6 +46,12 @@ export type AppointmentBookingFormProps = {
   services: readonly ServiceDashboardItem[]
   staff: readonly StaffDashboardItem[]
   prefill?: BookingPrefill
+  /**
+   * Staff module entitlement. When false no staff selection is offered in
+   * reschedule/rebook — the appointment is saved without a staff member, and the
+   * server refuses one anyway.
+   */
+  staffModuleEnabled?: boolean
   busy?: boolean
   error?: string | null
   onSubmit: (submission: BookingSubmission) => void
@@ -97,6 +106,7 @@ export function AppointmentBookingForm({
   services,
   staff,
   prefill,
+  staffModuleEnabled = true,
   busy = false,
   error,
   onSubmit,
@@ -104,7 +114,19 @@ export function AppointmentBookingForm({
   const [customerId, setCustomerId] = useState(prefill?.customerId ?? '')
   const [customerQuery, setCustomerQuery] = useState('')
   const [serviceId, setServiceId] = useState(prefill?.serviceId ?? services[0]?.id ?? '')
-  const [staffUserId, setStaffUserId] = useState(prefill?.staffUserId ?? '')
+  const [selectedStaff, setSelectedStaff] = useState<StaffOption | null>(() => {
+    if (!prefill?.staffUserId) return null
+    // The roster the caller already holds names the pre-filled member; fall back to
+    // the id alone so the selection is still shown when the roster has moved on.
+    return (
+      staff.find((member) => member.userId === prefill.staffUserId) ?? {
+        userId: prefill.staffUserId,
+        fullName: 'Assigned staff',
+        email: '',
+        avatarUrl: null,
+      }
+    )
+  })
   const [date, setDate] = useState(initialDate(prefill))
   const [time, setTime] = useState(initialTime(prefill))
   const [note, setNote] = useState(prefill?.note ?? '')
@@ -127,7 +149,7 @@ export function AppointmentBookingForm({
     {
       businessId,
       serviceIds: serviceId ? [serviceId] : [],
-      staffId: staffUserId || null,
+      staffId: selectedStaff?.userId ?? null,
       date,
     },
     open && mode !== 'rebook',
@@ -157,7 +179,7 @@ export function AppointmentBookingForm({
       appointmentId: prefill?.appointmentId,
       customerId,
       serviceId,
-      staffUserId: staffUserId || null,
+      staffUserId: staffModuleEnabled ? (selectedStaff?.userId ?? null) : null,
       start,
       note: note.trim() || null,
     })
@@ -218,10 +240,17 @@ export function AppointmentBookingForm({
                       selected ? 'border-accent bg-selected' : 'border-line bg-surface hover:bg-hover',
                     )}
                   >
-                    <span className="min-w-0">
-                      <span className="block truncate font-semibold">{customer.fullName}</span>
-                      <span className="block truncate text-caption text-muted">
-                        {customer.phoneNumber ?? customer.email}
+                    <span className="flex min-w-0 items-center gap-[0.55rem]">
+                      <Avatar
+                        name={customer.fullName}
+                        src={customer.avatarUrl ?? undefined}
+                        decorative
+                      />
+                      <span className="min-w-0">
+                        <span className="block truncate font-semibold">{customer.fullName}</span>
+                        <span className="block truncate text-caption text-muted">
+                          {customer.phoneNumber ?? customer.email}
+                        </span>
                       </span>
                     </span>
                     {selected ? <span className="text-caption font-bold text-accent-ink">Selected</span> : null}
@@ -254,24 +283,14 @@ export function AppointmentBookingForm({
             </Select>
           </Field>
 
-          <Field
-            label="Staff"
-            htmlFor="appointment-staff"
-            hint="Leave as “Any staff” to use whoever is free."
-          >
-            <Select
-              id="appointment-staff"
-              value={staffUserId}
-              onChange={(event) => setStaffUserId(event.target.value)}
-            >
-              <option value="">Any staff</option>
-              {staff.map((member) => (
-                <option key={member.userId} value={member.userId}>
-                  {member.fullName}
-                </option>
-              ))}
-            </Select>
-          </Field>
+          {staffModuleEnabled ? (
+            <SearchableStaffSelector
+              value={selectedStaff}
+              onChange={setSelectedStaff}
+              enabled={staffModuleEnabled}
+              label="Staff"
+            />
+          ) : null}
 
           <Field label="Date" htmlFor="appointment-date">
             <Input
@@ -303,7 +322,7 @@ export function AppointmentBookingForm({
             </div>
           ) : availableSlots.length === 0 ? (
             <p className="text-meta text-muted">
-              No free slots for this service{staffUserId ? ' and staff member' : ''} on this day.
+              No free slots for this service{selectedStaff ? ' and staff member' : ''} on this day.
               Try another day, service or staff member.
             </p>
           ) : (
@@ -321,7 +340,14 @@ export function AppointmentBookingForm({
                     aria-pressed={active}
                     onClick={() => {
                       setTime(slot.localTime)
-                      if (slot.staffUserId) setStaffUserId(slot.staffUserId)
+                      if (slot.staffUserId && staffModuleEnabled) {
+                        setSelectedStaff({
+                          userId: slot.staffUserId,
+                          fullName: slot.staffName,
+                          email: '',
+                          avatarUrl: null,
+                        })
+                      }
                     }}
                     className={cn(
                       'chip w-full justify-center tabular focus-visible:shadow-ring focus-visible:outline-none',

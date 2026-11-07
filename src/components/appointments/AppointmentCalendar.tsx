@@ -572,7 +572,12 @@ function TimeGrid({
             >
               <div className="flex min-w-0 items-center gap-[0.55rem]">
                 {mode === 'day' && member ? (
-                  <Avatar size="sm" name={member.fullName} decorative />
+                  <Avatar
+                    size="sm"
+                    name={member.fullName}
+                    src={member.avatarUrl ?? undefined}
+                    decorative
+                  />
                 ) : null}
                 <div className="min-w-0">
                   <b className="block truncate text-label">{column.title}</b>

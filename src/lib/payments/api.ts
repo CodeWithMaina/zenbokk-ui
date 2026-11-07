@@ -250,6 +250,18 @@ export const paymentsApi = {
   },
 
   /**
+   * Confirm a cash payment the business has physically taken. The server is the only
+   * place that decides a cash payment is settled — this records the confirmation and
+   * the recalculated balance comes back on the appointment summary.
+   */
+  confirmCash(paymentId: string, note?: string | null): Promise<Payment> {
+    return apiRequest<Payment>(`/v1/payments/${paymentId}/confirm-cash`, {
+      method: 'POST',
+      body: { note: note ?? null },
+    })
+  },
+
+  /**
    * The business's manual M-PESA details and booking-fee percentage.
    *
    * Anonymous on purpose: a visitor has to be able to read the payment
@@ -328,6 +340,55 @@ export function useAppointmentPaymentSummary(appointmentId: string, enabled: boo
     enabled: enabled && appointmentId.length > 0,
     staleTime: 30_000,
   })
+}
+
+export type CreateAppointmentPaymentInput = {
+  appointmentId: string
+  /** `cash` | `mpesa`. */
+  method: string
+  /** `full_payment` | `booking_fee` | `balance_payment`. */
+  type: string
+  /**
+   * Optional cash amount (major units) for a cash `balance_payment` — the operator
+   * states how much cash they actually took, so a partial collection is possible.
+   * The server validates it against the balance it computed and rejects anything
+   * above it, so this is a statement of fact, never the source of truth.
+   */
+  amount?: number | null
+  /** Required for `mpesa` STK. */
+  phoneNumber?: string | null
+  /** Client-generated, so a double-tap cannot open two STK prompts. */
+  idempotencyKey?: string | null
+}
+
+/**
+ * The single write path for appointment money.
+ *
+ * <para>Both the booking wizard and the appointment detail use this, so there is
+ * exactly one place in the UI that talks to <c>/v1/payments</c>. The browser never
+ * sends an amount: the server computes what is owed from the appointment's services.</para>
+ */
+export function useAppointmentPayments() {
+  const queryClient = useQueryClient()
+
+  const refresh = (appointmentId: string) => {
+    void queryClient.invalidateQueries({ queryKey: queryKeys.appointmentPayment(appointmentId) })
+    void queryClient.invalidateQueries({ queryKey: ['payments'] })
+    void queryClient.invalidateQueries({ queryKey: ['appointments'] })
+  }
+
+  const create = useMutation({
+    mutationFn: (input: CreateAppointmentPaymentInput) => paymentsApi.create(input),
+    onSuccess: (_payment, input) => refresh(input.appointmentId),
+  })
+
+  const confirmCash = useMutation({
+    mutationFn: (input: { paymentId: string; appointmentId: string; note?: string | null }) =>
+      paymentsApi.confirmCash(input.paymentId, input.note),
+    onSuccess: (_payment, input) => refresh(input.appointmentId),
+  })
+
+  return { create, confirmCash, refresh }
 }
 
 /**

@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { ServicesPage } from '../components/storefront'
+import { ServicesPage, StorefrontPageHost } from '../components/storefront'
 import { StorefrontGate } from '../lib/storefront'
 import { tenantStorefrontBeforeLoad } from '../lib/storefront/tenant-route'
 
@@ -20,7 +20,9 @@ function HostServicesPage() {
 
   return (
     <StorefrontGate slug={tenantSlug}>
-      <ServicesPage />
+      <StorefrontPageHost kind="services">
+        <ServicesPage />
+      </StorefrontPageHost>
     </StorefrontGate>
   )
 }

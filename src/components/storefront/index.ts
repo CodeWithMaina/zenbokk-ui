@@ -34,6 +34,7 @@ export { StorefrontOpeningHours } from './StorefrontOpeningHours'
 
 // Pages
 export { ServicesPage } from './pages/ServicesPage'
+export { StorefrontPageHost } from './pages/PageHost'
 export { TeamPage } from './pages/TeamPage'
 export { AboutPage } from './pages/AboutPage'
 export { ContactPage } from './pages/ContactPage'

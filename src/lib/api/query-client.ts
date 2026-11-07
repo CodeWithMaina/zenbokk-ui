@@ -58,6 +58,15 @@ export const queryKeys = {
 
   /** Owner Storefront Builder state (draft + published + metadata). */
   storefrontBuilder: () => ['storefront-builder'] as const,
+  /** One page of the builder's revision history, keyed by its filters. */
+  storefrontRevisions: (filters: Record<string, unknown>) =>
+    ['storefront-builder', 'revisions', filters] as const,
+  /** One historical revision, with its full configuration snapshot. */
+  storefrontRevision: (revisionId: string) =>
+    ['storefront-builder', 'revisions', 'detail', revisionId] as const,
+  /** A structured comparison between two historical revisions. */
+  storefrontRevisionCompare: (from: string, to: string) =>
+    ['storefront-builder', 'revisions', 'compare', from, to] as const,
   /** One business's published storefront (public read; used by the live preview). */
   storefrontBuilderPublic: (businessId: string) =>
     ['storefront-builder', 'public', businessId] as const,
@@ -95,6 +104,16 @@ export const queryKeys = {
   /** Bookable slots for a service/staff/date combination. */
   appointmentAvailability: (businessId: string, params: Record<string, unknown>) =>
     ['appointments', 'availability', businessId, params] as const,
+  /**
+   * Server-side customer search for the booking selectors. Under the `['customers']`
+   * prefix so enrolling / quick-adding a customer also refreshes the roster.
+   */
+  customerSearch: (params: Record<string, unknown>) => ['customers', 'search', params] as const,
+  /**
+   * Server-side staff search for the booking selectors. Under the `['staff']`
+   * prefix so a roster change refreshes it. Only read while the Staff module is on.
+   */
+  staffSearch: (params: Record<string, unknown>) => ['staff', 'search', params] as const,
   ownerServices: () => ['services', 'owner'] as const,
   /** Filtered, sorted, paged service catalogue (`GET /v1/services/me/query`). */
   ownerServicesList: (filters: Record<string, unknown>) =>

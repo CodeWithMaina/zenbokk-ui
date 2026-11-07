@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { ArrowUpRight, CalendarClock, Sparkles } from 'lucide-react'
+import { ArrowUpRight, CalendarClock } from 'lucide-react'
 import { Alert } from '../components/ui/alert'
 import { StatusPill } from '../components/ui/badge'
 import { Card, SectionCard } from '../components/ui/card'
@@ -7,6 +7,7 @@ import { EmptyState } from '../components/ui/empty-state'
 import { MetricGrid } from '../components/ui/metric-tile'
 import { PageHeader } from '../components/ui/page-header'
 import { Skeleton } from '../components/ui/skeleton'
+import { StorefrontStatusCard } from '../components/storefront-builder'
 import { useAuth } from '../lib/auth'
 import { useDashboardContext } from '../lib/dashboard/dashboard-context'
 import {
@@ -15,7 +16,6 @@ import {
 } from '../lib/dashboard/appointment-status'
 import { useOwnerAppointments, useOwnerStats } from '../lib/dashboard/use-owner-dashboard'
 import { MODULE } from '../lib/entitlements'
-import { storefrontPublicUrl } from '../lib/tenant'
 import {
   endOfDayIso,
   firstName,
@@ -193,38 +193,29 @@ function OwnerOverview() {
           )}
         </SectionCard>
 
-        <Card className="p-card">
-          <p className="eyebrow">Workspace</p>
-          <h2 className="mt-[0.3rem] text-heading font-bold tracking-snug">
-            {plan ? plan.name : 'No plan attached'}
-          </h2>
-          <p className="mt-[0.25rem] text-meta text-muted">
-            {plan
-              ? `Status: ${plan.status.replace('_', ' ')}${
-                  plan.endsAt ? ` · renews ${formatDate(plan.endsAt)}` : ''
-                }`
-              : 'Add a plan to unlock paid modules for this business.'}
-          </p>
-          <p className="mt-[0.75rem] text-meta text-muted">
-            {pluralize(entitlements.length, 'module')} enabled.
-          </p>
-          <Link to="/dashboard/settings" className="btn btn-ghost mt-[0.9rem] no-underline">
-            Manage plan
-          </Link>
+        <div className="grid gap-4 content-start">
+          <StorefrontStatusCard />
 
-          <div className="mt-[1.1rem] border-t border-line pt-[0.9rem]">
-            <p className="flex items-start gap-[0.5rem] text-meta text-muted">
-              <Sparkles
-                className="mt-[0.1rem] size-[0.95rem] shrink-0 text-accent"
-                aria-hidden="true"
-              />
-              <span>
-                Your address is{' '}
-                <b className="font-semibold text-fg">{storefrontPublicUrl(business.slug)}</b>
-              </span>
+          <Card className="p-card">
+            <p className="eyebrow">Workspace</p>
+            <h2 className="mt-[0.3rem] text-heading font-bold tracking-snug">
+              {plan ? plan.name : 'No plan attached'}
+            </h2>
+            <p className="mt-[0.25rem] text-meta text-muted">
+              {plan
+                ? `Status: ${plan.status.replace('_', ' ')}${
+                    plan.endsAt ? ` · renews ${formatDate(plan.endsAt)}` : ''
+                  }`
+                : 'Add a plan to unlock paid modules for this business.'}
             </p>
-          </div>
-        </Card>
+            <p className="mt-[0.75rem] text-meta text-muted">
+              {pluralize(entitlements.length, 'module')} enabled.
+            </p>
+            <Link to="/dashboard/settings" className="btn btn-ghost mt-[0.9rem] no-underline">
+              Manage plan
+            </Link>
+          </Card>
+        </div>
       </div>
     </div>
   )

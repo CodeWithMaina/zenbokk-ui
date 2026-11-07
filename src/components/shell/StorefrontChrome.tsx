@@ -2,7 +2,6 @@ import { useLocation } from '@tanstack/react-router'
 import type { ReactNode } from 'react'
 import { useStorefront } from '../../lib/storefront'
 import { useStorefrontSeo } from '../../lib/storefront/use-storefront-seo'
-import { marketingUrl } from '../../lib/tenant'
 import { StorefrontNav } from '../storefront/StorefrontNav'
 import { StorefrontFooter } from '../storefront/StorefrontFooter'
 import { StorefrontThemeStyle } from '../storefront/StorefrontThemeStyle'
@@ -20,7 +19,7 @@ import { StorefrontBookingTray } from '../storefront/StorefrontBookingTray'
  * owns the bottom of the screen with its own action bar.
  */
 export function StorefrontChrome({ children }: { children: ReactNode }) {
-  const { business, storefront } = useStorefront()
+  const { storefront } = useStorefront()
   const pathname = useLocation({ select: (location) => location.pathname })
   const onBookingRoute = /\/book$/.test(pathname)
 
@@ -33,37 +32,7 @@ export function StorefrontChrome({ children }: { children: ReactNode }) {
 
       <main className="flex-1">{children}</main>
 
-      {storefront ? (
-        <StorefrontFooter />
-      ) : (
-        <footer className="border-t border-line bg-surface">
-          <div className="sf-container grid gap-[1.4rem] py-[1.6rem] sm:grid-cols-[1.2fr_1fr]">
-            <div className="grid content-start gap-[0.5rem] text-caption text-muted">
-              <p className="eyebrow">Find us</p>
-              <span>
-                © {business.name}
-                {business.location ? ` · ${business.location}` : ''}
-              </span>
-              {business.phoneNumber ? (
-                <a href={`tel:${business.phoneNumber}`} className="link">
-                  {business.phoneNumber}
-                </a>
-              ) : null}
-              {business.email ? (
-                <a href={`mailto:${business.email}`} className="link">
-                  {business.email}
-                </a>
-              ) : null}
-              <span className="flex items-center gap-[0.3rem]">
-                Built with
-                <a href={marketingUrl('/')} className="link">
-                  Punched
-                </a>
-              </span>
-            </div>
-          </div>
-        </footer>
-      )}
+      <StorefrontFooter />
 
       {onBookingRoute ? null : <StorefrontBookingTray />}
     </div>

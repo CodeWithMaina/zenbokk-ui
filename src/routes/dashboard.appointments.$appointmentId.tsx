@@ -45,6 +45,7 @@ function AppointmentDetailsPage() {
   const { business, hasModule, hasPermission } = useDashboardContext()
   const enabled = hasModule(MODULE.appointments)
   const customersEnabled = hasModule(MODULE.customers)
+  const staffModuleEnabled = hasModule(MODULE.staff)
   const canBook =
     hasPermission('appointments.create') || hasPermission('appointments.manage')
 
@@ -223,12 +224,6 @@ function AppointmentDetailsPage() {
         row={null}
         onBack={() => void navigate({ to: '/dashboard/appointments' })}
         onAction={handleAction}
-        onOpenAppointment={(nextId) =>
-          void navigate({
-            to: '/dashboard/appointments/$appointmentId',
-            params: { appointmentId: nextId },
-          })
-        }
         onOpenCustomer={
           customersEnabled
             ? (customerId) =>
@@ -254,6 +249,7 @@ function AppointmentDetailsPage() {
           customers={reference.data?.customers ?? []}
           services={reference.data?.services ?? []}
           staff={reference.data?.staff ?? []}
+          staffModuleEnabled={staffModuleEnabled}
           prefill={booking.prefill}
           busy={mutations.create.isPending || mutations.reschedule.isPending}
           error={

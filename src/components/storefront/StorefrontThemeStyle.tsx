@@ -62,17 +62,21 @@ function fontStack(font: string): string {
 
 export function themeStyleVars(theme: StorefrontTheme): CSSProperties {
   const scale = HEADING_SCALE[theme.headingScale] ?? HEADING_SCALE.balanced
+  const dark = theme.mode === 'dark'
   return {
     '--sf-primary': theme.primary,
     '--sf-secondary': theme.secondary,
     '--sf-accent': theme.accent,
-    '--sf-bg': theme.background,
-    '--sf-surface': theme.surface,
-    '--sf-text': theme.text,
-    '--sf-muted': theme.mutedText,
+    // Dark mode keeps the brand colours (primary, accent, buttons) but drops the
+    // page onto a near-black canvas, so a storefront set to dark actually reads
+    // as dark rather than a light theme with a renamed flag.
+    '--sf-bg': dark ? `color-mix(in srgb, #0b0b0d 92%, ${theme.primary})` : theme.background,
+    '--sf-surface': dark ? `color-mix(in srgb, #16171b 88%, ${theme.primary})` : theme.surface,
+    '--sf-text': dark ? '#f4f4f2' : theme.text,
+    '--sf-muted': dark ? 'rgba(244, 244, 242, 0.62)' : theme.mutedText,
     '--sf-btn-bg': theme.buttonBackground,
     '--sf-btn-text': theme.buttonText,
-    '--sf-border': theme.border,
+    '--sf-border': dark ? 'rgba(255, 255, 255, 0.14)' : theme.border,
     '--sf-font-heading': fontStack(theme.headingFont),
     '--sf-font-body': fontStack(theme.bodyFont),
     '--sf-heading-weight': String(theme.headingWeight),
@@ -85,12 +89,14 @@ export function themeStyleVars(theme: StorefrontTheme): CSSProperties {
     '--sf-width': `${theme.contentWidth}px`,
     '--sf-pad': CONTAINER_PAD[theme.containerPadding] ?? CONTAINER_PAD.normal,
     '--sf-section-space': SECTION_SPACE[theme.sectionSpacing] ?? SECTION_SPACE.comfortable,
-    '--sf-radius': RADIUS[theme.radius] ?? RADIUS.soft,
+    '--sf-radius': theme.radiusPx != null ? `${theme.radiusPx}px` : (RADIUS[theme.radius] ?? RADIUS.soft),
     '--sf-btn-radius': BUTTON_RADIUS[theme.buttonStyle] ?? BUTTON_RADIUS.rounded,
     '--sf-shadow': SHADOW[theme.shadow] ?? SHADOW.soft,
     '--sf-card-border': theme.cardStyle === 'flat' ? 'transparent' : theme.border,
     '--sf-base-font': `${theme.baseFontSize}px`,
     '--sf-gradient': `linear-gradient(135deg, ${theme.gradientFrom}, ${theme.gradientTo})`,
+    // Motion. `--sf-dur` drives every entrance/hover transition.
+    '--sf-dur': `${theme.durationMs ?? 600}ms`,
   } as CSSProperties
 }
 
@@ -104,7 +110,12 @@ export function StorefrontThemeStyle({
   className?: string
 }) {
   return (
-    <div className={cn('sf-root', className)} style={themeStyleVars(theme)} data-sf-template>
+    <div
+      className={cn('sf-root', className)}
+      style={themeStyleVars(theme)}
+      data-sf-template
+      data-sf-mode={theme.mode === 'dark' ? 'dark' : 'light'}
+    >
       {children}
     </div>
   )

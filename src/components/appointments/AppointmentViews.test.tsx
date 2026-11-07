@@ -80,6 +80,13 @@ describe('AppointmentTable', () => {
     ).toBeInTheDocument()
   })
 
+  it('summarises the value of the appointments on the page', () => {
+    renderTable()
+    expect(
+      screen.getByText((_, element) => element?.textContent === '· Value KES 7,000 on this page'),
+    ).toBeInTheDocument()
+  })
+
   it('opens an appointment when its customer is clicked', async () => {
     const user = userEvent.setup()
     const { onOpen } = renderTable()
@@ -171,5 +178,38 @@ describe('AppointmentCards', () => {
 
     await user.click(screen.getByRole('button', { name: 'Confirm' }))
     expect(onAction).toHaveBeenCalledWith('confirm', expect.objectContaining({ id: BOOKED_ID }))
+  })
+
+  it('offers “Show more” when the server holds more than the page', async () => {
+    const user = userEvent.setup()
+    const onShowMore = vi.fn()
+    render(
+      <AppointmentCards
+        rows={rows()}
+        groupByDate={false}
+        totalCount={50}
+        onShowMore={onShowMore}
+        onOpen={vi.fn()}
+        onAction={vi.fn()}
+      />,
+    )
+
+    await user.click(screen.getByRole('button', { name: 'Show 24 more' }))
+    expect(onShowMore).toHaveBeenCalledTimes(1)
+  })
+
+  it('hides “Show more” once every appointment is on screen', () => {
+    render(
+      <AppointmentCards
+        rows={rows()}
+        groupByDate={false}
+        totalCount={2}
+        onShowMore={vi.fn()}
+        onOpen={vi.fn()}
+        onAction={vi.fn()}
+      />,
+    )
+
+    expect(screen.queryByRole('button', { name: /Show .* more/ })).toBeNull()
   })
 })

@@ -3,7 +3,12 @@ import type { StorefrontConfig, StorefrontSection } from '../api/types'
 import { normaliseVariant } from './catalog'
 import { makeSection, resequence } from './defaults'
 
-export type BuilderPanel = 'page' | 'templates' | 'theme' | 'header' | 'hero' | 'footer' | 'pages' | 'seo' | 'section'
+export type BuilderPanel =
+  | 'structure' | 'pages' | 'theme' | 'motion'
+  | 'header' | 'hero' | 'footer' | 'seo' | 'section'
+
+/** The page regions the Structure tab lists above and below the section list. */
+export type BuilderRegion = 'header' | 'hero' | 'footer' | 'seo'
 
 export type BuilderEditor = {
   config: StorefrontConfig
@@ -18,14 +23,18 @@ export type BuilderEditor = {
   replace: (config: StorefrontConfig) => void
   select: (sectionId: string | null) => void
   setPanel: (panel: BuilderPanel) => void
+  /** Open a page region (header/hero/footer/seo) in the inspector. */
+  openRegion: (region: BuilderRegion) => void
   undo: () => void
   redo: () => void
   markSaved: (config: StorefrontConfig) => void
-  addSection: (key: string, atIndex?: number) => void
+  addSection: (key: string, atIndex?: number, variant?: string) => void
   removeSection: (id: string) => void
   duplicateSection: (id: string) => void
   toggleSection: (id: string) => void
   moveSection: (id: string, direction: -1 | 1) => void
+  /** Move a section to a final index, for drag-and-drop reordering. */
+  moveSectionTo: (id: string, toIndex: number) => void
   setSectionVariant: (id: string, variant: string) => void
   patchSection: (id: string, patch: Partial<StorefrontSection>) => void
 }
@@ -42,7 +51,7 @@ export function useBuilderEditor(initial: StorefrontConfig): BuilderEditor {
   const [config, setConfig] = useState<StorefrontConfig>(initial)
   const [savedSnapshot, setSavedSnapshot] = useState(() => JSON.stringify(initial))
   const [selectedSectionId, setSelectedSectionId] = useState<string | null>(null)
-  const [panel, setPanel] = useState<BuilderPanel>('page')
+  const [panel, setPanel] = useState<BuilderPanel>('structure')
   const history = useRef<StorefrontConfig[]>([])
   const future = useRef<StorefrontConfig[]>([])
   const [version, setVersion] = useState(0)
@@ -107,8 +116,8 @@ export function useBuilderEditor(initial: StorefrontConfig): BuilderEditor {
   }, [])
 
   const addSection = useCallback(
-    (key: string, atIndex?: number) => {
-      const section = makeSection(key)
+    (key: string, atIndex?: number, variant?: string) => {
+      const section = makeSection(key, variant)
       update((current) => {
         const sections = [...current.sections]
         sections.splice(atIndex ?? sections.length, 0, section)
@@ -175,6 +184,24 @@ export function useBuilderEditor(initial: StorefrontConfig): BuilderEditor {
     [update],
   )
 
+  const moveSectionTo = useCallback(
+    (id: string, gapIndex: number) => {
+      update((current) => {
+        const from = current.sections.findIndex((s) => s.id === id)
+        if (from < 0) return current
+        const sections = [...current.sections]
+        const [moved] = sections.splice(from, 1)
+        // `gapIndex` is the insertion gap in the *current* order, so a move
+        // downwards lands one slot earlier once the row itself is removed.
+        const target = gapIndex > from ? gapIndex - 1 : gapIndex
+        const clamped = Math.max(0, Math.min(target, sections.length))
+        sections.splice(clamped, 0, moved)
+        return { ...current, sections: resequence(sections) }
+      })
+    },
+    [update],
+  )
+
   const setSectionVariant = useCallback(
     (id: string, variant: string) => {
       update((current) => ({
@@ -206,16 +233,21 @@ export function useBuilderEditor(initial: StorefrontConfig): BuilderEditor {
     config,
     dirty,
     selectedSectionId: hasSelected ? selectedSectionId : null,
-    panel: hasSelected ? (panel === 'section' ? 'section' : panel) : panel === 'section' ? 'page' : panel,
+    // A section that has since been deleted falls back to the Structure tab.
+    panel: panel === 'section' && !hasSelected ? 'structure' : panel,
     canUndo: history.current.length > 0,
     canRedo: future.current.length > 0,
     update,
     replace,
     select: (id) => {
       setSelectedSectionId(id)
-      setPanel(id ? 'section' : 'page')
+      setPanel(id ? 'section' : 'structure')
     },
     setPanel,
+    openRegion: (region) => {
+      setSelectedSectionId(null)
+      setPanel(region)
+    },
     undo,
     redo,
     markSaved,
@@ -224,6 +256,7 @@ export function useBuilderEditor(initial: StorefrontConfig): BuilderEditor {
     duplicateSection,
     toggleSection,
     moveSection,
+    moveSectionTo,
     setSectionVariant,
     patchSection,
   }

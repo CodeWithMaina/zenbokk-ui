@@ -23,6 +23,9 @@ describe('storefront builder defaults', () => {
     expect(config.sections.length).toBeGreaterThan(0)
     expect(config.pages.map((p) => p.kind)).toEqual(['home', 'services', 'about', 'contact'])
     expect(config.theme.primary).toMatch(/^#/)
+    // The design's motion controls are present with their documented defaults.
+    expect(config.theme.mode).toBe('light')
+    expect(config.theme.durationMs).toBe(600)
   })
 
   it('preserves the pre-builder storefront as the default Classic template', () => {
@@ -40,12 +43,10 @@ describe('storefront builder defaults', () => {
     ])
   })
 
-  it('offers eight genuinely distinct templates', () => {
+  it('offers eight genuinely distinct designs', () => {
     expect(TEMPLATES).toHaveLength(8)
-    const signatures = TEMPLATES.map(
-      (t) => `${t.headerVariant}|${t.heroVariant}|${t.footerVariant}|${t.blueprint.map((b) => `${b.key}:${b.variant}`).join(',')}`,
-    )
-    expect(new Set(signatures).size).toBe(TEMPLATES.length)
+    // The designs share a page structure but never a palette.
+    expect(new Set(TEMPLATES.map((t) => t.theme.primary)).size).toBe(TEMPLATES.length)
   })
 
   it('normalises an unknown variant to the section default', () => {
@@ -57,8 +58,8 @@ describe('storefront builder defaults', () => {
   it('merges a partial config over the defaults and drops unknown sections', () => {
     const merged = mergeConfig({
       sections: [
-        { id: 'a', key: 'services', variant: 'grid', enabled: true, order: 5, title: 'Our menu', description: null, settings: {} },
-        { id: 'b', key: 'not-a-real-section', variant: 'x', enabled: true, order: 9, title: null, description: null, settings: {} },
+        { id: 'a', key: 'services', variant: 'grid', enabled: true, order: 5, title: 'Our menu', description: null, settings: {}, columns: 3, background: 'default', padding: 'normal', alignment: 'left', animation: 'inherit' },
+        { id: 'b', key: 'not-a-real-section', variant: 'x', enabled: true, order: 9, title: null, description: null, settings: {}, columns: 3, background: 'default', padding: 'normal', alignment: 'left', animation: 'inherit' },
       ],
     })
     expect(merged.sections).toHaveLength(1)
@@ -77,12 +78,40 @@ describe('storefront builder defaults', () => {
     const applied = applyTemplate(config, 'luxe')
 
     expect(applied.templateId).toBe('luxe')
-    expect(applied.header.variant).toBe('floating')
-    expect(applied.hero.variant).toBe('premium')
+    expect(applied.header.variant).toBe('classic')
+    expect(applied.hero.variant).toBe('overlay')
     // The owner's content survived the design change.
     const services = applied.sections.find((s) => s.key === 'services')
     expect(services?.title).toBe('Hand-picked treatments')
     expect(services?.settings.note).toBe('keep me')
+  })
+
+  it('normalises the design’s new theme, section and footer fields on merge', () => {
+    const merged = mergeConfig({
+      theme: { ...createDefaultConfig().theme, mode: 'sepia', durationMs: 9999, hoverEffect: 'lift' },
+      footer: { ...createDefaultConfig().footer, padding: 999 },
+      sections: [makeSection('services')],
+    })
+    // An unknown enum falls back to the default; a numeric range is clamped.
+    expect(merged.theme.mode).toBe('light')
+    expect(merged.theme.durationMs).toBe(1500)
+    expect(merged.footer.padding).toBe(120)
+    expect(merged.sections[0].animation).toBe('inherit')
+    expect(merged.sections[0].columns).toBe(3)
+  })
+
+  it('seeds the whole five-page site when a design template is applied', () => {
+    const applied = applyTemplate(createDefaultConfig(), 'bloom')
+    expect(applied.pages.map((p) => p.slug)).toEqual(['', 'services', 'about', 'gallery', 'contact'])
+    // The home page never carries its own hero/sections — the storefront-wide
+    // pair is its single source of truth.
+    const home = applied.pages.find((p) => p.kind === 'home')
+    expect(home?.hero).toBeNull()
+    expect(home?.sections).toBeNull()
+    // Every other page carries its own hero copy and section list.
+    const about = applied.pages.find((p) => p.kind === 'about')
+    expect(about?.hero?.heading).toBe('The people behind the studio')
+    expect(about?.sections?.map((s) => s.key)).toEqual(['about', 'richtext', 'testimonials'])
   })
 
   it('resolves a legacy template id onto its canonical replacement', () => {

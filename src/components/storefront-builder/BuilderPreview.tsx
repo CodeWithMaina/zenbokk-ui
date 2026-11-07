@@ -97,6 +97,7 @@ export function BuilderPreview({
           can={can}
           onSelectSection={onSelectSection}
           selectedSectionId={selectedSectionId}
+          onNavigate={() => {}}
         />
       </div>
     </div>

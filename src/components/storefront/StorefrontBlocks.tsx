@@ -63,8 +63,6 @@ export function StorefrontRenderer({
   includeFooter,
   footer,
 }: StorefrontRendererProps) {
-  const sections = config.sections.filter((section) => section.enabled)
-
   return (
     <StorefrontThemeStyle theme={config.theme}>
       <div className="sf-page-root">
@@ -77,20 +75,73 @@ export function StorefrontRenderer({
             resolveHref={resolveHref}
           />
         ) : null}
-        {sections.map((section) => (
+        <StorefrontSections
+          config={config}
+          business={business}
+          can={can}
+          resolveHref={resolveHref}
+          selectedSectionId={selectedSectionId}
+          onSelectSection={onSelectSection}
+        />
+        {includeFooter ? footer : null}
+      </div>
+    </StorefrontThemeStyle>
+  )
+}
+
+/**
+ * The owner-configured content sections, in display order.
+ *
+ * Extracted so the public storefront and the builder preview render exactly the
+ * same section list — the preview passes `onSelectSection` to make each one
+ * clickable. A disabled section is skipped, and a section whose backing module
+ * the business is not entitled to renders nothing (each block gates itself on
+ * `can`).
+ */
+export function StorefrontSections({
+  config,
+  business,
+  can,
+  resolveHref = FALLBACK_HREF,
+  selectedSectionId,
+  onSelectSection,
+  sections: overrideSections,
+  themeAnimation = 'up',
+}: {
+  config: StorefrontConfig
+  business: PublicBusinessProfile
+  can: (capability: CapabilityKey) => boolean
+  resolveHref?: (kind: string) => string
+  selectedSectionId?: string | null
+  onSelectSection?: (id: string) => void
+  /** An explicit list (a non-home page's own sections); defaults to the config's. */
+  sections?: StorefrontSection[]
+  /** The theme's default entrance, used when a section says `inherit`. */
+  themeAnimation?: string
+}) {
+  const sections = (overrideSections ?? config.sections ?? [])
+    .filter((section) => section.enabled !== false)
+    .slice()
+    .sort((a, b) => a.order - b.order)
+
+  return (
+    <>
+      {sections.map((section) => {
+        const own = section.animation && section.animation !== 'inherit' ? section.animation : themeAnimation
+        return (
           <SectionBlock
             key={section.id}
             section={section}
             business={business}
             can={can}
             resolveHref={resolveHref}
+            animation={own}
             selected={selectedSectionId === section.id}
             onSelect={onSelectSection}
           />
-        ))}
-        {includeFooter ? footer : null}
-      </div>
-    </StorefrontThemeStyle>
+        )
+      })}
+    </>
   )
 }
 
@@ -100,20 +151,24 @@ function SectionShell({
   section,
   selected,
   onSelect,
+  animation,
   children,
 }: {
   section: StorefrontSection
   selected?: boolean
   onSelect?: (id: string) => void
+  animation?: string | null
   children: ReactNode
 }) {
   const clickable = Boolean(onSelect)
+  const anim = animation && animation !== 'none' ? animation : null
   const className = [
     'sf-section',
     `sf-${section.key}`,
     `is-${section.variant}`,
     selected ? 'is-selected' : '',
     clickable ? 'is-clickable' : '',
+    anim ? `sf-anim-${anim}` : '',
   ]
     .filter(Boolean)
     .join(' ')
@@ -122,6 +177,10 @@ function SectionShell({
       id={section.id}
       data-sf-section={section.key}
       data-sf-variant={section.variant}
+      data-bg={section.background ?? 'default'}
+      data-pad={section.padding ?? 'normal'}
+      data-align={section.alignment ?? 'left'}
+      data-anim={anim ?? 'none'}
       onClick={clickable ? () => onSelect!(section.id) : undefined}
       className={className}
     >
@@ -367,6 +426,7 @@ function SectionBlock({
   resolveHref,
   selected,
   onSelect,
+  animation,
 }: {
   section: StorefrontSection
   business: PublicBusinessProfile
@@ -374,9 +434,10 @@ function SectionBlock({
   resolveHref: (kind: string) => string
   selected?: boolean
   onSelect?: (id: string) => void
+  animation?: string | null
 }) {
   const shell = (children: ReactNode) => (
-    <SectionShell section={section} selected={selected} onSelect={onSelect}>
+    <SectionShell section={section} selected={selected} onSelect={onSelect} animation={animation}>
       {children}
     </SectionShell>
   )

@@ -41,7 +41,7 @@ export function StorefrontPage({
           <h1 className="sf-heading sf-page-title">{title}</h1>
           {description ? <p className="sf-lead">{description}</p> : null}
         </div>
-        {action ? <div className="shrink-0">{action}</div> : null}
+        {action ? <div className="w-full min-w-0 sm:w-auto sm:shrink-0">{action}</div> : null}
       </div>
 
       {children}

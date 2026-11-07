@@ -2,12 +2,14 @@ import { http, HttpResponse } from 'msw'
 import type { ApiEnvelope, Appointment } from '../lib/api/types'
 import type { AppointmentActivityEntry } from '../lib/appointments'
 import {
+  TEST_STAFF_ID,
   makeActivity,
   makeAppointment,
   makeAppointmentDashboard,
   makeAvailability,
   makePaymentSummary,
 } from './appointments'
+import { TEST_BUSINESS_ID } from './fixtures'
 
 /**
  * MSW handlers for the Appointments module.
@@ -37,6 +39,32 @@ function mutated(status: string, scheduledAt?: string): Appointment {
 
 export const appointmentHandlers = [
   http.get(`${base}/businesses/me/appointments`, () => ok(makeAppointmentDashboard())),
+
+  // The team roster the searchable staff selector reads. Gated server-side by the
+  // Staff module in production; the default here is a single member.
+  http.get(`${base}/businesses/me/staff`, () =>
+    ok({
+      items: [
+        {
+          userId: TEST_STAFF_ID,
+          fullName: 'Amara Okafor',
+          email: 'amara@example.test',
+          avatarUrl: null,
+          stampsIssued: 0,
+          dailyGoalOverride: null,
+          dailyGoal: null,
+          dailyGoalType: 'stamps',
+          appointmentDailyGoalOverride: null,
+          appointmentDailyGoal: null,
+          appointmentsToday: 0,
+        },
+      ],
+      page: 1,
+      pageSize: 20,
+      total: 1,
+      totalPages: 1,
+    }),
+  ),
 
   http.post(`${base}/businesses/me/appointments`, async ({ request }) => {
     const body = (await request.json()) as { scheduledAt?: string }
@@ -87,6 +115,28 @@ export const appointmentHandlers = [
   }),
 
   http.get(`${base}/payments/appointment/:appointmentId`, () => ok(makePaymentSummary())),
+
+  // The business's own payment configuration. Owner-only in production, so the panel
+  // tolerates a caller who cannot read it and falls back to the public details.
+  http.get(`${base}/payment-config`, () =>
+    ok({
+      businessId: TEST_BUSINESS_ID,
+      cashEnabled: true,
+      mpesaEnabled: false,
+      mpesaAccountType: 'paybill',
+      mpesaShortCode: null,
+      hasCredentials: false,
+      credentialsUpdatedAt: null,
+      manualMpesaEnabled: false,
+      mpesaPaybillNumber: null,
+      mpesaPaybillAccount: null,
+      mpesaTillNumber: null,
+      mpesaPayeeName: null,
+      mpesaInstructions: null,
+      bookingFeePercentage: 0,
+      hasManualMpesaDetails: false,
+    }),
+  ),
 
   // A not-found appointment, so the error path is testable without inventing one.
   http.get(`${base}/businesses/me/appointments/not-a-real-appointment`, () =>

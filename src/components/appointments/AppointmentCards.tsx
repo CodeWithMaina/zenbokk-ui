@@ -13,6 +13,7 @@ import type { AppointmentRow } from '../../lib/appointments'
 import { cn } from '../../lib/cn'
 import { formatDate, formatDuration, formatTime, money } from '../../lib/format'
 import { Avatar } from '../ui/avatar'
+import { Button } from '../ui/button'
 import { Menu } from '../ui/menu'
 import { Progress } from '../ui/progress'
 import { AppointmentStatusBadge } from './AppointmentStatusBadge'
@@ -25,6 +26,15 @@ export type AppointmentCardsProps = {
   groupByDate: boolean
   onOpen: (appointmentId: string) => void
   onAction: (action: AppointmentAction, row: AppointmentRow) => void
+  /**
+   * The server's total for the current filters. When it exceeds the rows on
+   * screen, a "Show more" control is offered that loads the next block — the
+   * design's reveal, backed by real pagination rather than a client-side slice.
+   */
+  totalCount?: number
+  onShowMore?: () => void
+  /** How many rows one "Show more" step reveals. */
+  step?: number
   busy?: boolean
 }
 
@@ -48,6 +58,9 @@ export function AppointmentCards({
   groupByDate,
   onOpen,
   onAction,
+  totalCount,
+  onShowMore,
+  step = 24,
   busy = false,
 }: AppointmentCardsProps) {
   const now = Date.now()
@@ -104,6 +117,14 @@ export function AppointmentCards({
           </div>
         </section>
       ))}
+
+      {onShowMore && totalCount !== undefined && rows.length < totalCount ? (
+        <div className="flex justify-center pt-[0.2rem]">
+          <Button onClick={onShowMore} disabled={busy}>
+            Show {Math.min(step, totalCount - rows.length)} more
+          </Button>
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -190,7 +211,7 @@ function AppointmentCard({
         onClick={onOpen}
         className="flex min-w-0 items-center gap-[0.7rem] text-left focus-visible:shadow-ring focus-visible:outline-none"
       >
-        <Avatar name={row.customerName} decorative />
+        <Avatar name={row.customerName} src={row.customerAvatarUrl ?? undefined} decorative />
         <span className="min-w-0 flex-1">
           <span className={cn('block truncate font-semibold', dimmed && 'line-through')}>
             {row.customerName}
@@ -205,7 +226,7 @@ function AppointmentCard({
         <span className="flex items-center gap-[0.5rem] text-meta">
           {row.staffName ? (
             <>
-              <Avatar size="sm" name={row.staffName} decorative />
+              <Avatar size="sm" name={row.staffName} src={row.staffAvatarUrl ?? undefined} decorative />
               <span className="min-w-0 truncate">{row.staffName}</span>
             </>
           ) : (

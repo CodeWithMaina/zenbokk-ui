@@ -34,6 +34,9 @@ export function StorefrontHome() {
       config={storefront}
       business={business}
       can={can}
+      heroVariants={storefront.heroBackgroundVariants ?? []}
+      heroCarouselVariants={storefront.heroCarouselVariants ?? []}
+      logoVariants={storefront.headerLogoVariants ?? []}
       resolveHref={resolveHref}
     />
   )

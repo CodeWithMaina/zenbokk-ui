@@ -3,11 +3,13 @@ import type {
   BusinessCustomer,
   CustomerActivityFeedResponse,
   CustomerDetailsResponse,
+  CustomerOption,
   CustomerOverview,
   LoyaltyActivityPage,
   ManualStampRequest,
   ManualStampResponse,
   PaginatedResponse,
+  QuickAddCustomerRequest,
   StampAdjustmentRequest,
   StampAdjustmentResponse,
 } from '../api/types'
@@ -79,6 +81,18 @@ export const clientsApi = {
    */
   get(customerId: string): Promise<BusinessCustomer> {
     return apiGet<BusinessCustomer>(`${CUSTOMERS_PATH}/${customerId}`)
+  },
+
+  /**
+   * `POST …/customers/quick-add` — the owner creates (or, when the phone/email
+   * matches an existing customer, reuses) a customer from inside the booking flow.
+   * No login is created; enrollment is idempotent.
+   */
+  quickAdd(payload: QuickAddCustomerRequest): Promise<CustomerOption> {
+    return apiRequest<CustomerOption>(`${CUSTOMERS_PATH}/quick-add`, {
+      method: 'POST',
+      body: payload,
+    })
   },
 
   /** Aggregated identity + status + metrics + loyalty summary for the Overview. */

@@ -26,10 +26,23 @@ describe('TemplatePreviewFrame', () => {
     const frame = container.querySelector('.tp-frame') as HTMLElement
     expect(frame.style.getPropertyValue('--tp-primary')).toBe(luxe.swatch[0])
     expect(frame.style.getPropertyValue('--tp-accent')).toBe(luxe.swatch[1])
-    // Luxe is the premium hero behind a floating header.
-    expect(container.querySelector('.tp-hero.is-premium')).not.toBeNull()
-    expect(container.querySelector('.tp-header.is-floating')).not.toBeNull()
-    expect(container.querySelector('.tp-footer.is-editorial')).not.toBeNull()
+    // Every design shares the overlay hero / classic header / columns footer, so
+    // the real differentiator is the palette, typography and radius.
+    expect(container.querySelector('.tp-hero.is-overlay')).not.toBeNull()
+    expect(container.querySelector('.tp-header.is-classic')).not.toBeNull()
+    expect(container.querySelector('.tp-footer.is-columns')).not.toBeNull()
+    expect(frame.style.getPropertyValue('--tp-font-heading')).toContain('Playfair Display')
+  })
+
+  it('gives two designs visibly different tokens', () => {
+    const luxe = TEMPLATES.find((t) => t.id === 'luxe')!
+    const ledger = TEMPLATES.find((t) => t.id === 'ledger')!
+    const { container: a } = render(<TemplatePreviewFrame template={luxe} />)
+    const { container: b } = render(<TemplatePreviewFrame template={ledger} />)
+    const frameA = a.querySelector('.tp-frame') as HTMLElement
+    const frameB = b.querySelector('.tp-frame') as HTMLElement
+    expect(frameA.style.getPropertyValue('--tp-primary')).not.toBe(frameB.style.getPropertyValue('--tp-primary'))
+    expect(frameA.style.getPropertyValue('--tp-font-heading')).not.toBe(frameB.style.getPropertyValue('--tp-font-heading'))
   })
 
   it('renders a genuinely different layout for a different template', () => {

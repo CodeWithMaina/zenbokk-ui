@@ -4,209 +4,283 @@ import type { StorefrontTheme } from '../api/types'
  * The storefront template library, mirrored from
  * `PunchedApi/Application/Services/StorefrontTemplates.cs`.
  *
- * Each template is a genuinely distinct design direction — different typography,
- * colour, spacing, header/hero/footer variant and section arrangement — not a
- * recolour of one layout.
+ * Every template ships the same starting **site** — a home page plus Services,
+ * About, Gallery and Contact, each with its own hero copy and section list —
+ * because that is what the storefront kit does: the identity comes from the
+ * palette, the typography, the corner radius and the headline, not from a
+ * different page structure.
  *
  * `Classic` reproduces the storefront that shipped before the builder existed and
- * is the default template, so a business that never chose a template keeps the
- * page it already had.
+ * is the default, so a business that never chose a template keeps the page it
+ * already had. `templates.parity.test.ts` fails if this file and the server
+ * definition drift apart.
  */
+
+export type BlueprintEntry = { key: string; variant: string }
+
+/** One page of a template's starting site. */
+export type TemplatePage = {
+  id: string
+  title: string
+  slug: string
+  /** home | services | about | contact | gallery | reviews | team | booking | custom */
+  kind: string
+  heroHeading: string
+  heroDescription: string
+  blueprint: BlueprintEntry[]
+}
+
 export type TemplateDefinition = {
   id: string
   name: string
   description: string
   category: string
   tags: string[]
-  /** Accent swatch shown on the gallery card: [primary, accent, surface]. */
+  /** Accent swatch shown on the gallery card: [primary, accent, background]. */
   swatch: [string, string, string]
   headerVariant: string
   heroVariant: string
   footerVariant: string
-  blueprint: { key: string; variant: string }[]
-  /** Theme overrides applied on top of the platform defaults. */
+  blueprint: BlueprintEntry[]
+  /** Theme tokens applied on top of the platform defaults. */
   theme: Partial<StorefrontTheme>
+  /** The whole site this template seeds. Empty for a home-page-only template. */
+  pages: TemplatePage[]
 }
 
-export const TEMPLATES: TemplateDefinition[] = [
-  {
-    id: 'classic', name: 'Classic',
-    description: 'The original Punched storefront — clean typography, a full-bleed hero and a calm, familiar rhythm.',
-    category: 'All businesses', tags: ['classic', 'default', 'timeless'],
-    swatch: ['#111827', '#111827', '#f7f7f5'],
-    headerVariant: 'minimal', heroVariant: 'centered', footerVariant: 'minimal',
-    blueprint: [
-      { key: 'services', variant: 'list' }, { key: 'about', variant: 'centered' },
-      { key: 'gallery', variant: 'grid' }, { key: 'testimonials', variant: 'quote' },
-      { key: 'booking', variant: 'minimal' }, { key: 'contact', variant: 'minimal' },
-    ],
-    theme: {
-      primary: '#111827', secondary: '#374151', accent: '#111827', background: '#ffffff',
-      surface: '#f7f7f5', text: '#141414', mutedText: '#6b7280', buttonBackground: '#141414',
-      buttonText: '#ffffff', border: '#e7e5e1', headingFont: 'Figtree', bodyFont: 'Figtree',
-      headingWeight: 600, radius: 'sharp', cardStyle: 'flat', shadow: 'none', buttonStyle: 'square',
-      sectionSpacing: 'generous',
-    },
-  },
-  {
-    id: 'luxe', name: 'Luxe',
-    description: 'Sophisticated serif typography, large editorial imagery and refined gold accents.',
-    category: 'Beauty & Wellness', tags: ['luxury', 'serif', 'dark', 'elegant'],
-    swatch: ['#1a1712', '#cbb27a', '#faf7f0'],
-    headerVariant: 'floating', heroVariant: 'premium', footerVariant: 'editorial',
-    blueprint: [
-      { key: 'about', variant: 'editorial' }, { key: 'services', variant: 'image-cards' },
-      { key: 'gallery', variant: 'editorial' }, { key: 'testimonials', variant: 'carousel' },
-      { key: 'booking', variant: 'split' }, { key: 'hours', variant: 'inline' },
-      { key: 'contact', variant: 'split' },
-    ],
-    theme: {
-      primary: '#1a1712', secondary: '#2b2419', accent: '#cbb27a', background: '#faf7f0',
-      surface: '#f1ebdd', text: '#241f17', mutedText: '#8a7f68', buttonBackground: '#1a1712',
-      buttonText: '#f3ead4', border: '#e0d5bd', headingFont: 'Newsreader', bodyFont: 'Figtree',
-      headingWeight: 400, radius: 'sharp', cardStyle: 'elevated', shadow: 'soft',
-      buttonStyle: 'square', sectionSpacing: 'generous', headingScale: 'editorial',
-    },
-  },
-  {
-    id: 'minimal', name: 'Minimal',
-    description: 'Generous whitespace, restrained type and quiet, asymmetric layouts.',
-    category: 'Professional Services', tags: ['minimal', 'clean', 'light', 'airy'],
-    swatch: ['#111111', '#a3a3a3', '#fafafa'],
-    headerVariant: 'split', heroVariant: 'minimal', footerVariant: 'centered',
-    blueprint: [
-      { key: 'services', variant: 'cards' }, { key: 'about', variant: 'centered' },
-      { key: 'gallery', variant: 'grid' }, { key: 'testimonials', variant: 'cards' },
-      { key: 'booking', variant: 'minimal' }, { key: 'contact', variant: 'minimal' },
-    ],
-    theme: {
-      primary: '#111111', secondary: '#525252', accent: '#a3a3a3', background: '#ffffff',
-      surface: '#fafafa', text: '#171717', mutedText: '#737373', buttonBackground: '#171717',
-      buttonText: '#ffffff', border: '#ededed', headingFont: 'Figtree', bodyFont: 'Figtree',
-      headingWeight: 500, radius: 'soft', cardStyle: 'flat', shadow: 'none', buttonStyle: 'rounded',
-      sectionSpacing: 'generous', contentWidth: 1080,
-    },
-  },
-  {
-    id: 'atelier', name: 'Atelier',
-    description: 'Magazine-inspired typography, asymmetric image grids and story-first sections.',
-    category: 'Creative', tags: ['editorial', 'magazine', 'story', 'serif'],
-    swatch: ['#1c1917', '#b45309', '#f5f0e6'],
-    headerVariant: 'centered', heroVariant: 'editorial', footerVariant: 'editorial',
-    blueprint: [
-      { key: 'about', variant: 'editorial' }, { key: 'services', variant: 'image-cards' },
-      { key: 'gallery', variant: 'editorial' }, { key: 'richtext', variant: 'quote' },
-      { key: 'testimonials', variant: 'quote' }, { key: 'booking', variant: 'split' },
-    ],
-    theme: {
-      primary: '#1c1917', secondary: '#44403c', accent: '#b45309', background: '#fffdf8',
-      surface: '#f5f0e6', text: '#1c1917', mutedText: '#78716c', buttonBackground: '#1c1917',
-      buttonText: '#fffdf8', border: '#e7e0d3', headingFont: 'Newsreader', bodyFont: 'Figtree',
-      headingWeight: 500, radius: 'sharp', cardStyle: 'flat', shadow: 'none',
-      buttonStyle: 'outline', sectionSpacing: 'generous', headingScale: 'editorial', letterSpacing: 'tight',
-    },
-  },
-  {
-    id: 'bold', name: 'Bold',
-    description: 'Expressive typography, vibrant colour and dynamic, asymmetric layouts.',
-    category: 'Creative', tags: ['bold', 'vibrant', 'playful'],
-    swatch: ['#4c1d95', '#f59e0b', '#fef3c7'],
-    headerVariant: 'solid', heroVariant: 'editorial', footerVariant: 'dark',
-    blueprint: [
-      { key: 'services', variant: 'grid' }, { key: 'stats', variant: 'cards' },
-      { key: 'gallery', variant: 'masonry' }, { key: 'about', variant: 'image-right' },
-      { key: 'promotions', variant: 'cards' }, { key: 'testimonials', variant: 'wall' },
-      { key: 'booking', variant: 'banner' },
-    ],
-    theme: {
-      primary: '#4c1d95', secondary: '#db2777', accent: '#f59e0b', background: '#fffbeb',
-      surface: '#fef3c7', text: '#1c1917', mutedText: '#57534e', buttonBackground: '#4c1d95',
-      buttonText: '#ffffff', border: '#fcd34d', headingFont: 'Figtree', bodyFont: 'Figtree',
-      headingWeight: 800, radius: 'round', cardStyle: 'elevated', shadow: 'strong',
-      buttonStyle: 'pill', sectionSpacing: 'comfortable', headingScale: 'display',
-    },
-  },
-  {
-    id: 'professional', name: 'Professional',
-    description: 'Structured, business-focused layouts with a confident, trustworthy tone.',
-    category: 'Professional Services', tags: ['corporate', 'structured', 'trust'],
-    swatch: ['#0b2a4a', '#0ea5e9', '#f1f5f9'],
-    headerVariant: 'split', heroVariant: 'split', footerVariant: 'columns',
-    blueprint: [
-      { key: 'services', variant: 'featured' }, { key: 'about', variant: 'image-right' },
-      { key: 'stats', variant: 'row' }, { key: 'team', variant: 'cards' },
-      { key: 'testimonials', variant: 'cards' }, { key: 'faq', variant: 'two-column' },
-      { key: 'contact', variant: 'split' }, { key: 'booking', variant: 'panel' },
-    ],
-    theme: {
-      primary: '#0b2a4a', secondary: '#1d4ed8', accent: '#0ea5e9', background: '#ffffff',
-      surface: '#f1f5f9', text: '#0f172a', mutedText: '#475569', buttonBackground: '#0b2a4a',
-      buttonText: '#ffffff', border: '#dbe3ec', headingFont: 'Figtree', bodyFont: 'Figtree',
-      headingWeight: 700, radius: 'soft', cardStyle: 'soft', shadow: 'soft', buttonStyle: 'rounded',
-      sectionSpacing: 'comfortable',
-    },
-  },
-  {
-    id: 'wellness', name: 'Wellness',
-    description: 'Soft, elegant layouts with calm colour — made for salons, spas and studios.',
-    category: 'Beauty & Wellness', tags: ['wellness', 'soft', 'calm'],
-    swatch: ['#7c5c47', '#c9a27a', '#fdf8f4'],
-    headerVariant: 'minimal', heroVariant: 'split', footerVariant: 'contact',
-    blueprint: [
-      { key: 'services', variant: 'image-cards' }, { key: 'about', variant: 'image-left' },
-      { key: 'gallery', variant: 'masonry' }, { key: 'team', variant: 'circles' },
-      { key: 'testimonials', variant: 'cards' }, { key: 'hours', variant: 'cards' },
-      { key: 'booking', variant: 'panel' }, { key: 'contact', variant: 'split' },
-    ],
-    theme: {
-      primary: '#7c5c47', secondary: '#a98b74', accent: '#c9a27a', background: '#fdf8f4',
-      surface: '#f6ece4', text: '#3b2f28', mutedText: '#8a7669', buttonBackground: '#7c5c47',
-      buttonText: '#fffaf5', border: '#ecddd0', headingFont: 'Newsreader', bodyFont: 'Figtree',
-      headingWeight: 400, radius: 'round', cardStyle: 'soft', shadow: 'soft',
-      buttonStyle: 'pill', sectionSpacing: 'generous',
-    },
-  },
-  {
-    id: 'motion', name: 'Motion',
-    description: 'Large visual heroes, subtle motion and a modern, immersive rhythm.',
-    category: 'Fitness', tags: ['immersive', 'dark', 'modern', 'bold'],
-    swatch: ['#0f172a', '#facc15', '#111a2e'],
-    headerVariant: 'sticky-compact', heroVariant: 'video', footerVariant: 'dark',
-    blueprint: [
-      { key: 'stats', variant: 'banner' }, { key: 'services', variant: 'grid' },
-      { key: 'about', variant: 'image-right' }, { key: 'team', variant: 'showcase' },
-      { key: 'gallery', variant: 'full-width' }, { key: 'testimonials', variant: 'wall' },
-      { key: 'promotions', variant: 'cards' }, { key: 'booking', variant: 'banner' },
-    ],
-    theme: {
-      primary: '#0f172a', secondary: '#dc2626', accent: '#facc15', background: '#0b1120',
-      surface: '#111a2e', text: '#f8fafc', mutedText: '#94a3b8', buttonBackground: '#dc2626',
-      buttonText: '#ffffff', border: '#1e293b', headingFont: 'Figtree', bodyFont: 'Figtree',
-      headingWeight: 800, radius: 'soft', cardStyle: 'elevated', shadow: 'strong',
-      buttonStyle: 'rounded', sectionSpacing: 'comfortable', headingScale: 'display',
-      backgroundStyle: 'gradient', gradientFrom: '#0b1120', gradientTo: '#1e293b',
-    },
-  },
+/** The design's palette keys, exactly as the design names them. */
+export type DesignPalette = {
+  primary: string
+  accent: string
+  background: string
+  surface: string
+  headingFont: string
+  bodyFont: string
+  radiusPx: number
+}
+
+/** `sharp` | `soft` | `round`, from the design's numeric radius. */
+export function radiusToken(px: number): string {
+  if (px <= 4) return 'sharp'
+  if (px <= 12) return 'soft'
+  return 'round'
+}
+
+/**
+ * A design palette translated onto the production token set — the mirror of
+ * `StorefrontTemplates.DesignTheme` on the server, so applying a template here
+ * produces exactly the configuration the server would.
+ */
+export function designTheme(palette: DesignPalette): Partial<StorefrontTheme> {
+  return {
+    primary: palette.primary,
+    secondary: palette.primary,
+    accent: palette.accent,
+    background: palette.background,
+    surface: palette.surface,
+    text: palette.primary,
+    buttonBackground: palette.primary,
+    buttonText: '#ffffff',
+    border: palette.surface,
+    headingFont: palette.headingFont,
+    bodyFont: palette.bodyFont,
+    headingWeight: 500,
+    radiusPx: palette.radiusPx,
+    radius: radiusToken(palette.radiusPx),
+    sectionSpacing: 'normal',
+    cardStyle: 'soft',
+    shadow: 'soft',
+    buttonStyle: 'rounded',
+    imageRatio: '4:5',
+    mode: 'light',
+    animation: 'up',
+    durationMs: 600,
+    hoverEffect: 'lift',
+    pageTransition: 'fade',
+  }
+}
+
+/** The home page's section list, shared by every design template. */
+export const HOME_BLUEPRINT: BlueprintEntry[] = [
+  { key: 'about', variant: 'image-left' },
+  { key: 'services', variant: 'cards' },
+  { key: 'gallery', variant: 'grid' },
+  { key: 'testimonials', variant: 'cards' },
+  { key: 'booking', variant: 'panel' },
 ]
 
 /**
+ * The design's five pages, each with its own hero copy and section list. Sample
+ * copy only — the business's name, address, hours and services are rendered from
+ * real data and are never seeded here.
+ */
+export function startingSite(headline: string, blurb: string): TemplatePage[] {
+  return [
+    {
+      id: 'home', title: 'Home', slug: '', kind: 'home',
+      heroHeading: headline, heroDescription: blurb, blueprint: HOME_BLUEPRINT,
+    },
+    {
+      id: 'services', title: 'Services', slug: 'services', kind: 'services',
+      heroHeading: 'Services and pricing', heroDescription: 'Everything we offer, with honest prices.',
+      blueprint: [{ key: 'services', variant: 'list' }, { key: 'booking', variant: 'panel' }],
+    },
+    {
+      id: 'about', title: 'About', slug: 'about', kind: 'about',
+      heroHeading: 'The people behind the studio', heroDescription: 'A small team that cares about the details.',
+      blueprint: [
+        { key: 'about', variant: 'image-right' },
+        { key: 'richtext', variant: 'quote' },
+        { key: 'testimonials', variant: 'cards' },
+      ],
+    },
+    {
+      id: 'gallery', title: 'Gallery', slug: 'gallery', kind: 'gallery',
+      heroHeading: 'Our work', heroDescription: 'Recent cuts, colour and finishes.',
+      blueprint: [{ key: 'gallery', variant: 'feature-first' }, { key: 'booking', variant: 'panel' }],
+    },
+    {
+      id: 'contact', title: 'Contact', slug: 'contact', kind: 'contact',
+      heroHeading: 'Come and say hello', heroDescription: 'We are easy to find and easy to book.',
+      blueprint: [{ key: 'contact', variant: 'split' }, { key: 'hours', variant: 'list' }],
+    },
+  ]
+}
+
+/** The pre-builder storefront, preserved verbatim and still the default. */
+const CLASSIC: TemplateDefinition = {
+  id: 'classic', name: 'Classic',
+  description: 'The original Punched storefront — clean typography, a full-bleed hero and a calm, familiar rhythm.',
+  category: 'All businesses', tags: ['classic', 'default', 'timeless'],
+  swatch: ['#111827', '#111827', '#f7f7f5'],
+  headerVariant: 'minimal', heroVariant: 'centered', footerVariant: 'minimal',
+  blueprint: [
+    { key: 'services', variant: 'list' }, { key: 'about', variant: 'centered' },
+    { key: 'gallery', variant: 'grid' }, { key: 'testimonials', variant: 'quote' },
+    { key: 'booking', variant: 'minimal' }, { key: 'contact', variant: 'minimal' },
+  ],
+  theme: {
+    primary: '#111827', secondary: '#374151', accent: '#111827', background: '#ffffff',
+    surface: '#f7f7f5', text: '#141414', mutedText: '#6b7280', buttonBackground: '#141414',
+    buttonText: '#ffffff', border: '#e7e5e1', headingFont: 'Figtree', bodyFont: 'Figtree',
+    headingWeight: 600, radius: 'sharp', cardStyle: 'flat', shadow: 'none', buttonStyle: 'square',
+    sectionSpacing: 'generous',
+  },
+  pages: [],
+}
+
+type DesignSpec = DesignPalette & {
+  id: string
+  name: string
+  category: string
+  description: string
+  headline: string
+  blurb: string
+}
+
+/** The seven design templates, with the exact palettes, fonts and radii of the design. */
+const DESIGNS: DesignSpec[] = [
+  {
+    id: 'atelier', name: 'Atelier', category: 'Beauty and Salon',
+    description: 'Warm paper tones, an editorial serif and square corners — a small studio with a steady hand.',
+    primary: '#1c1917', accent: '#b45309', background: '#fffdf8', surface: '#f5f0e6',
+    headingFont: 'Newsreader', bodyFont: 'Figtree', radiusPx: 0,
+    headline: 'The art of a good haircut.',
+    blurb: 'Colour, cut and care from a small team in Nyeri. Appointments, not queues.',
+  },
+  {
+    id: 'luxe', name: 'Luxe', category: 'Beauty and Salon',
+    description: 'Deep lacquer, antique gold and a high-contrast serif for a private studio.',
+    primary: '#1a1712', accent: '#cbb27a', background: '#faf7f0', surface: '#f1ebdd',
+    headingFont: 'Playfair Display', bodyFont: 'Figtree', radiusPx: 2,
+    headline: 'Quiet luxury, beautifully finished.',
+    blurb: 'Signature colour and styling in a private studio.',
+  },
+  {
+    id: 'fade', name: 'Fade & Co', category: 'Barbershop',
+    description: 'Ink navy with a brass accent and a geometric sans — sharp, direct, no fuss.',
+    primary: '#14213d', accent: '#e0a526', background: '#ffffff', surface: '#f1f3f7',
+    headingFont: 'DM Sans', bodyFont: 'DM Sans', radiusPx: 6,
+    headline: 'Sharp cuts. Straight talk.',
+    blurb: 'Fades, beard trims and hot towel shaves since 2016.',
+  },
+  {
+    id: 'bloom', name: 'Bloom', category: 'Fitness and Wellness',
+    description: 'Sage and clay, an editorial serif and generous rounding for a slower pace.',
+    primary: '#2f5d50', accent: '#d98b6a', background: '#f8faf7', surface: '#e9efe9',
+    headingFont: 'Newsreader', bodyFont: 'Figtree', radiusPx: 14,
+    headline: 'Slow down. Feel like yourself.',
+    blurb: 'Massage, facials and recovery sessions, booked in a minute.',
+  },
+  {
+    id: 'ink', name: 'Inkwell', category: 'Photography',
+    description: 'Near-black and a single hot accent, square corners, nothing in the way of the work.',
+    primary: '#111111', accent: '#ff5a36', background: '#f4f4f2', surface: '#e8e8e4',
+    headingFont: 'DM Sans', bodyFont: 'DM Sans', radiusPx: 0,
+    headline: 'Portraits with a point of view.',
+    blurb: 'Studio and on-location sessions for people and brands.',
+  },
+  {
+    id: 'table', name: 'Saffron Table', category: 'Restaurant and Hospitality',
+    description: 'Claret and old gold with a classical serif, for a menu worth planning around.',
+    primary: '#5b1e1e', accent: '#c9a14a', background: '#fdf8f2', surface: '#f3e9dc',
+    headingFont: 'Playfair Display', bodyFont: 'Figtree', radiusPx: 4,
+    headline: 'Dinner worth planning around.',
+    blurb: 'Seasonal tasting menus and a short, honest wine list.',
+  },
+  {
+    id: 'ledger', name: 'Ledger', category: 'Professional Services',
+    description: 'Trustworthy navy and a clear blue accent, set in a plain-spoken sans.',
+    primary: '#1e3a5f', accent: '#3b82f6', background: '#ffffff', surface: '#f2f5f9',
+    headingFont: 'DM Sans', bodyFont: 'DM Sans', radiusPx: 8,
+    headline: 'Clear advice for growing businesses.',
+    blurb: 'Tax, bookkeeping and planning for owner-run companies.',
+  },
+]
+
+function design(spec: DesignSpec): TemplateDefinition {
+  return {
+    id: spec.id,
+    name: spec.name,
+    description: spec.description,
+    category: spec.category,
+    tags: [spec.id, 'design'],
+    swatch: [spec.primary, spec.accent, spec.background],
+    headerVariant: 'classic',
+    heroVariant: 'overlay',
+    footerVariant: 'columns',
+    blueprint: HOME_BLUEPRINT,
+    theme: designTheme(spec),
+    pages: startingSite(spec.headline, spec.blurb),
+  }
+}
+
+export const TEMPLATES: TemplateDefinition[] = [CLASSIC, ...DESIGNS.map(design)]
+
+/**
  * Template ids that shipped in an earlier revision, mapped onto the current
- * canonical ids. A business saved against one of these keeps its exact look
- * (its stored theme/sections are untouched) while resolving to a live template,
- * so nothing about an already-published storefront changes.
+ * canonical ids. A business saved against one of these keeps its exact look (its
+ * stored theme/sections are untouched) while resolving to a live template, so
+ * nothing about an already-published storefront changes.
  */
 export const LEGACY_TEMPLATE_ALIASES: Record<string, string> = {
   'modern-minimal': 'classic',
-  'modern-commerce': 'professional',
+  'modern-commerce': 'ledger',
   'luxury-premium': 'luxe',
-  'bold-creative': 'bold',
-  'professional-corporate': 'professional',
+  'bold-creative': 'ink',
+  'professional-corporate': 'ledger',
   editorial: 'atelier',
-  'wellness-beauty': 'wellness',
-  'fitness-lifestyle': 'motion',
+  'wellness-beauty': 'bloom',
+  'fitness-lifestyle': 'fade',
+  // The production template family the design's catalogue replaced.
+  minimal: 'atelier',
+  professional: 'ledger',
+  bold: 'ink',
+  wellness: 'bloom',
+  motion: 'fade',
 }
 
-const TEMPLATE_BY_ID = new Map(TEMPLATES.map((t) => [t.id, t]))
+const TEMPLATE_BY_ID = new Map(TEMPLATES.map((template) => [template.id, template]))
 
 export function findTemplate(id: string | null | undefined): TemplateDefinition | undefined {
   if (!id) return undefined
@@ -221,6 +295,4 @@ export function canonicalTemplateId(id: string | null | undefined): string | nul
   return findTemplate(id)?.id ?? null
 }
 
-export const TEMPLATE_CATEGORIES = Array.from(new Set(TEMPLATES.map((t) => t.category)))
-
-
+export const TEMPLATE_CATEGORIES = Array.from(new Set(TEMPLATES.map((template) => template.category)))

@@ -1,20 +1,19 @@
 import type { ReactNode } from 'react'
 import { Clock, Mail, MapPin, Phone } from 'lucide-react'
-import { cn } from '../../lib/cn'
 import { useStorefront } from '../../lib/storefront'
 import { resolveNavigation, sectionLabel, sectionPath } from '../../lib/storefront/sections'
 import { useStorefrontOpeningHours } from '../../lib/storefront/use-storefront-public'
-import { storefrontHref } from '../../lib/tenant'
+import { marketingUrl, storefrontHref } from '../../lib/tenant'
 
 /**
- * The storefront footer, driven by the owner's footer configuration.
+ * The storefront footer, shared by every storefront page.
  *
  * Business facts (name, address, phone, email, hours) come from the business
  * profile and the opening-hours endpoint — never duplicated into the config, so
  * they can never drift from the rest of the product. The owner controls the
  * layout variant, which blocks appear, the socials, the legal links and the
- * colours. Falls back to the platform footer when the business has no builder
- * configuration yet.
+ * colours. It renders whether or not the business has a builder configuration,
+ * so a single footer design sits under every page of every storefront.
  */
 
 type NavItem = { key: string; href: string; label: string }
@@ -40,23 +39,6 @@ function useFooterNav(): NavItem[] {
   })
 }
 
-function SocialRow() {
-  const { storefront } = useStorefront()
-  const socials = storefront?.footer.socials ?? []
-  if (socials.length === 0) return null
-  return (
-    <ul className="sf-footer-list is-inline">
-      {socials.map((social) => (
-        <li key={`${social.platform}-${social.url}`}>
-          <a href={social.url} rel="noreferrer noopener" target="_blank" className="link">
-            {social.platform || social.url}
-          </a>
-        </li>
-      ))}
-    </ul>
-  )
-}
-
 export function StorefrontFooter() {
   const { business, storefront } = useStorefront()
   const hours = useStorefrontOpeningHours(business.id)
@@ -78,8 +60,26 @@ export function StorefrontFooter() {
     : undefined
 
   const openToday = hours.data?.days.find((day) => !day.isClosed && day.periods.length > 0)
+  const socials = config?.socials ?? []
+  const legalLinks = config?.legalLinks ?? []
 
-  const contact = (
+  const brand: ReactNode = (
+    <div className="sf-footer-brand">
+      {config?.showLogo && business.logoUrl ? (
+        <img src={business.logoUrl} alt="" className="sf-footer-logo" />
+      ) : (
+        <span className="sf-footer-mono" aria-hidden="true">
+          {(business.name || '·').trim().charAt(0).toUpperCase()}
+        </span>
+      )}
+      <p className="sf-footer-name">{business.name}</p>
+      {config?.description || business.description ? (
+        <p className="sf-footer-desc">{config?.description ?? business.description}</p>
+      ) : null}
+    </div>
+  )
+
+  const contact: ReactNode = (
     <ul className="sf-footer-list">
       {showAddress && business.location ? (
         <li>
@@ -90,13 +90,17 @@ export function StorefrontFooter() {
       {business.phoneNumber ? (
         <li>
           <Phone className="sf-footer-icon" aria-hidden="true" />
-          <a href={`tel:${business.phoneNumber}`} className="link">{business.phoneNumber}</a>
+          <a href={`tel:${business.phoneNumber}`} className="link">
+            {business.phoneNumber}
+          </a>
         </li>
       ) : null}
       {business.email ? (
         <li>
           <Mail className="sf-footer-icon" aria-hidden="true" />
-          <a href={`mailto:${business.email}`} className="link">{business.email}</a>
+          <a href={`mailto:${business.email}`} className="link">
+            {business.email}
+          </a>
         </li>
       ) : null}
       {showHours && openToday ? (
@@ -111,102 +115,141 @@ export function StorefrontFooter() {
     </ul>
   )
 
-  const brand: ReactNode = (
-    <div className="sf-footer-brand">
-      {config?.showLogo && business.logoUrl ? (
-        <img src={business.logoUrl} alt="" className="sf-footer-logo" />
-      ) : null}
-      <p className="sf-footer-name">{business.name}</p>
-      {config?.description || business.description ? (
-        <p className="sf-footer-desc">{config?.description ?? business.description}</p>
-      ) : null}
-    </div>
-  )
-
-  const navList =
+  const navList: ReactNode =
     showNav && nav.length > 0 ? (
       <nav aria-label="Storefront" className="sf-footer-nav">
         <p className="sf-footer-title">Explore</p>
         <ul className="sf-footer-list">
           {nav.map((item) => (
             <li key={item.key}>
-              <a href={item.href} className="link">{item.label}</a>
+              <a href={item.href} className="link">
+                {item.label}
+              </a>
             </li>
           ))}
         </ul>
       </nav>
     ) : null
 
-  const legal = showLegal ? (
+  const social: ReactNode =
+    showSocial && socials.length > 0 ? (
+      <ul className="sf-footer-social">
+        {socials.map((entry) => (
+          <li key={`${entry.platform}-${entry.url}`}>
+            <a href={entry.url} rel="noreferrer noopener" target="_blank">
+              {entry.platform || entry.url}
+            </a>
+          </li>
+        ))}
+      </ul>
+    ) : null
+
+  const legal: ReactNode = (
     <div className="sf-footer-legal">
       <span>{copyright}</span>
-      {config?.legalLinks.length ? (
+      {showLegal && legalLinks.length > 0 ? (
         <ul className="sf-footer-list is-inline">
-          {config.legalLinks.map((link) => (
-            <li key={`${link.label}-${link.href}`}>
-              <a href={link.href} className="link">{link.label}</a>
+          {legalLinks.map((entry) => (
+            <li key={`${entry.label}-${entry.href}`}>
+              <a href={entry.href} className="link">
+                {entry.label}
+              </a>
             </li>
           ))}
         </ul>
       ) : null}
+      {!storefront ? (
+        <span>
+          Built with{' '}
+          <a href={marketingUrl('/')} className="link">
+            Punched
+          </a>
+        </span>
+      ) : null}
     </div>
-  ) : null
+  )
 
-  return (
-    <footer className={cn('sf-footer', `is-${variant}`)} style={style}>
-      <div className="sf-container">
-        {variant === 'minimal' ? (
-          <div className="sf-footer-minimal">
-            {brand}
-            <div className="sf-footer-minimal-side">
-              {showSocial ? <SocialRow /> : null}
-              <span className="sf-footer-copy">{copyright}</span>
-            </div>
+  if (variant === 'minimal') {
+    return (
+      <footer className="sf-footer is-minimal" style={style}>
+        <div className="sf-container sf-footer-minimal">
+          {brand}
+          <div className="sf-footer-minimal-side">
+            {social}
+            {legal}
           </div>
-        ) : variant === 'centered' ? (
+        </div>
+      </footer>
+    )
+  }
+
+  if (variant === 'centered') {
+    return (
+      <footer className="sf-footer is-centered" style={style}>
+        <div className="sf-container">
           <div className="sf-footer-centered">
             {brand}
             {navList}
-            {showSocial ? <SocialRow /> : null}
-            {legal}
+            {social}
           </div>
-        ) : variant === 'contact' ? (
-          <div className="sf-footer-grid is-contact">
-            <div>
+          <div className="sf-footer-bottom is-center">{legal}</div>
+        </div>
+      </footer>
+    )
+  }
+
+  if (variant === 'contact') {
+    return (
+      <footer className="sf-footer is-contact" style={style}>
+        <div className="sf-container">
+          <div className="sf-footer-grid">
+            <div className="sf-footer-col">
               <p className="sf-footer-title">Get in touch</p>
               {showContact ? contact : null}
             </div>
             {navList}
             {brand}
-            {legal}
+            <div className="sf-footer-bottom">{legal}</div>
           </div>
-        ) : variant === 'editorial' ? (
-          <div className="sf-footer-editorial">
-            {brand}
-            <div className="sf-footer-editorial-grid">
-              {navList}
-              <div>
-                <p className="sf-footer-title">Visit</p>
-                {contact}
-              </div>
-              {showSocial ? <SocialRow /> : null}
-            </div>
-            {legal}
-          </div>
-        ) : (
-          <div className="sf-footer-grid">
-            {brand}
+        </div>
+      </footer>
+    )
+  }
+
+  if (variant === 'editorial') {
+    return (
+      <footer className="sf-footer is-editorial" style={style}>
+        <div className="sf-container">
+          {brand}
+          <div className="sf-footer-editorial-grid">
             {navList}
-            <div>
-              <p className="sf-footer-title">Contact</p>
-              {showContact ? contact : null}
+            <div className="sf-footer-col">
+              <p className="sf-footer-title">Visit</p>
+              {contact}
             </div>
-            <div className="sf-footer-grid-foot">
-              {showSocial ? <SocialRow /> : null}
-              {legal}
-            </div>
+            {social}
           </div>
-        )}
+          <div className="sf-footer-bottom">{legal}</div>
+        </div>
+      </footer>
+    )
+  }
+
+  return (
+    <footer className="sf-footer is-columns" style={style}>
+      <div className="sf-container">
+        <div className="sf-footer-grid">
+          {brand}
+          {navList}
+          <div className="sf-footer-col">
+            <p className="sf-footer-title">Contact</p>
+            {showContact ? contact : null}
+          </div>
+          <div className="sf-footer-bottom">
+            {social}
+            {legal}
+          </div>
+        </div>
       </div>
     </footer>
   )

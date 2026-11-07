@@ -64,6 +64,16 @@ export function AppointmentTable({
   const canConfirmSelection = selectedRows.some((row) => isBulkConfirmable(row.status))
   const canCancelSelection = selectedRows.some((row) => isBulkCancellable(row.status))
 
+  /**
+   * Value of the appointments on this page, excluding cancellations. Labelled as
+   * "on this page" because the API paginates: presenting a page subtotal as the
+   * range's total would overstate what the ledger holds.
+   */
+  const shownValue = useMemo(
+    () => rows.reduce((sum, row) => (row.status === 'cancelled' ? sum : sum + (row.price ?? 0)), 0),
+    [rows],
+  )
+
   const toggleAll = () => {
     const next = new Set(selected)
     if (allSelected) pageIds.forEach((id) => next.delete(id))
@@ -166,9 +176,14 @@ export function AppointmentTable({
         </div>
       </div>
 
-      <p className="mt-[0.6rem] text-meta text-muted tabular">
-        Showing {rows.length} of <b>{totalCount}</b> appointments in this range
-      </p>
+      <div className="mt-[0.6rem] flex flex-wrap items-center gap-x-[0.5rem] text-meta text-muted tabular">
+        <p>
+          Showing {rows.length} of <b>{totalCount}</b> appointments in this range
+        </p>
+        <p>
+          · Value <b>{money(shownValue)}</b> on this page
+        </p>
+      </div>
     </div>
   )
 }
@@ -215,6 +230,7 @@ function AppointmentTableRow({
             size="sm"
             name={row.customerName}
             initials={getInitials(row.customerName)}
+            src={row.customerAvatarUrl ?? undefined}
             decorative
           />
           <span className="min-w-0">
@@ -250,7 +266,7 @@ function AppointmentTableRow({
       <td className="px-[0.8rem] py-[0.7rem] max-lg:hidden">
         {row.staffName ? (
           <span className="flex items-center gap-[0.5rem]">
-            <Avatar size="sm" name={row.staffName} decorative />
+            <Avatar size="sm" name={row.staffName} src={row.staffAvatarUrl ?? undefined} decorative />
             <span className="min-w-0 truncate">{row.staffName}</span>
           </span>
         ) : (

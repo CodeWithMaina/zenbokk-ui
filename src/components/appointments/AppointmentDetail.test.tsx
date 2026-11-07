@@ -18,9 +18,11 @@ import { AppointmentDetail } from './AppointmentDetail'
 /**
  * The appointment record.
  *
- * Everything asserted here is data the API returned: the record, its status
- * history, the customer's other visits and the server's payment summary. The
- * test would fail if the screen invented any of it.
+ * Everything asserted here is data the API returned for this appointment alone:
+ * the record, its status history and the server's payment summary. The screen
+ * never reaches into the customer's other bookings or the staff member's other
+ * appointments, so none of that appears. The test would fail if the screen
+ * invented any of it.
  */
 
 function renderDetail(
@@ -39,7 +41,6 @@ function renderDetail(
       row={row}
       onBack={onBack}
       onAction={onAction}
-      onOpenAppointment={vi.fn()}
       onSaveNote={onSaveNote}
       {...overrides}
     />,
@@ -131,6 +132,39 @@ describe('AppointmentDetail', () => {
     await user.click(screen.getByRole('button', { name: 'Appointments' }))
     expect(onBack).toHaveBeenCalled()
   })
+
+  it('shows the customer and staff photos the appointment carries', async () => {
+    server.use(
+      http.get('*/api/v1/businesses/me/appointments/:id', () =>
+        HttpResponse.json({
+          success: true,
+          data: makeAppointment({
+            customerAvatarUrl: 'https://cdn.example.test/customer.jpg',
+            staffAvatarUrl: 'https://cdn.example.test/staff.jpg',
+          }),
+          error: null,
+        }),
+      ),
+    )
+
+    renderDetail()
+    await screen.findByRole('heading', { name: 'Wanjiru Kariuki' })
+
+    const sources = Array.from(document.querySelectorAll('img')).map((img) =>
+      img.getAttribute('src'),
+    )
+    expect(sources).toContain('https://cdn.example.test/customer.jpg')
+    expect(sources).toContain('https://cdn.example.test/staff.jpg')
+  })
+
+  it('shows only this appointment, never other bookings or the staff member’s day', async () => {
+    renderDetail()
+    await screen.findByRole('heading', { name: 'Wanjiru Kariuki' })
+
+    expect(screen.queryByText(/’s day/)).toBeNull()
+    expect(screen.queryByText('No other visits yet.')).toBeNull()
+    expect(screen.queryByText('Completed visits')).toBeNull()
+  })
 })
 
 /** A completed appointment, so the primary action is Rebook rather than Confirm. */
@@ -160,7 +194,6 @@ describe('AppointmentDetail on a terminal appointment', () => {
         row={row}
         onBack={vi.fn()}
         onAction={vi.fn()}
-        onOpenAppointment={vi.fn()}
         onSaveNote={vi.fn()}
       />,
     )

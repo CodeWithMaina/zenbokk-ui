@@ -1,8 +1,9 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import {
   AppointmentBookingForm,
+  AppointmentBookingWizard,
   AppointmentCalendar,
   AppointmentCalendarSkeleton,
   AppointmentCancelDialog,
@@ -55,6 +56,9 @@ export const Route = createFileRoute('/dashboard/appointments/')({
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50] as const
 
+/** Cards load a block at a time; "Show more" reveals the next one. */
+const CARDS_PAGE_SIZE = 24
+
 /** Human label for whatever pane the calendar is showing. */
 function calendarLabel(mode: CalendarMode, anchor: Date): string {
   if (mode === 'month') {
@@ -74,6 +78,11 @@ function calendarLabel(mode: CalendarMode, anchor: Date): string {
 }
 
 /** Label for the non-calendar views' date window. */
+/** `HH:mm` for a pre-filled start time, in the viewer's timezone. */
+function clockTime(date: Date): string {
+  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
+}
+
 function windowLabel(filters: Filters): string {
   const window = resolveDateWindow(filters)
   if (!window.from || !window.to) return 'All dates'
@@ -95,6 +104,16 @@ function windowLabel(filters: Filters): string {
 function AppointmentsPage() {
   const { business, hasModule, hasPermission } = useDashboardContext()
   const enabled = hasModule(MODULE.appointments)
+
+  /**
+   * Module gates for the booking wizard and the filter panel. The optional Staff module
+   * decides whether staff can be selected or filtered at all; the Payments module
+   * decides whether the payment step is offered. Both come from the same entitlement
+   * system the API enforces — never a local flag.
+   */
+  const staffModuleEnabled = hasModule(MODULE.staff)
+  const paymentsEnabled = hasModule(MODULE.payments)
+
   const navigate = useNavigate({ from: Route.fullPath })
 
   const [view, setView] = useState<AppointmentView>('calendar')
@@ -103,6 +122,7 @@ function AppointmentsPage() {
   const [filters, setFilters] = useState<Filters>(DEFAULT_APPOINTMENT_FILTERS)
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState<number>(25)
+  const [cardPageSize, setCardPageSize] = useState<number>(CARDS_PAGE_SIZE)
   const [selected, setSelected] = useState<Set<string>>(() => new Set())
 
   const [filtersOpen, setFiltersOpen] = useState(false)
@@ -114,7 +134,12 @@ function AppointmentsPage() {
   const [bulkCancelOpen, setBulkCancelOpen] = useState(false)
 
   const search = useDebouncedValue(filters.search, 300)
-  const queryFilters = useMemo<Filters>(() => ({ ...filters, search }), [filters, search])
+  // While the Staff module is off no staff filter is ever sent, even if a stale value
+  // lingers in the filter set: the server would ignore it, so the request must omit it.
+  const queryFilters = useMemo<Filters>(
+    () => ({ ...filters, search, staffId: staffModuleEnabled ? filters.staffId : null }),
+    [filters, search, staffModuleEnabled],
+  )
 
   const window = useMemo(() => calendarWindow(mode, anchor), [mode, anchor])
 
@@ -130,7 +155,11 @@ function AppointmentsPage() {
     enabled && view === 'calendar',
   )
 
-  const pageQuery = useAppointmentPage(queryFilters, page, pageSize, enabled && view !== 'calendar')
+  // Cards walk their own page size (a growing block revealed by "Show more");
+  // the table uses its own page and rows-per-page controls.
+  const listPage = view === 'cards' ? 1 : page
+  const listPageSize = view === 'cards' ? cardPageSize : pageSize
+  const pageQuery = useAppointmentPage(queryFilters, listPage, listPageSize, enabled && view !== 'calendar')
 
   const active = view === 'calendar' ? rangeQuery : pageQuery
   const dashboard: AppointmentDashboard | undefined = active.data
@@ -164,6 +193,12 @@ function AppointmentsPage() {
   const mutations = useAppointmentMutations()
   const canBook = hasPermission('appointments.create') || hasPermission('appointments.manage')
 
+  /** Calendar-originated prefill: the clicked slot and, when known, its staff member. */
+  const bookingStart = booking?.prefill?.start ?? null
+  const bookingStaff = booking?.prefill?.staffUserId
+    ? (reference?.staff.find((member) => member.userId === booking.prefill?.staffUserId) ?? null)
+    : null
+
   const mutateBusy =
     mutations.create.isPending ||
     mutations.reschedule.isPending ||
@@ -175,6 +210,7 @@ function AppointmentsPage() {
 
   const resetPaging = useCallback(() => {
     setPage(1)
+    setCardPageSize(CARDS_PAGE_SIZE)
     setSelected(new Set())
   }, [])
 
@@ -404,6 +440,54 @@ function AppointmentsPage() {
     [mode],
   )
 
+  /**
+   * Keyboard shortcuts from the reference design: `n` opens a new booking, `f`
+   * opens the filters, and `1`/`2`/`3` switch calendar/table/cards. The `/`
+   * shortcut lives with the search box that owns it. Nothing fires while the
+   * operator is typing or while a dialog/drawer is open.
+   */
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.metaKey || event.ctrlKey || event.altKey) return
+      const target = event.target as HTMLElement | null
+      const tag = target?.tagName ?? ''
+      if (/^(INPUT|SELECT|TEXTAREA)$/.test(tag) || target?.isContentEditable) return
+      if (filtersOpen || booking || pendingCancel || bulkCancelOpen) return
+      if (document.querySelector('[role="dialog"]')) return
+
+      switch (event.key.toLowerCase()) {
+        case 'n':
+          if (!canBook) return
+          event.preventDefault()
+          setBooking({ mode: 'new' })
+          break
+        case 'f':
+          event.preventDefault()
+          setFiltersOpen(true)
+          break
+        case '1':
+          event.preventDefault()
+          setView('calendar')
+          resetPaging()
+          break
+        case '2':
+          event.preventDefault()
+          setView('table')
+          resetPaging()
+          break
+        case '3':
+          event.preventDefault()
+          setView('cards')
+          resetPaging()
+          break
+        default:
+          break
+      }
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  }, [canBook, filtersOpen, booking, pendingCancel, bulkCancelOpen, resetPaging])
+
   if (!enabled) {
     return (
       <div className="card">
@@ -529,6 +613,8 @@ function AppointmentsPage() {
         <AppointmentCards
           rows={orderedRows}
           groupByDate={!isClientSort(queryFilters.sort)}
+          totalCount={pageQuery.data?.meta.totalCount}
+          onShowMore={() => setCardPageSize((size) => size + CARDS_PAGE_SIZE)}
           onOpen={(appointmentId) =>
             void navigate({
               to: '/dashboard/appointments/$appointmentId',
@@ -547,6 +633,7 @@ function AppointmentsPage() {
         onChange={onFiltersChange}
         onReset={resetFilters}
         staff={reference?.staff ?? []}
+        staffEnabled={staffModuleEnabled}
         services={reference?.services ?? []}
         resultCount={view === 'calendar' ? orderedRows.length : pageQuery.data?.meta.totalCount ?? 0}
         calendar={{
@@ -565,7 +652,23 @@ function AppointmentsPage() {
         busy={busy}
       />
 
-      {booking ? (
+      {booking?.mode === 'new' ? (
+        <AppointmentBookingWizard
+          open
+          onClose={() => setBooking(null)}
+          businessId={business.id}
+          staffModuleEnabled={staffModuleEnabled}
+          paymentsEnabled={paymentsEnabled}
+          services={reference?.services ?? []}
+          initialDate={bookingStart ? toDateValue(bookingStart) : null}
+          initialTime={bookingStart ? clockTime(bookingStart) : null}
+          initialStaff={bookingStaff}
+          onBooked={(_appointment, message) => {
+            setBooking(null)
+            toast.success(message)
+          }}
+        />
+      ) : booking ? (
         <AppointmentBookingForm
           open
           onClose={() => setBooking(null)}
@@ -574,6 +677,7 @@ function AppointmentsPage() {
           customers={reference?.customers ?? []}
           services={reference?.services ?? []}
           staff={reference?.staff ?? []}
+          staffModuleEnabled={staffModuleEnabled}
           prefill={booking.prefill}
           busy={mutations.create.isPending || mutations.reschedule.isPending}
           error={

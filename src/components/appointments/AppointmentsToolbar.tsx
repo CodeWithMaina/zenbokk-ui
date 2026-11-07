@@ -1,9 +1,9 @@
-import { ChevronLeft, ChevronRight, ListFilter } from 'lucide-react'
+import { ChevronLeft, ChevronRight, ListFilter, Search } from 'lucide-react'
+import { useEffect, useRef } from 'react'
 import type { ReactNode } from 'react'
 import { cn } from '../../lib/cn'
 import { CountBadge, StatusPill } from '../ui/badge'
 import { Button } from '../ui/button'
-import { SearchField } from '../ui/search-field'
 import { Toolbar, ToolbarSpacer } from '../ui/toolbar'
 
 export type AppointmentStatusCount = {
@@ -47,16 +47,42 @@ export function AppointmentsToolbar({
   statusCounts,
   busy = false,
 }: AppointmentsToolbarProps) {
+  const searchRef = useRef<HTMLInputElement>(null)
+
+  // `/` focuses the search box, as in the reference design.
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== '/') return
+      const tag = (document.activeElement as HTMLElement | null)?.tagName ?? ''
+      if (/^(INPUT|SELECT|TEXTAREA)$/.test(tag)) return
+      if (document.querySelector('[role="dialog"]')) return
+      event.preventDefault()
+      searchRef.current?.focus()
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  }, [])
+
   return (
     <div className="mb-[0.9rem]">
       <Toolbar>
-        <SearchField
-          label="Search appointments"
-          placeholder="Search customer, phone, service or staff"
-          value={search}
-          onChange={(event) => onSearchChange(event.target.value)}
-          className="flex-[1_1_16rem] max-w-[30rem]"
-        />
+        <label className="search max-w-[30rem] flex-[1_1_16rem]">
+          <Search className="size-4" aria-hidden="true" />
+          <input
+            ref={searchRef}
+            type="search"
+            value={search}
+            onChange={(event) => onSearchChange(event.target.value)}
+            placeholder="Search customer, phone, service or staff"
+            aria-label="Search appointments"
+            autoComplete="off"
+          />
+          {search ? null : (
+            <kbd className="hidden rounded-xs border border-line px-[0.4rem] py-[0.05rem] text-[0.72rem] text-muted sm:inline">
+              /
+            </kbd>
+          )}
+        </label>
 
         <Button onClick={onOpenFilters} className="gap-[0.45rem]">
           <ListFilter className="size-4" aria-hidden="true" />

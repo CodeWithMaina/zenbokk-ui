@@ -7,18 +7,10 @@ import {
   appointmentTimingLabel,
   appointmentTotal,
   paymentStatusLabel,
-  serviceColor,
   serviceLines,
-  toAppointmentRows,
-  toDateValue,
 } from '../../lib/appointments'
 import type { AppointmentRow } from '../../lib/appointments'
-import {
-  useAppointment,
-  useAppointmentActivity,
-  useCustomerAppointments,
-  useStaffDay,
-} from '../../lib/appointments'
+import { useAppointment, useAppointmentActivity } from '../../lib/appointments'
 import { cn } from '../../lib/cn'
 import { useDashboardContext } from '../../lib/dashboard/dashboard-context'
 import { formatDate, formatDuration, formatTime, money } from '../../lib/format'
@@ -34,6 +26,7 @@ import { MetricGrid } from '../ui/metric-tile'
 import { Skeleton, SkeletonText } from '../ui/skeleton'
 import { AppointmentStatusBadge } from './AppointmentStatusBadge'
 import { AppointmentErrorState } from './AppointmentEmptyState'
+import { AppointmentPaymentActions } from './AppointmentPaymentActions'
 import { AppointmentQuickActions } from './AppointmentActions'
 import type { AppointmentAction } from './AppointmentActions'
 
@@ -43,7 +36,6 @@ export type AppointmentDetailProps = {
   row: AppointmentRow | null
   onBack: () => void
   onAction: (action: AppointmentAction) => void
-  onOpenAppointment: (appointmentId: string) => void
   /** Open the customer's details page, when the module can resolve one. */
   onOpenCustomer?: (customerId: string) => void
   onSaveNote: (note: string | null) => void
@@ -51,10 +43,6 @@ export type AppointmentDetailProps = {
   noteError?: string | null
   busy?: boolean
 }
-
-const DAY_START_HOUR = 8
-const DAY_END_HOUR = 20
-const DAY_SPAN_MINUTES = (DAY_END_HOUR - DAY_START_HOUR) * 60
 
 /** Status → the tone the activity feed draws its dot in. */
 const ACTIVITY_TONES: Record<string, 'success' | 'warning' | 'danger' | 'neutral'> = {
@@ -82,38 +70,35 @@ function BackButton({ onBack }: { onBack: () => void }) {
 /**
  * Full appointment record.
  *
- * Everything on the page is persisted data: the record itself, its service
- * lines, its status history (the activity feed), the customer's other visits,
- * the staff member's day and — when the business is entitled to the payments
- * module — the server's own payment summary. Nothing is inferred from the
- * booking alone, and the payment card never claims a payment the ledger does not
- * hold.
+ * Everything on this page concerns this appointment alone: the record itself,
+ * its service lines, the customer and staff member it names, its notes, its own
+ * payment summary and its own status history (the activity feed). It never reads
+ * or shows the customer's other bookings or the staff member's other
+ * appointments — those belong to their own screens.
  */
 export function AppointmentDetail({
   appointmentId,
   row,
   onBack,
   onAction,
-  onOpenAppointment,
   onOpenCustomer,
   onSaveNote,
   noteSaving = false,
   noteError,
   busy = false,
 }: AppointmentDetailProps) {
-  const { hasModule } = useDashboardContext()
+  const { business, hasModule, hasPermission } = useDashboardContext()
   const paymentsEnabled = hasModule(MODULE.payments)
+  // Payment actions are gated on the caller's permissions. The backend enforces the
+  // same codes (and the business scope) — this only decides what is offered.
+  const canInitiatePayment = hasPermission('payments.create')
+  const canConfirmCash = hasPermission('payments.confirm_cash')
 
   const detail = useAppointment(appointmentId)
   const activity = useAppointmentActivity(appointmentId)
   const appointment = detail.data ?? null
 
   const customerId = appointment?.customerId ?? row?.customerId ?? null
-  const history = useCustomerAppointments(customerId, Boolean(customerId))
-
-  const staffUserId = appointment?.staffUserId ?? row?.staffUserId ?? null
-  const staffDayKey = appointment ? toDateValue(new Date(appointment.scheduledAt)) : ''
-  const staffDay = useStaffDay(staffUserId, staffDayKey, Boolean(staffUserId) && Boolean(staffDayKey))
 
   const payment = useAppointmentPaymentSummary(appointmentId, paymentsEnabled)
 
@@ -124,38 +109,14 @@ export function AppointmentDetail({
 
   const lines = useMemo(() => (appointment ? serviceLines(appointment) : []), [appointment])
 
-  const historyRows = useMemo(
-    () => (history.data ? toAppointmentRows(history.data) : []),
-    [history.data],
-  )
-  const completed = historyRows.filter((entry) => entry.status === 'completed')
-  const cancelled = historyRows.filter((entry) => entry.status === 'cancelled')
-  const otherVisits = historyRows.filter((entry) => entry.id !== appointmentId).slice(0, 5)
-
-  const staffDayRows = useMemo(
-    () => (staffDay.data ? toAppointmentRows(staffDay.data) : []),
-    [staffDay.data],
-  )
-
-  /**
-   * When this screen is opened directly (its own URL) there is no list row to
-   * paint the header from, so the customer and staff are resolved from the
-   * queries the screen already runs — the customer's own history and the staff
-   * member's day — rather than from the list.
-   */
-  const customer = useMemo(
-    () => (history.data?.customers ?? []).find((entry) => entry.userId === customerId) ?? null,
-    [history.data, customerId],
-  )
-  const staffMember = useMemo(
-    () => (staffDay.data?.staff ?? []).find((entry) => entry.userId === staffUserId) ?? null,
-    [staffDay.data, staffUserId],
-  )
-
-  const customerName = row?.customerName ?? customer?.fullName ?? 'Customer'
-  const customerPhone = row?.customerPhone ?? customer?.phoneNumber ?? null
-  const customerEmail = row?.customerEmail ?? customer?.email ?? null
-  const staffName = row?.staffName ?? staffMember?.fullName ?? null
+  // The two people on this appointment, resolved by the appointment endpoint
+  // itself (with the list row as a fallback while the request is in flight).
+  const customerName = appointment?.customerName ?? row?.customerName ?? 'Customer'
+  const customerPhone = appointment?.customerPhone ?? row?.customerPhone ?? null
+  const customerEmail = appointment?.customerEmail ?? row?.customerEmail ?? null
+  const customerAvatarUrl = appointment?.customerAvatarUrl ?? row?.customerAvatarUrl ?? null
+  const staffName = appointment?.staffName ?? row?.staffName ?? null
+  const staffAvatarUrl = appointment?.staffAvatarUrl ?? row?.staffAvatarUrl ?? null
 
   if (detail.isError) {
     return (
@@ -193,7 +154,7 @@ export function AppointmentDetail({
 
       <header className="flex flex-wrap items-center justify-between gap-[0.9rem] pb-[1.1rem] pt-[0.2rem]">
         <div className="flex min-w-0 flex-[1_1_20rem] items-center gap-[0.9rem]">
-          <Avatar size="lg" name={customerName} decorative />
+          <Avatar size="lg" name={customerName} src={customerAvatarUrl ?? undefined} decorative />
           <div className="min-w-0">
             <h1 className="truncate text-title font-bold tracking-tight">{customerName}</h1>
             <div className="mt-[0.3rem] flex flex-wrap items-center gap-x-[0.8rem] gap-y-[0.3rem] text-meta text-muted">
@@ -240,7 +201,6 @@ export function AppointmentDetail({
             items={[
               { value: formatDuration(duration), label: 'Duration' },
               { value: money(total), label: 'Price' },
-              { value: completed.length, label: 'Completed visits' },
             ]}
           />
 
@@ -253,7 +213,24 @@ export function AppointmentDetail({
                   value={`${formatDuration(line.durationMinutes)} · ${money(line.price)}`}
                 />
               ))}
-              <DescriptionRow label="Staff" value={staffName ?? 'Unassigned'} />
+              <DescriptionRow
+                label="Staff"
+                value={
+                  staffName ? (
+                    <span className="flex items-center justify-end gap-[0.45rem]">
+                      <Avatar
+                        size="sm"
+                        name={staffName}
+                        src={staffAvatarUrl ?? undefined}
+                        decorative
+                      />
+                      {staffName}
+                    </span>
+                  ) : (
+                    'Unassigned'
+                  )
+                }
+              />
               <DescriptionRow label="Date" value={formatDate(appointment.scheduledAt)} />
               <DescriptionRow
                 label="Time"
@@ -263,17 +240,6 @@ export function AppointmentDetail({
                 {appointment.reminderOptOut ? 'Opted out by the customer' : 'Scheduled'}
               </DescriptionRow>
             </DescriptionList>
-          </SectionCard>
-
-          <SectionCard
-            title={`${(staffName ?? 'Staff').split(' ')[0]}’s day`}
-            description={`${staffDayRows.length} appointment${staffDayRows.length === 1 ? '' : 's'} on ${formatDate(appointment.scheduledAt)}`}
-          >
-            <StaffDayStrip
-              rows={staffDayRows}
-              highlightId={appointment.id}
-              day={appointment.scheduledAt}
-            />
           </SectionCard>
 
           <SectionCard title="Notes" description="Kept with the booking and visible to your team.">
@@ -302,7 +268,7 @@ export function AppointmentDetail({
         <div className="flex min-w-0 flex-col gap-[1rem]">
           <SectionCard title="Customer">
             <div className="flex items-center gap-[0.7rem]">
-              <Avatar name={customerName} decorative />
+              <Avatar name={customerName} src={customerAvatarUrl ?? undefined} decorative />
               <div className="min-w-0 flex-1">
                 {onOpenCustomer && customerId ? (
                   <button
@@ -328,46 +294,6 @@ export function AppointmentDetail({
                   <Phone className="size-4" aria-hidden="true" />
                 </a>
               ) : null}
-            </div>
-
-            <MetricGrid
-              className="mt-[0.9rem]"
-              items={[
-                { value: completed.length, label: 'Visits' },
-                {
-                  value: money(completed.reduce((sum, entry) => sum + (entry.price ?? 0), 0)),
-                  label: 'Completed value',
-                },
-                { value: cancelled.length, label: 'Cancelled' },
-              ]}
-            />
-
-            <div className="mt-[0.9rem]">
-              {history.isLoading ? (
-                <SkeletonText lines={3} />
-              ) : otherVisits.length === 0 ? (
-                <p className="text-meta text-muted">No other visits yet.</p>
-              ) : (
-                <ul>
-                  {otherVisits.map((entry) => (
-                    <li key={entry.id}>
-                      <button
-                        type="button"
-                        onClick={() => onOpenAppointment(entry.id)}
-                        className="flex w-full items-center gap-[0.7rem] border-t border-line py-[0.6rem] text-left first:border-t-0 focus-visible:shadow-ring focus-visible:outline-none"
-                      >
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate font-semibold">{entry.serviceName}</span>
-                          <span className="block text-caption text-muted tabular">
-                            {formatDate(entry.scheduledAt)} · {formatTime(entry.scheduledAt)}
-                          </span>
-                        </span>
-                        <AppointmentStatusBadge status={entry.status} />
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
             </div>
           </SectionCard>
 
@@ -408,32 +334,16 @@ export function AppointmentDetail({
                     </DescriptionRow>
                   </DescriptionList>
 
-                  {payment.data.payments.length > 0 ? (
-                    <ul className="mt-[0.8rem]">
-                      {payment.data.payments.map((entry) => (
-                        <li
-                          key={entry.id}
-                          className="flex items-center justify-between gap-[0.7rem] border-t border-line py-[0.55rem] text-meta"
-                        >
-                          <span className="min-w-0">
-                            <span className="block truncate font-semibold">
-                              {entry.method} · {entry.reference}
-                            </span>
-                            <span className="block text-caption text-muted">
-                              {formatDate(entry.createdAt)}
-                            </span>
-                          </span>
-                          <span className="shrink-0 font-semibold tabular">
-                            {money(entry.amount, entry.currency)}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="mt-[0.8rem] text-meta text-muted">
-                      No payment has been recorded against this appointment.
-                    </p>
-                  )}
+                  <AppointmentPaymentActions
+                    appointmentId={appointmentId}
+                    businessId={business.id}
+                    summary={payment.data}
+                    collectable={
+                      appointment.status !== 'cancelled' && appointment.status !== 'no_show'
+                    }
+                    canInitiate={canInitiatePayment}
+                    canConfirmCash={canConfirmCash}
+                  />
                 </>
               ) : null}
             </SectionCard>
@@ -569,78 +479,3 @@ function PremiumSummary({
   )
 }
 
-/**
- * The staff member's day as a compact strip (08:00–20:00), with the appointment
- * being viewed outlined.
- *
- * The blocks are that day's real appointments, so the strip answers "how full is
- * this practitioner's day, and where does this visit sit in it" from data rather
- * than from a calculation.
- */
-function StaffDayStrip({
-  rows,
-  highlightId,
-  day,
-}: {
-  rows: readonly AppointmentRow[]
-  highlightId: string
-  day: string
-}) {
-  const dayStart = useMemo(() => {
-    const start = new Date(day)
-    start.setHours(DAY_START_HOUR, 0, 0, 0)
-    return start.getTime()
-  }, [day])
-
-  const offset = (iso: string) => {
-    const minutes = (new Date(iso).getTime() - dayStart) / 60_000
-    return (minutes / DAY_SPAN_MINUTES) * 100
-  }
-
-  const bookedMinutes = rows.reduce((sum, row) => sum + row.durationMinutes, 0)
-
-  return (
-    <>
-      <div className="relative h-[3rem] rounded-lg border border-line bg-hover">
-        {rows.map((row) => {
-          const left = Math.max(0, Math.min(100, offset(row.scheduledAt)))
-          const width = Math.max(
-            1.5,
-            Math.min(100 - left, (row.durationMinutes / DAY_SPAN_MINUTES) * 100),
-          )
-          const isCurrent = row.id === highlightId
-
-          return (
-            <span
-              key={row.id}
-              title={`${row.customerName} · ${formatTime(row.scheduledAt)}`}
-              aria-hidden="true"
-              className={cn(
-                'absolute top-[0.4rem] bottom-[0.4rem] rounded-xs',
-                isCurrent && 'ring-2 ring-fg',
-              )}
-              style={{
-                left: `${left}%`,
-                width: `${width}%`,
-                backgroundColor: `color-mix(in srgb, ${serviceColor(row.serviceId)} ${
-                  isCurrent ? '100%' : '35%'
-                }, var(--surface))`,
-              }}
-            />
-          )
-        })}
-      </div>
-
-      <div className="mt-[0.3rem] flex justify-between text-caption text-muted tabular">
-        {[DAY_START_HOUR, 11, 14, 17, DAY_END_HOUR].map((hour) => (
-          <span key={hour}>{String(hour).padStart(2, '0')}:00</span>
-        ))}
-      </div>
-
-      <p className="mt-[0.6rem] text-meta text-muted">
-        {rows.length} appointment{rows.length === 1 ? '' : 's'} ·{' '}
-        {formatDuration(bookedMinutes)} booked. The outlined block is this appointment.
-      </p>
-    </>
-  )
-}

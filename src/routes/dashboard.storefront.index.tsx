@@ -125,7 +125,9 @@ function StorefrontOverview() {
             <Button
               variant="primary"
               disabled={!storefrontLive || publish.isPending || builder.isLoading}
-              onClick={() => publish.mutate(state?.draft)}
+              onClick={() =>
+                publish.mutate({ config: state?.draft, expectedVersion: state?.draftVersion })
+              }
             >
               <Rocket className="size-4" aria-hidden="true" />
               {publish.isPending ? 'Publishing…' : state?.isPublished ? 'Publish changes' : 'Publish storefront'}

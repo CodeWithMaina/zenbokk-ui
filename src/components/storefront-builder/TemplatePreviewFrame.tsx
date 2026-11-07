@@ -27,8 +27,12 @@ function fontStack(font: string): string {
   switch (font) {
     case 'Newsreader':
       return "'Newsreader', Georgia, 'Times New Roman', serif"
+    case 'Playfair Display':
+      return "'Playfair Display', 'Newsreader', Georgia, 'Times New Roman', serif"
     case 'Georgia':
       return "Georgia, 'Times New Roman', serif"
+    case 'DM Sans':
+      return "'DM Sans', system-ui, -apple-system, Segoe UI, Roboto, sans-serif"
     case 'system-ui':
       return 'system-ui, -apple-system, Segoe UI, Roboto, sans-serif'
     default:

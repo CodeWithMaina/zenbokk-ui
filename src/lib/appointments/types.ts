@@ -331,9 +331,11 @@ export type AppointmentRow = {
   customerName: string
   customerEmail: string | null
   customerPhone: string | null
+  customerAvatarUrl: string | null
   staffUserId: string | null
   staffName: string | null
   staffEmail: string | null
+  staffAvatarUrl: string | null
   serviceId: string
   serviceName: string
   /** Catalogue duration; falls back to the booked interval when the service was deleted. */
@@ -378,9 +380,11 @@ export function toAppointmentRow(
     customerName: item.customerName || 'Unknown customer',
     customerEmail: item.customerEmail,
     customerPhone: item.customerPhone,
+    customerAvatarUrl: item.customerAvatarUrl,
     staffUserId: item.staffUserId,
     staffName: item.staffName,
     staffEmail: item.staffEmail,
+    staffAvatarUrl: item.staffAvatarUrl,
     serviceId: item.serviceId,
     serviceName: item.serviceName || service?.name || 'Service',
     durationMinutes: catalogue > 0 ? catalogue : booked,

@@ -66,6 +66,12 @@ export function formatDate(iso: string | Date): string {
   return dateFormatter.format(typeof iso === 'string' ? new Date(iso) : iso)
 }
 
+/** `2026-05-12T09:30:00Z` → `12 May 2026, 09:30` in the viewer's timezone. */
+export function formatDateTime(iso: string | Date): string {
+  const date = typeof iso === 'string' ? new Date(iso) : iso
+  return `${dateFormatter.format(date)}, ${timeFormatter.format(date)}`
+}
+
 /** `09:30–10:15`, collapsing an exact UTC day boundary when needed. */
 export function formatTimeRange(startIso: string, endIso: string): string {
   return `${formatTime(startIso)}–${formatTime(endIso)}`

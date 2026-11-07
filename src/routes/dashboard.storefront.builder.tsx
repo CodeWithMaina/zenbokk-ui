@@ -1,5 +1,19 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { Eye, Monitor, Redo2, Rocket, RotateCcw, Save, Smartphone, Tablet, Undo2 } from 'lucide-react'
+import {
+  Eye,
+  History,
+  ImagePlus,
+  Monitor,
+  Moon,
+  Redo2,
+  Rocket,
+  RotateCcw,
+  Save,
+  Smartphone,
+  Sun,
+  Tablet,
+  Undo2,
+} from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Button } from '../components/ui/button'
 import { Card } from '../components/ui/card'
@@ -9,19 +23,25 @@ import {
   BuilderInspector,
   BuilderPreview,
   BuilderSidebar,
+  MediaLibraryDialog,
+  RevisionHistoryPanel,
   toPreviewProfile,
   useEditorCapabilities,
 } from '../components/storefront-builder'
 import { useDashboardContext } from '../lib/dashboard/dashboard-context'
 import type { CapabilityKey } from '../lib/entitlements'
 import { MODULE } from '../lib/entitlements'
+import { formatDateTime } from '../lib/format'
+import type { StorefrontRevision } from '../lib/api/types'
 import {
   mergeConfig,
   useBuilderEditor,
   usePublishStorefront,
   useResetStorefrontDraft,
+  useRestoreStorefrontRevision,
   useSaveStorefrontDraft,
   useStorefrontBuilder,
+  useStorefrontRevision,
 } from '../lib/storefront-builder'
 
 export const Route = createFileRoute('/dashboard/storefront/builder')({
@@ -30,7 +50,7 @@ export const Route = createFileRoute('/dashboard/storefront/builder')({
 
 type Device = 'desktop' | 'tablet' | 'mobile'
 
-function StorefrontBuilderPage() {
+export function StorefrontBuilderPage() {
   const { business, hasModule } = useDashboardContext()
   const enabled = hasModule(MODULE.storefront)
 
@@ -46,6 +66,22 @@ function StorefrontBuilderPage() {
   const save = useSaveStorefrontDraft(business.id)
   const publish = usePublishStorefront(business.id)
   const reset = useResetStorefrontDraft(business.id)
+  const restore = useRestoreStorefrontRevision(business.id)
+
+  // Version history: the panel, and the +historical preview+ it can open. The
+  // preview is a separate piece of state from the editor, so looking at an old
+  // version can never touch the draft being edited.
+  const [historyOpen, setHistoryOpen] = useState(false)
+  const [previewRevisionId, setPreviewRevisionId] = useState<string | null>(null)
+  const [mediaOpen, setMediaOpen] = useState(false)
+  const previewRevision = useStorefrontRevision(previewRevisionId)
+
+  // The draft version the editor last saw. Echoed to the API on save / publish /
+  // restore so a concurrent write is refused instead of silently overwritten.
+  const draftVersionRef = useRef(0)
+  useEffect(() => {
+    if (builder.data) draftVersionRef.current = builder.data.draftVersion
+  }, [builder.data])
 
   const [autosaveStatus, setAutosaveStatus] = useState<'idle' | 'saving' | 'error'>('idle')
   const autosaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -73,9 +109,13 @@ function StorefrontBuilderPage() {
           return
         }
 
-        const next = await save.mutateAsync(editor.config)
+        const next = await save.mutateAsync({
+          config: editor.config,
+          expectedVersion: draftVersionRef.current,
+        })
         if (next?.draft) {
           editor.markSaved(mergeConfig(next.draft))
+          draftVersionRef.current = next.draftVersion
           lastSavedConfigRef.current = JSON.stringify(next.draft)
           setAutosaveStatus('idle')
         }
@@ -105,19 +145,67 @@ function StorefrontBuilderPage() {
   const saving = save.isPending || publish.isPending
 
   async function onSaveDraft() {
-    const next = await save.mutateAsync(editor.config)
-    if (next?.draft) editor.markSaved(mergeConfig(next.draft))
+    const next = await save.mutateAsync({
+      config: editor.config,
+      expectedVersion: draftVersionRef.current,
+    })
+    if (next?.draft) {
+      draftVersionRef.current = next.draftVersion
+      editor.markSaved(mergeConfig(next.draft))
+    }
   }
 
   async function onPublish() {
-    const next = await publish.mutateAsync(editor.config)
-    if (next?.draft) editor.markSaved(mergeConfig(next.draft))
+    const next = await publish.mutateAsync({
+      config: editor.config,
+      expectedVersion: draftVersionRef.current,
+    })
+    if (next?.draft) {
+      draftVersionRef.current = next.draftVersion
+      editor.markSaved(mergeConfig(next.draft))
+    }
   }
 
   async function onReset() {
     const next = await reset.mutateAsync()
-    if (next?.draft) editor.markSaved(mergeConfig(next.draft))
+    if (next?.draft) {
+      draftVersionRef.current = next.draftVersion
+      editor.markSaved(mergeConfig(next.draft))
+    }
   }
+
+  /**
+   * Restore a historical version into the draft.
+   *
+   * The live storefront is not touched — that still needs an explicit publish —
+   * and a failure leaves the editor exactly as it was. Resolves `false` so the
+   * confirmation dialog can report the problem without closing.
+   */
+  async function onRestoreRevision(revision: StorefrontRevision): Promise<boolean> {
+    try {
+      const result = await restore.mutateAsync({
+        revisionId: revision.id,
+        expectedVersion: draftVersionRef.current,
+      })
+      draftVersionRef.current = result.state.draftVersion
+      editor.update(() => mergeConfig(result.state.draft))
+      setPreviewRevisionId(null)
+      return true
+    } catch {
+      // The mutation's own onError has already surfaced the reason.
+      return false
+    }
+  }
+
+  // A historical preview is read-only: it swaps the *rendered* configuration and
+  // never the editor's draft.
+  const previewConfig = useMemo(
+    () =>
+      previewRevisionId && previewRevision.data
+        ? mergeConfig(previewRevision.data.configuration)
+        : editor.config,
+    [previewRevisionId, previewRevision.data, editor.config],
+  )
 
   if (!enabled) {
     return (
@@ -171,6 +259,30 @@ function StorefrontBuilderPage() {
             </Button>
             <Button variant="ghost" onClick={editor.redo} disabled={!editor.canRedo} aria-label="Redo">
               <Redo2 className="size-4" aria-hidden="true" />
+            </Button>
+            <Button variant="ghost" onClick={() => setMediaOpen(true)} data-testid="builder-media">
+              <ImagePlus className="size-4" aria-hidden="true" />
+              Media
+            </Button>
+            <Button
+              variant="ghost"
+              data-testid="builder-dark-toggle"
+              aria-pressed={editor.config.theme.mode === 'dark'}
+              aria-label="Toggle dark storefront"
+              onClick={() =>
+                editor.update((current) => ({
+                  ...current,
+                  theme: { ...current.theme, mode: current.theme.mode === 'dark' ? 'light' : 'dark' },
+                }))
+              }
+            >
+              {editor.config.theme.mode === 'dark'
+                ? <Sun className="size-4" aria-hidden="true" />
+                : <Moon className="size-4" aria-hidden="true" />}
+            </Button>
+            <Button variant="ghost" onClick={() => setHistoryOpen(true)} data-testid="builder-history">
+              <History className="size-4" aria-hidden="true" />
+              History
             </Button>
             <Button variant="ghost" onClick={() => void onReset()} disabled={reset.isPending}>
               <RotateCcw className="size-4" aria-hidden="true" />
@@ -226,8 +338,26 @@ function StorefrontBuilderPage() {
         <BuilderSidebar editor={editor} can={(capability) => can(capability as CapabilityKey)} />
 
         <div className="sfb-pane">
+          {previewRevisionId ? (
+            <div
+              data-testid="historical-preview-banner"
+              className="mb-[0.8rem] flex flex-wrap items-center justify-between gap-[0.6rem] rounded-md border border-info bg-info-soft px-[0.8rem] py-[0.6rem] text-meta text-info-ink"
+            >
+              <span className="inline-flex items-center gap-[0.4rem]">
+                <History className="size-4" aria-hidden="true" />
+                {previewRevision.isPending
+                  ? 'Loading that version…'
+                  : previewRevision.data
+                    ? `Viewing version #${previewRevision.data.revision.revisionNumber} from ${formatDateTime(previewRevision.data.revision.createdAt)}. Your draft is unchanged.`
+                    : 'That version could not be loaded.'}
+              </span>
+              <Button size="sm" variant="ghost" onClick={() => setPreviewRevisionId(null)}>
+                Return to current draft
+              </Button>
+            </div>
+          ) : null}
           <BuilderPreview
-            config={editor.config}
+            config={previewConfig}
             business={previewProfile}
             can={can}
             device={device}
@@ -238,6 +368,28 @@ function StorefrontBuilderPage() {
 
         <BuilderInspector editor={editor} hasMediaLibrary={hasModule(MODULE.gallery)} />
       </div>
+
+      <MediaLibraryDialog
+        open={mediaOpen}
+        businessId={business.id}
+        enabled={hasModule(MODULE.gallery)}
+        onClose={() => setMediaOpen(false)}
+        onSelect={(mediaId) => {
+          editor.update((current) => ({ ...current, hero: { ...current.hero, backgroundMediaId: mediaId } }))
+          setMediaOpen(false)
+        }}
+      />
+
+      <RevisionHistoryPanel
+        open={historyOpen}
+        onClose={() => setHistoryOpen(false)}
+        draftVersion={builder.data?.draftVersion ?? 0}
+        publishedAt={builder.data?.publishedAt ?? null}
+        hasUnsavedChanges={editor.dirty}
+        activeRevisionId={previewRevisionId}
+        onPreview={(revision) => setPreviewRevisionId(revision.id)}
+        onRestore={onRestoreRevision}
+      />
     </div>
   )
 }

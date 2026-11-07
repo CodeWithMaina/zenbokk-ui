@@ -41,9 +41,14 @@ export {
   usePublicStorefront,
   usePublishStorefront,
   useResetStorefrontDraft,
+  useRestoreStorefrontRevision,
   useSaveStorefrontDraft,
   useStorefrontBuilder,
+  useStorefrontRevision,
+  useStorefrontRevisionComparison,
+  useStorefrontRevisions,
   useUnpublishStorefront,
 } from './use-storefront-builder'
 export { useBuilderEditor } from './use-builder-editor'
 export type { BuilderEditor } from './use-builder-editor'
+export { revisionPeriod } from './revisions'

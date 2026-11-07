@@ -453,7 +453,16 @@ export type Appointment = {
   id: string
   businessId: string
   customerId: string
+  /** The customer this appointment is for — resolved server-side. */
+  customerName: string | null
+  customerEmail: string | null
+  customerPhone: string | null
+  customerAvatarUrl: string | null
   staffUserId: string | null
+  /** The staff member assigned to this appointment (null when unassigned). */
+  staffName: string | null
+  staffEmail: string | null
+  staffAvatarUrl: string | null
   scheduledAt: string
   endAt: string
   status: string
@@ -555,9 +564,11 @@ export type AppointmentDashboardItem = {
   customerName: string
   customerEmail: string | null
   customerPhone: string | null
+  customerAvatarUrl: string | null
   staffUserId: string | null
   staffName: string | null
   staffEmail: string | null
+  staffAvatarUrl: string | null
   createdAt: string
   updatedAt: string
 }
@@ -567,6 +578,7 @@ export type CustomerDashboardItem = {
   fullName: string
   email: string
   phoneNumber: string | null
+  avatarUrl: string | null
   enrolledAt: string
   status: string
   totalStamps: number
@@ -596,7 +608,35 @@ export type AppointmentDashboard = {
   appointments: AppointmentDashboardItem[]
   customers: CustomerDashboardItem[]
   staff: StaffDashboardItem[]
+  /**
+   * Whether the optional Staff module is entitled for this business. When
+   * `false`, staff selection and staff filtering must not be offered and the
+   * `staff` bucket is empty — but historical appointments still carry their
+   * assigned staff in `appointments`.
+   */
+  staffModuleEnabled?: boolean
   services: ServiceDashboardItem[]
+}
+
+/**
+ * A compact customer reference used by the booking wizard's searchable selector and
+ * returned by quick-add so a freshly-created customer can be selected immediately.
+ */
+export type CustomerOption = {
+  userId: string
+  fullName: string
+  email: string
+  phoneNumber: string | null
+  avatarUrl: string | null
+  /** Persisted enrollment status: `active` | `left` | `blocked`. */
+  enrollmentStatus: string
+}
+
+/** Body of `POST /v1/businesses/me/customers/quick-add`. */
+export type QuickAddCustomerRequest = {
+  fullName: string
+  phoneNumber?: string | null
+  email?: string | null
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -2059,6 +2099,33 @@ export type StorefrontTheme = {
   backgroundImageMediaId: string | null
   gradientFrom: string
   gradientTo: string
+
+  // ── Motion & presentation (the storefront kit's Theme/Motion tabs) ───────────
+  /** `light` | `dark` — the storefront's own presentation mode. */
+  mode: string
+  /** Default section entrance: none | fade | up | left | zoom | blur. */
+  animation: string
+  /** Entrance duration in milliseconds (200–1500). */
+  durationMs: number
+  /** Card/button hover: none | lift | glow | zoom. */
+  hoverEffect: string
+  /** Page transition: none | fade | slide. */
+  pageTransition: string
+  /**
+   * The corner radius in pixels when it came from the design's numeric control.
+   * `radius` stays the token the renderer uses; this keeps the exact number.
+   */
+  radiusPx: number | null
+}
+
+/** One header navigation entry, with optional dropdown children. */
+export type StorefrontNavItem = {
+  label: string
+  enabled: boolean
+  /** A page id, or `external` when `url` is the target. */
+  destination: string
+  url: string
+  children: StorefrontNavItem[]
 }
 
 export type StorefrontHeader = {
@@ -2077,6 +2144,28 @@ export type StorefrontHeader = {
   ctaEnabled: boolean
   ctaLabel: string
   ctaType: string
+
+  // ── The storefront kit's header controls ────────────────────────────────────
+  /** Independent navigation. Empty = derive from the pages flagged `showInNav`. */
+  nav: StorefrontNavItem[]
+  /** Mobile menu presentation: left | right | top | full. */
+  drawer: string
+  /** Link hover treatment: underline | pill | dot | fade. */
+  linkEffect: string
+  /** CTA treatment: solid | outline | soft | dark. */
+  ctaStyle: string
+  uppercaseLinks: boolean
+  /** Bar height in pixels (6–40). */
+  height: number
+  shadow: boolean
+  border: boolean
+  /** Message for the `bar` layout. */
+  announcement: string | null
+  /** Left/right cells for the `utility` layout. */
+  utilityLeft: string | null
+  utilityRight: string | null
+  /** Show the CTA and contact details inside the mobile drawer. */
+  showContactInDrawer: boolean
 }
 
 export type StorefrontHero = {
@@ -2103,6 +2192,8 @@ export type StorefrontHero = {
   mobileLayout: string
   showLogo: boolean
   showFacts: boolean
+  /** Entrance override: inherit | none | fade | up | left | zoom | blur. */
+  animation: string
 }
 
 /** One independently-configurable storefront section instance. */
@@ -2115,6 +2206,18 @@ export type StorefrontSection = {
   title: string | null
   description: string | null
   settings: Record<string, string>
+
+  // ── The storefront kit's section controls ───────────────────────────────────
+  /** Columns for grid layouts (1–4). */
+  columns: number
+  /** default | surface | primary | accent. */
+  background: string
+  /** compact | normal | generous. */
+  padding: string
+  /** left | center. */
+  alignment: string
+  /** Entrance override: inherit | none | fade | up | left | zoom | blur. */
+  animation: string
 }
 
 export type StorefrontSocialLink = {
@@ -2143,6 +2246,16 @@ export type StorefrontFooter = {
   copyright: string | null
   backgroundColor: string
   textColor: string
+
+  // ── The storefront kit's footer controls ────────────────────────────────────
+  /** Vertical padding in pixels (24–120). */
+  padding: number
+  /** Headline for the `newsletter` and `split` layouts. */
+  newsletterHeadline: string | null
+  newsletterPlaceholder: string
+  newsletterButtonLabel: string
+  /** Render the oversized business wordmark (the `wordmark` layout). */
+  showWordmark: boolean
 }
 
 export type StorefrontPage = {
@@ -2155,6 +2268,15 @@ export type StorefrontPage = {
   order: number
   seoTitle: string | null
   seoDescription: string | null
+
+  // ── Per-page design (the storefront kit's multi-page model) ─────────────────
+  /**
+   * This page's own hero. Null keeps the storefront-wide hero — which is what a
+   * configuration written before per-page heroes existed resolves to.
+   */
+  hero: StorefrontHero | null
+  /** This page's own sections. Null/empty keeps the storefront-wide list. */
+  sections: StorefrontSection[] | null
 }
 
 export type StorefrontSeo = {
@@ -2203,6 +2325,86 @@ export type StorefrontBuilderState = {
   hasUnpublishedChanges: boolean
   draft: StorefrontConfig
   published: StorefrontConfig | null
+  /** Optimistic-concurrency token for the draft; echoed back on save/publish/restore. */
+  draftVersion: number
+  /** Highest revision number recorded for this business (0 = none yet). */
+  latestRevisionNumber: number
+}
+
+/** What produced a revision. Mirrors the server's `StorefrontRevisionType`. */
+export type StorefrontRevisionType = 'draftSave' | 'publish' | 'rollback' | 'reset'
+
+/**
+ * Lightweight revision metadata. The list deliberately never carries a
+ * configuration payload — a full snapshot is fetched only for the one revision
+ * being previewed or compared.
+ */
+export type StorefrontRevision = {
+  id: string
+  revisionNumber: number
+  revisionType: StorefrontRevisionType
+  description: string | null
+  createdAt: string
+  createdByUserId: string | null
+  createdByName: string | null
+  /** The revision this one restored, when it was created by a rollback. */
+  sourceRevisionId: string | null
+  sourceRevisionNumber: number | null
+  isPublishedSnapshot: boolean
+}
+
+/** A revision plus its complete configuration snapshot. */
+export type StorefrontRevisionDetail = {
+  revision: StorefrontRevision
+  configuration: StorefrontConfig
+}
+
+/** One page of history, newest first. */
+export type StorefrontRevisionPage = {
+  items: StorefrontRevision[]
+  page: number
+  pageSize: number
+  totalCount: number
+  totalPages: number
+  hasMore: boolean
+  draftVersion: number
+}
+
+export type StorefrontChangeKind = 'added' | 'removed' | 'modified' | 'reordered'
+
+/** One meaningful difference between two revisions, already phrased for the owner. */
+export type StorefrontChange = {
+  kind: StorefrontChangeKind
+  category: string
+  label: string
+  detail: string | null
+  targetId: string | null
+}
+
+/** Structured comparison between two revisions. */
+export type StorefrontRevisionComparison = {
+  from: StorefrontRevision
+  to: StorefrontRevision
+  identical: boolean
+  counts: { added: number; removed: number; modified: number; reordered: number }
+  changes: StorefrontChange[]
+}
+
+/** Result of restoring a revision: the new rollback revision + refreshed builder state. */
+export type RestoreStorefrontRevisionResult = {
+  revision: StorefrontRevision
+  state: StorefrontBuilderState
+}
+
+/** Server-side filters for the history feed. */
+export type StorefrontRevisionFilters = {
+  page?: number
+  pageSize?: number
+  type?: StorefrontRevisionType | null
+  publishedOnly?: boolean
+  from?: string | null
+  to?: string | null
+  q?: string | null
 }
 
 /** Component variant selections and configurations for the three-component landing page builder. */
@@ -2309,9 +2511,13 @@ export type FooterVariantConfig = {
 
 export type SaveStorefrontDraftRequest = {
   config: StorefrontConfig
+  /** The draft version the editor last saw; a mismatch is refused server-side. */
+  expectedVersion?: number
 }
 
 export type PublishStorefrontRequest = {
   config?: StorefrontConfig | null
+  /** See {@link SaveStorefrontDraftRequest.expectedVersion}. */
+  expectedVersion?: number
 }
 
