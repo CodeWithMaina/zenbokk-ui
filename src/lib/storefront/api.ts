@@ -1,15 +1,15 @@
 import { apiGet, apiRequest } from '../api/client'
 import { toDateInputValue } from '../format'
+import type { Payment } from '../payments/api'
 import type {
   Appointment,
+  AppointmentPaymentSummary,
   AvailabilityCalendar,
   CancelAppointmentRequest,
   CreateAppointmentRequest,
   EligibleStaff,
-  GuestBookingStartRequest,
-  GuestBookingStartResponse,
-  GuestBookingVerifyRequest,
-  GuestBookingVerifyResponse,
+  PublicBookingRequest,
+  SubmitPublicPaymentProofRequest,
   PaginatedResponse,
   PublicGallery,
   PublicLandingPage,
@@ -164,20 +164,16 @@ export const storefrontApi = {
   },
 }
 
-/** Booking. `POST /v1/appointments` requires an authenticated Customer. */
+/**
+ * Booking as a signed-in customer. `POST /v1/appointments` requires an authenticated
+ * Customer session; the account-free storefront path is `publicBookingApi` below, which
+ * asks for no token at all and takes the customer's details in the body.
+ */
 export const bookingApi = {
-  /**
-   * Create an appointment.
-   *
-   * `guestToken` is the short-lived customer token a verified guest holds. It is
-   * sent as the bearer for this call only — the guest is never written into the
-   * app's session, because they do not have a profile to hydrate one with.
-   */
-  create(body: CreateAppointmentRequest, guestToken?: string | null): Promise<Appointment> {
+  create(body: CreateAppointmentRequest): Promise<Appointment> {
     return apiRequest<Appointment>('/v1/appointments', {
       method: 'POST',
       body,
-      headers: guestToken ? { Authorization: `Bearer ${guestToken}` } : undefined,
     })
   },
 
@@ -191,57 +187,73 @@ export const bookingApi = {
       to?: string
       sortBy?: 'newest' | 'oldest' | 'upcoming'
     } = {},
-    guestToken?: string | null,
   ): Promise<PaginatedResponse<Appointment>> {
-    return apiGet<PaginatedResponse<Appointment>>('/v1/appointments', params, {
-      headers: guestToken ? { Authorization: `Bearer ${guestToken}` } : undefined,
-    })
+    return apiGet<PaginatedResponse<Appointment>>('/v1/appointments', params)
   },
 
   /** The API binds the cancellation reason as `note` (nullable). */
-  cancel(id: string, note?: string | null, guestToken?: string | null): Promise<Appointment> {
+  cancel(id: string, note?: string | null): Promise<Appointment> {
     const body: CancelAppointmentRequest = { note: note ?? null }
     return apiRequest<Appointment>(`/v1/appointments/${id}/cancel`, {
       method: 'POST',
       body,
-      headers: guestToken ? { Authorization: `Bearer ${guestToken}` } : undefined,
     })
   },
 
   /** Customer self-service reschedule; omitted fields keep the current booking. */
-  reschedule(
-    id: string,
-    body: RescheduleAppointmentRequest,
-    guestToken?: string | null,
-  ): Promise<Appointment> {
+  reschedule(id: string, body: RescheduleAppointmentRequest): Promise<Appointment> {
     return apiRequest<Appointment>(`/v1/appointments/${id}/reschedule`, {
       method: 'POST',
       body,
-      headers: guestToken ? { Authorization: `Bearer ${guestToken}` } : undefined,
     })
   },
 }
 
 /**
- * Booking without an account.
+ * The public storefront booking API.
  *
- * Two steps: ask for a one-time code to be sent to the visitor's email, then
- * exchange the code for a short-lived customer token. The booking itself is then
- * made through `bookingApi.create` with that token, so every existing booking
- * rule applies unchanged.
+ * <b>No token, no account, no verification step.</b> The customer's details travel with the
+ * request and the server resolves the business-specific customer record from them, so an
+ * anonymous visitor, a customer of another business, and a business's own owner browsing their
+ * page all book the same way. The appointment is created and booked immediately; a pasted M-PESA
+ * confirmation is recorded as evidence awaiting the business's verification, which is why the
+ * response reports the money's state separately from the booking.
  */
-export const guestBookingApi = {
-  start(businessId: string, body: GuestBookingStartRequest): Promise<GuestBookingStartResponse> {
-    return apiRequest<GuestBookingStartResponse>(
-      `/v1/businesses/${businessId}/guest-booking/start`,
-      { method: 'POST', body },
-    )
+export const publicBookingApi = {
+  create(body: PublicBookingRequest): Promise<PublicBookingResponse> {
+    return apiRequest<PublicBookingResponse>(`/v1/businesses/${body.businessId}/public-bookings`, {
+      method: 'POST',
+      body,
+    })
   },
 
-  verify(businessId: string, body: GuestBookingVerifyRequest): Promise<GuestBookingVerifyResponse> {
-    return apiRequest<GuestBookingVerifyResponse>(
-      `/v1/businesses/${businessId}/guest-booking/verify`,
+  /**
+   * Pastes a confirmation after the booking, for a customer who paid by M-PESA but did not paste
+   * during checkout. The appointment is never rebuilt: only the payment's verification state moves.
+   */
+  submitPaymentProof(
+    businessId: string,
+    appointmentId: string,
+    body: SubmitPublicPaymentProofRequest,
+  ): Promise<PublicBookingResponse> {
+    return apiRequest<PublicBookingResponse>(
+      `/v1/businesses/${businessId}/public-bookings/${appointmentId}/payment-proof`,
       { method: 'POST', body },
     )
   },
+}
+
+/**
+ * What the storefront is told after a public booking.
+ *
+ * `paymentState` is the piece the confirmation screen must not guess at: a booking whose money is
+ * waiting for the business says so, and is never presented as paid.
+ */
+export type PublicBookingResponse = {
+  appointment: Appointment
+  payment: Payment | null
+  summary: AppointmentPaymentSummary
+  paymentState: 'not_due' | 'unpaid' | 'pending_verification' | 'partially_paid' | 'paid'
+  message: string
+  warnings: string[]
 }

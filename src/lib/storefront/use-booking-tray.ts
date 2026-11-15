@@ -60,6 +60,9 @@ const emptySnapshot: BookingDraft = {
   startsAt: null,
   notes: '',
   step: 'services',
+  customerName: '',
+  customerPhone: '',
+  customerEmail: '',
 }
 
 function serverSnapshot(): BookingDraft {
@@ -134,7 +137,8 @@ export function useBookingTray(businessId: string): BookingTray {
       setNotes: (notes: string) => update({ notes }),
       setStep: (step: BookingDraft['step']) => update({ step }),
       clear: () =>
-        commit({ serviceIds: [], staffId: null, startsAt: null, notes: '', step: 'services' }),
+        commit({ serviceIds: [], staffId: null, startsAt: null, notes: '', step: 'services',
+          customerName: '', customerPhone: '', customerEmail: '' }),
     }),
     // `update`, `commit` and `toggleService` already close over the business id,
     // so the draft itself is the only thing that decides a new value here.

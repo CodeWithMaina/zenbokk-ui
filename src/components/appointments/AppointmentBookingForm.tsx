@@ -1,16 +1,15 @@
 import { useMemo, useState } from 'react'
-import type { CustomerDashboardItem, ServiceDashboardItem, StaffDashboardItem } from '../../lib/api/types'
+import type { CustomerOption, ServiceDashboardItem, StaffDashboardItem } from '../../lib/api/types'
 import { toDateValue } from '../../lib/appointments'
 import { useAppointmentAvailability } from '../../lib/appointments'
 import type { StaffOption } from '../../lib/appointments'
 import { cn } from '../../lib/cn'
 import { formatDuration, formatTime, money } from '../../lib/format'
-import { Avatar } from '../ui/avatar'
 import { Button } from '../ui/button'
 import { Drawer } from '../ui/drawer'
 import { Field, Input, Select, Textarea } from '../ui/field'
-import { SearchField } from '../ui/search-field'
 import { Skeleton } from '../ui/skeleton'
+import { SearchableCustomerSelector } from './SearchableCustomerSelector'
 import { SearchableStaffSelector } from './SearchableStaffSelector'
 
 export type BookingMode = 'new' | 'reschedule' | 'rebook'
@@ -18,6 +17,8 @@ export type BookingMode = 'new' | 'reschedule' | 'rebook'
 export type BookingPrefill = {
   appointmentId?: string
   customerId?: string
+  /** Named alongside the id so a pre-filled customer is shown as a person, not a bare id. */
+  customerName?: string | null
   serviceId?: string | null
   staffUserId?: string | null
   start?: Date | null
@@ -42,7 +43,6 @@ export type AppointmentBookingFormProps = {
   onClose: () => void
   mode: BookingMode
   businessId: string
-  customers: readonly CustomerDashboardItem[]
   services: readonly ServiceDashboardItem[]
   staff: readonly StaffDashboardItem[]
   prefill?: BookingPrefill
@@ -93,16 +93,17 @@ function initialTime(prefill: BookingPrefill | undefined): string {
  * submitting, the API's `STAFF_TIME_UNAVAILABLE` refusal is shown in place
  * rather than being papered over.
  *
- * A booking must name an **enrolled** customer — the API takes a `customerId` —
- * so the customer picker searches the business's roster and points at the
- * Customers module when someone is missing, rather than inventing a record.
+ * A booking must name an **enrolled** customer — the API takes a `customerId` — but the
+ * roster is never shipped to this drawer: the customer picker searches server-side, so a
+ * business with thousands of customers loads a page, not all of them. A business owner
+ * comparing this drawer with the booking wizard will see the same picker in both, because
+ * it is the same component.
  */
 export function AppointmentBookingForm({
   open,
   onClose,
   mode,
   businessId,
-  customers,
   services,
   staff,
   prefill,
@@ -111,8 +112,23 @@ export function AppointmentBookingForm({
   error,
   onSubmit,
 }: AppointmentBookingFormProps) {
-  const [customerId, setCustomerId] = useState(prefill?.customerId ?? '')
-  const [customerQuery, setCustomerQuery] = useState('')
+  /**
+   * The customer the booking names. For reschedule the customer comes from the prefill
+   * (that route does not change who the appointment is for); for rebook the operator
+   * searches for and picks one.
+   */
+  const [customer, setCustomer] = useState<CustomerOption | null>(() =>
+    prefill?.customerId
+      ? {
+          userId: prefill.customerId,
+          fullName: prefill.customerName ?? 'Current customer',
+          email: '',
+          phoneNumber: null,
+          avatarUrl: null,
+          enrollmentStatus: 'active',
+        }
+      : null,
+  )
   const [serviceId, setServiceId] = useState(prefill?.serviceId ?? services[0]?.id ?? '')
   const [selectedStaff, setSelectedStaff] = useState<StaffOption | null>(() => {
     if (!prefill?.staffUserId) return null
@@ -132,18 +148,6 @@ export function AppointmentBookingForm({
   const [note, setNote] = useState(prefill?.note ?? '')
 
   const service = services.find((entry) => entry.id === serviceId) ?? null
-
-  const matches = useMemo(() => {
-    const term = customerQuery.trim().toLowerCase()
-    const pool = term
-      ? customers.filter((entry) =>
-          `${entry.fullName} ${entry.phoneNumber ?? ''} ${entry.email}`
-            .toLowerCase()
-            .includes(term),
-        )
-      : customers
-    return pool.slice(0, 30)
-  }, [customers, customerQuery])
 
   const availability = useAppointmentAvailability(
     {
@@ -167,17 +171,17 @@ export function AppointmentBookingForm({
 
   const canSubmit =
     Boolean(serviceId) &&
-    Boolean(customerId) &&
+    Boolean(customer) &&
     Boolean(start) &&
     !busy &&
     (mode === 'reschedule' ? Boolean(prefill?.appointmentId) : true)
 
   const submit = () => {
-    if (!canSubmit || !start) return
+    if (!canSubmit || !start || !customer) return
     onSubmit({
       mode,
       appointmentId: prefill?.appointmentId,
-      customerId,
+      customerId: customer.userId,
       serviceId,
       staffUserId: staffModuleEnabled ? (selectedStaff?.userId ?? null) : null,
       start,
@@ -213,58 +217,11 @@ export function AppointmentBookingForm({
             as soon as the new one is accepted.
           </p>
         ) : (
-          <div>
-            <p className="label">Customer</p>
-            <SearchField
-              label="Search customers"
-              placeholder="Search by name, phone or email"
-              value={customerQuery}
-              onChange={(event) => setCustomerQuery(event.target.value)}
-            />
-            <div
-              role="radiogroup"
-              aria-label="Choose a customer"
-              className="mt-[0.5rem] max-h-[13rem] space-y-[0.35rem] overflow-y-auto pr-[0.2rem]"
-            >
-              {matches.map((customer) => {
-                const selected = customer.userId === customerId
-                return (
-                  <button
-                    key={customer.userId}
-                    type="button"
-                    role="radio"
-                    aria-checked={selected}
-                    onClick={() => setCustomerId(customer.userId)}
-                    className={cn(
-                      'flex w-full items-center justify-between gap-[0.6rem] rounded-lg border px-[0.7rem] py-[0.5rem] text-left transition-colors',
-                      selected ? 'border-accent bg-selected' : 'border-line bg-surface hover:bg-hover',
-                    )}
-                  >
-                    <span className="flex min-w-0 items-center gap-[0.55rem]">
-                      <Avatar
-                        name={customer.fullName}
-                        src={customer.avatarUrl ?? undefined}
-                        decorative
-                      />
-                      <span className="min-w-0">
-                        <span className="block truncate font-semibold">{customer.fullName}</span>
-                        <span className="block truncate text-caption text-muted">
-                          {customer.phoneNumber ?? customer.email}
-                        </span>
-                      </span>
-                    </span>
-                    {selected ? <span className="text-caption font-bold text-accent-ink">Selected</span> : null}
-                  </button>
-                )
-              })}
-              {matches.length === 0 ? (
-                <p className="py-[0.6rem] text-meta text-muted">
-                  No enrolled customer matches. Add them in the Customers module first — bookings
-                  must name an enrolled customer.
-                </p>
-              ) : null}
-            </div>
-          </div>
+          <SearchableCustomerSelector
+            value={customer}
+            onChange={setCustomer}
+            label="Customer"
+          />
         )}
 
         <div className="grid gap-[0.8rem] sm:grid-cols-2">

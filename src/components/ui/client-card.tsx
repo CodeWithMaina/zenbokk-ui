@@ -6,6 +6,7 @@ import type { AvatarSize, AvatarTint } from './avatar'
 import { StatusPill } from './badge'
 import type { Tone } from './badge'
 import { Checkbox } from './checkbox'
+import { CustomerTypeBadge } from './customer-type-badge'
 import { StampDots } from './stamp-dots'
 
 export type ClientSummary = {
@@ -18,6 +19,8 @@ export type ClientSummary = {
   statusLabel?: string
   /** Force a semantic tone when the status has no `[data-status]` mapping. */
   tone?: Tone
+  /** `guest` (booked without an account) | `registered` (a real account). */
+  customerType?: string
   stamps?: number
   stampGoal?: number
   vip?: boolean
@@ -129,9 +132,12 @@ export function ClientCard({
       </div>
 
       <div className="mt-[0.7rem] flex flex-wrap items-center justify-between gap-x-[0.7rem] gap-y-[0.4rem]">
-        <StatusPill status={client.status} tone={client.tone}>
-          {client.statusLabel ?? client.status}
-        </StatusPill>
+        <span className="flex flex-wrap items-center gap-[0.4rem]">
+          <StatusPill status={client.status} tone={client.tone}>
+            {client.statusLabel ?? client.status}
+          </StatusPill>
+          <CustomerTypeBadge type={client.customerType} />
+        </span>
 
         {hasStamps ? (
           <span className="flex items-center gap-[0.45rem] text-caption text-muted">

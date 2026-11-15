@@ -4,6 +4,7 @@ import { Avatar } from '../ui/avatar'
 import { StatusPill } from '../ui/badge'
 import type { Tone } from '../ui/badge'
 import { Button } from '../ui/button'
+import { CustomerTypeBadge } from '../ui/customer-type-badge'
 import { EntityHeader } from '../ui/page-header'
 
 export type ClientDetailsHeaderProps = {
@@ -15,6 +16,8 @@ export type ClientDetailsHeaderProps = {
   status: string
   statusLabel: string
   tone?: Tone
+  /** `guest` | `registered` — how the customer belongs to this business. */
+  customerType?: string | null
   /** Opened by the Book appointment action; disabled when booking is unavailable. */
   onBookAppointment: () => void
   bookingDisabled?: boolean
@@ -34,6 +37,7 @@ export function ClientDetailsHeader({
   status,
   statusLabel,
   tone,
+  customerType,
   onBookAppointment,
   bookingDisabled = false,
   bookingHint,
@@ -68,6 +72,7 @@ export function ClientDetailsHeader({
             <StatusPill status={status} tone={tone}>
               {statusLabel}
             </StatusPill>
+            <CustomerTypeBadge type={customerType} />
             {tel ? (
               <a href={tel} className="hover:text-fg">
                 {phoneNumber}

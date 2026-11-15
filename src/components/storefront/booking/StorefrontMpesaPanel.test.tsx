@@ -4,6 +4,8 @@ import { http } from 'msw'
 import { describe, expect, it } from 'vitest'
 import { StorefrontMpesaPanel } from './StorefrontMpesaPanel'
 import type { Payment, PublicPaymentDetails } from '../../../lib/payments/api'
+import type { PublicBookingResponse } from '../../../lib/storefront/api'
+import { makeAppointment, makePaymentSummary } from '../../../test/appointments'
 import { fail, ok } from '../../../test/handlers'
 import { renderStorefront } from '../../../test/render'
 import { server } from '../../../test/server'
@@ -17,7 +19,10 @@ import { server } from '../../../test/server'
  *    renders nothing rather than an instruction that cannot be followed;
  *  - the amount is the server's, never a value the page decided;
  *  - submitting a message does NOT report the booking as paid — it reports that a
- *    person will check it.
+ *    person will check it;
+ *  - the paste is attached to the appointment the booking created, through the
+ *    account-free payment-proof route. No token is involved, and no second payment
+ *    is opened.
  */
 const BUSINESS_ID = '11111111-1111-1111-1111-111111111111'
 const APPOINTMENT_ID = '22222222-2222-2222-2222-222222222222'
@@ -35,10 +40,15 @@ function details(overrides: Partial<PublicPaymentDetails> = {}): PublicPaymentDe
     paybillNumber: '247247',
     paybillAccount: '12345',
     tillNumber: null,
+    phoneNumber: null,
     payeeName: 'NURU STUDIO',
     instructions: null,
     bookingFeePercentage: 50,
     cashEnabled: true,
+    payUpfrontEnabled: true,
+    payAfterServiceEnabled: false,
+    bookingAvailable: true,
+    offersPaymentChoice: false,
     ...overrides,
   }
 }
@@ -77,15 +87,36 @@ function payment(overrides: Partial<Payment> = {}): Payment {
   }
 }
 
-function renderPanel() {
+function renderPanel(props: { paymentId?: string | null } = {}) {
   return renderStorefront(
     <StorefrontMpesaPanel
       businessId={BUSINESS_ID}
       appointmentId={APPOINTMENT_ID}
       serviceTotal={1000}
       bookingFee={500}
+      {...props}
     />,
   )
+}
+
+/**
+ * What the public payment-proof route answers with: the booking, untouched, plus the money's own
+ * state. The panel reads the payment id out of it, so nothing has to be given to it up front.
+ */
+function proofResponse(payment: Payment): PublicBookingResponse {
+  return {
+    appointment: makeAppointment({ id: APPOINTMENT_ID }),
+    payment,
+    summary: makePaymentSummary({
+      appointmentId: APPOINTMENT_ID,
+      amountPaid: 0,
+      balance: 500,
+      bookingFee: 500,
+    }),
+    paymentState: 'pending_verification',
+    message: 'Your appointment is booked. The confirmation you sent is waiting to be checked.',
+    warnings: [],
+  }
 }
 
 describe('StorefrontMpesaPanel', () => {
@@ -123,13 +154,12 @@ describe('StorefrontMpesaPanel', () => {
     ).not.toBeInTheDocument()
   })
 
-  it('creates the booking-fee payment server-side and then accepts a pasted message', async () => {
+  it('takes a pasted message without opening a second payment, and never reports the booking as paid', async () => {
     const user = userEvent.setup()
-    const creates: unknown[] = []
-    const submissions: unknown[] = []
+    const proofs: unknown[] = []
     const submitted = payment({
       status: 'submitted',
-      submittedMessage: 'QJK42NUM01 Confirmed. Ksh500.00 sent to NURU STUDIO.',
+      submittedMessage: 'QJK42NUM01 Confirmed. Ksh500.00 sent to NURU STUDIO on 12/5/26 at 3:04 PM. New M-PESA balance is Ksh1,000.00.',
       submittedAt: '2026-05-01T09:05:00Z',
       parsedTransactionCode: 'QJK42NUM01',
       parsedAmount: 500,
@@ -137,41 +167,33 @@ describe('StorefrontMpesaPanel', () => {
 
     server.use(
       http.get(`${base}/businesses/:businessId/payment-details`, () => ok(details())),
-      http.post(`${base}/payments`, async ({ request }) => {
-        creates.push(await request.json())
-        return ok(payment())
-      }),
-      http.post(`${base}/payments/:paymentId/mpesa-message`, async ({ request }) => {
-        submissions.push(await request.json())
-        return ok(submitted)
-      }),
-      // The payment only becomes `submitted` once the message has been accepted, so
-      // the handler mirrors that: polling before the submit must still show `created`.
-      http.get(`${base}/payments/:paymentId`, () =>
-        ok(submissions.length > 0 ? submitted : payment()),
+      // The paste is attached to the appointment the booking already created. Nothing here
+      // opens a payment: the server decides which of the appointment's payments the evidence
+      // belongs to.
+      http.post(
+        `${base}/businesses/:businessId/public-bookings/:appointmentId/payment-proof`,
+        async ({ request }) => {
+          proofs.push(await request.json())
+          return ok(proofResponse(submitted))
+        },
       ),
+      http.get(`${base}/payments/:paymentId`, () => ok(submitted)),
     )
 
     renderPanel()
 
     await user.click(await screen.findByRole('button', { name: /i have paid/i }))
 
-    // No money value is ever sent: the server derives the amount from the appointment.
-    expect(creates[0]).toMatchObject({
-      appointmentId: APPOINTMENT_ID,
-      method: 'mpesa',
-      type: 'booking_fee',
-    })
-    expect(creates[0]).not.toHaveProperty('amount')
-
     const box = await screen.findByLabelText(/paste your m-pesa confirmation message/i)
-    await user.type(box, 'QJK42NUM01 Confirmed. Ksh500.00 sent to NURU STUDIO.')
+    await user.type(box, 'QJK42NUM01 Confirmed. Ksh500.00 sent to NURU STUDIO. M-PESA.')
     await user.click(screen.getByRole('button', { name: /submit for verification/i }))
 
-    await waitFor(() => expect(submissions).toHaveLength(1))
-    expect(submissions[0]).toMatchObject({
-      message: 'QJK42NUM01 Confirmed. Ksh500.00 sent to NURU STUDIO.',
+    await waitFor(() => expect(proofs).toHaveLength(1))
+    // No money value is ever sent: the server parses the amount out of the message.
+    expect(proofs[0]).toMatchObject({
+      message: 'QJK42NUM01 Confirmed. Ksh500.00 sent to NURU STUDIO. M-PESA.',
     })
+    expect(proofs[0]).not.toHaveProperty('amount')
 
     // Crucially: "waiting to be checked", never "paid".
     expect(await screen.findByText(/will check it and confirm your booking/i)).toBeInTheDocument()
@@ -211,7 +233,6 @@ describe('StorefrontMpesaPanel', () => {
   })
 
   it('shows the rejection reason and offers another attempt', async () => {
-    const user = userEvent.setup()
     const rejected = payment({
       status: 'rejected',
       rejectedAt: '2026-05-01T10:00:00Z',
@@ -220,25 +241,23 @@ describe('StorefrontMpesaPanel', () => {
 
     server.use(
       http.get(`${base}/businesses/:businessId/payment-details`, () => ok(details())),
-      http.post(`${base}/payments`, () => ok(rejected)),
       http.get(`${base}/payments/:paymentId`, () => ok(rejected)),
     )
 
-    renderPanel()
-
-    await user.click(await screen.findByRole('button', { name: /i have paid/i }))
+    // Rendered the way the confirmation screen does it: the booking's own payment is known,
+    // and the business has already turned it down once.
+    renderPanel({ paymentId: PAYMENT_ID })
 
     expect(await screen.findByText(/cannot find that transaction/i)).toBeInTheDocument()
-    // The slot is still held, so the customer can pay again.
+    // The appointment is untouched — its slot is still held, so the customer can pay again.
     expect(screen.getByLabelText(/paste your m-pesa confirmation message/i)).toBeInTheDocument()
   })
 
-  it('carries a confirmation pasted during booking: creates the payment then submits it, untapped', async () => {
-    const creates: unknown[] = []
-    const submissions: unknown[] = []
+  it('carries a confirmation pasted during booking: submits it untapped, account-free', async () => {
+    const proofs: unknown[] = []
     const submitted = payment({
       status: 'submitted',
-      submittedMessage: 'QJK42NUM99 Confirmed. Ksh500.00 sent to NURU STUDIO.',
+      submittedMessage: 'QJK42NUM99 Confirmed. Ksh500.00 sent to NURU STUDIO on 12/5/26 at 3:04 PM. New M-PESA balance is Ksh1,000.00.',
       submittedAt: '2026-05-01T09:05:00Z',
       parsedTransactionCode: 'QJK42NUM99',
       parsedAmount: 500,
@@ -246,17 +265,14 @@ describe('StorefrontMpesaPanel', () => {
 
     server.use(
       http.get(`${base}/businesses/:businessId/payment-details`, () => ok(details())),
-      http.post(`${base}/payments`, async ({ request }) => {
-        creates.push(await request.json())
-        return ok(payment())
-      }),
-      http.post(`${base}/payments/:paymentId/mpesa-message`, async ({ request }) => {
-        submissions.push(await request.json())
-        return ok(submitted)
-      }),
-      http.get(`${base}/payments/:paymentId`, () =>
-        ok(submissions.length > 0 ? submitted : payment()),
+      http.post(
+        `${base}/businesses/:businessId/public-bookings/:appointmentId/payment-proof`,
+        async ({ request }) => {
+          proofs.push(await request.json())
+          return ok(proofResponse(submitted))
+        },
       ),
+      http.get(`${base}/payments/:paymentId`, () => ok(submitted)),
     )
 
     // No click anywhere: the wizard already collected the paste.
@@ -266,14 +282,13 @@ describe('StorefrontMpesaPanel', () => {
         appointmentId={APPOINTMENT_ID}
         serviceTotal={1000}
         bookingFee={500}
-        autoSubmitMessage="QJK42NUM99 Confirmed. Ksh500.00 sent to NURU STUDIO."
+        autoSubmitMessage="QJK42NUM99 Confirmed. Ksh500.00 sent to NURU STUDIO on 12/5/26 at 3:04 PM. New M-PESA balance is Ksh1,000.00."
       />,
     )
 
-    await waitFor(() => expect(submissions).toHaveLength(1))
-    expect(creates).toHaveLength(1)
-    expect(submissions[0]).toMatchObject({
-      message: 'QJK42NUM99 Confirmed. Ksh500.00 sent to NURU STUDIO.',
+    await waitFor(() => expect(proofs).toHaveLength(1))
+    expect(proofs[0]).toMatchObject({
+      message: 'QJK42NUM99 Confirmed. Ksh500.00 sent to NURU STUDIO on 12/5/26 at 3:04 PM. New M-PESA balance is Ksh1,000.00.',
     })
 
     // Still only a claim: the studio has to check it.
@@ -286,15 +301,13 @@ describe('StorefrontMpesaPanel', () => {
 
     server.use(
       http.get(`${base}/businesses/:businessId/payment-details`, () => ok(details())),
-      http.post(`${base}/payments`, () => ok(payment())),
-      http.post(`${base}/payments/:paymentId/mpesa-message`, () =>
+      http.post(`${base}/businesses/:businessId/public-bookings/:appointmentId/payment-proof`, () =>
         fail(
           'MPESA_AMOUNT_MISMATCH',
           'That message shows KES 100.00, but KES 500.00 is due for this booking.',
           400,
         ),
       ),
-      http.get(`${base}/payments/:paymentId`, () => ok(payment())),
     )
 
     renderStorefront(
@@ -303,14 +316,14 @@ describe('StorefrontMpesaPanel', () => {
         appointmentId={APPOINTMENT_ID}
         serviceTotal={1000}
         bookingFee={500}
-        autoSubmitMessage="QJK42NUM98 Confirmed. Ksh100.00 sent to NURU STUDIO."
+        autoSubmitMessage="QJK42NUM98 Confirmed. Ksh100.00 sent to NURU STUDIO on 12/5/26 at 3:04 PM. New M-PESA balance is Ksh1,000.00."
       />,
     )
 
     // The server's own explanation is shown, and the text is still there to fix.
     expect(await screen.findByText(/KES 500\.00 is due/i)).toBeInTheDocument()
     const box = await screen.findByLabelText(/paste your m-pesa confirmation message/i)
-    expect(box).toHaveValue('QJK42NUM98 Confirmed. Ksh100.00 sent to NURU STUDIO.')
+    expect(box).toHaveValue('QJK42NUM98 Confirmed. Ksh100.00 sent to NURU STUDIO on 12/5/26 at 3:04 PM. New M-PESA balance is Ksh1,000.00.')
     await user.clear(box)
   })
 })

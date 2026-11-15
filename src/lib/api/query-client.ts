@@ -95,6 +95,14 @@ export const queryKeys = {
   /** A whole calendar pane, walked across pages. */
   appointmentRange: (filters: Record<string, unknown>) =>
     ['appointments', 'owner', 'range', filters] as const,
+  /**
+   * The business's opening hours, as the appointments calendar/timeline read them.
+   * Read from the scheduling domain (`GET /v1/businesses/{id}/opening-hours`, the
+   * same source the availability engine uses), so the band the calendar draws can
+   * never disagree with what the booking engine would offer.
+   */
+  businessOpeningHours: (businessId: string) =>
+    ['appointments', 'opening-hours', businessId] as const,
   /** One customer's appointment history within the business. */
   appointmentCustomerHistory: (customerId: string, filters: Record<string, unknown>) =>
     ['appointments', 'owner', 'customer', customerId, filters] as const,

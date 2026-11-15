@@ -1,61 +1,92 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { BadgeCheck, Ban, Clock, Loader2, RefreshCw, Settings2, ShieldAlert, Wallet } from 'lucide-react'
-import { useState } from 'react'
-import { toast } from 'sonner'
+import { ChevronDown, Loader2, Wallet } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { ModulePlaceholder } from '../components/shell/ModulePlaceholder'
 import { Alert } from '../components/ui/alert'
 import { Badge } from '../components/ui/badge'
 import { Button } from '../components/ui/button'
-import { ConfirmDialog } from '../components/ui/confirm-dialog'
+import { Card } from '../components/ui/card'
 import { EmptyState } from '../components/ui/empty-state'
 import { MetricGrid } from '../components/ui/metric-tile'
 import { PageHeader } from '../components/ui/page-header'
+import { PaginationBar } from '../components/ui/pagination-bar'
 import { Skeleton } from '../components/ui/skeleton'
+import { Tabs } from '../components/ui/tabs'
 import { errorMessage } from '../lib/api/client'
-import { formatDay, money } from '../lib/format'
-import {
-  usePaymentConfig,
-  usePaymentVerificationActions,
-  usePaymentVerificationQueue,
-} from '../lib/payments/api'
-import type { PaymentVerificationItem } from '../lib/payments/api'
+import { useDashboardContext } from '../lib/dashboard/dashboard-context'
+import { MODULE } from '../lib/entitlements'
+import { formatDate, formatDateTime, money } from '../lib/format'
+import { useAppointmentPaymentSummary, usePayments, usePaymentsDashboard } from '../lib/payments/api'
+import type { Payment, PaymentListFilters } from '../lib/payments/api'
 
 export const Route = createFileRoute('/dashboard/payments')({
-  component: PaymentVerificationPage,
+  component: PaymentsPage,
 })
 
-const LENSES = [
-  { key: 'awaiting', label: 'Awaiting review' },
-  { key: 'verified', label: 'Verified' },
-  { key: 'rejected', label: 'Rejected' },
-  { key: 'all', label: 'All' },
-] as const
+const PAGE_SIZE = 25
 
-type Lens = (typeof LENSES)[number]['key']
+type TypeTab = 'all' | 'booking_fee' | 'full_payment' | 'balance_payment'
 
-/** How a payment status reads on screen. */
+const TYPE_TABS: readonly { value: TypeTab; label: string }[] = [
+  { value: 'all', label: 'All payments' },
+  { value: 'booking_fee', label: 'Booking fees' },
+  { value: 'full_payment', label: 'Full payments' },
+  { value: 'balance_payment', label: 'Balance payments' },
+]
+
+const TYPE_LABELS: Record<string, string> = {
+  booking_fee: 'Booking fee',
+  full_payment: 'Full payment',
+  balance_payment: 'Balance payment',
+}
+
 const STATUS_LABELS: Record<string, string> = {
   created: 'Awaiting payment',
   awaiting_customer: 'Awaiting payment',
-  submitted: 'Submitted',
-  under_review: 'Under review',
+  processing: 'Processing',
+  submitted: 'Awaiting verification',
+  under_review: 'Awaiting verification',
+  flagged: 'Flagged for review',
   verified: 'Verified',
+  success: 'Paid',
   rejected: 'Rejected',
   expired: 'Expired',
   cancelled: 'Cancelled',
   failed: 'Failed',
+  reversed: 'Reversed',
+  refunded: 'Refunded',
 }
 
 const STATUS_TONES: Record<string, 'success' | 'warning' | 'danger' | 'info' | 'neutral'> = {
   created: 'neutral',
   awaiting_customer: 'neutral',
+  processing: 'info',
   submitted: 'warning',
   under_review: 'info',
+  flagged: 'warning',
   verified: 'success',
+  success: 'success',
   rejected: 'danger',
   expired: 'neutral',
   cancelled: 'neutral',
   failed: 'danger',
+  reversed: 'warning',
+  refunded: 'info',
 }
+
+/** The statuses a person actually looks for, as single-value filters the API can honour. */
+const STATUS_OPTIONS: readonly { value: string; label: string }[] = [
+  { value: '', label: 'Any status' },
+  { value: 'awaiting_customer', label: 'Awaiting payment' },
+  { value: 'submitted', label: 'Awaiting verification' },
+  { value: 'under_review', label: 'Under review' },
+  { value: 'verified', label: 'Verified' },
+  { value: 'success', label: 'Paid (provider-confirmed)' },
+  { value: 'rejected', label: 'Rejected' },
+  { value: 'expired', label: 'Expired' },
+  { value: 'cancelled', label: 'Cancelled' },
+  { value: 'failed', label: 'Failed' },
+]
 
 function statusLabel(status: string): string {
   return STATUS_LABELS[status] ?? status
@@ -65,354 +96,381 @@ function statusTone(status: string): 'success' | 'warning' | 'danger' | 'info' |
   return STATUS_TONES[status] ?? 'neutral'
 }
 
-/** The reasons the design offers, mapped to what the customer is told. */
-const REJECTION_REASONS = [
-  'The amount does not match the booking fee',
-  'We cannot find that transaction on our statement',
-  'That transaction code has already been used',
-  'The payment went to a different account',
-  'Other',
-] as const
+function typeLabel(type: string): string {
+  return TYPE_LABELS[type] ?? type
+}
+
+/** A payment the business is still waiting on a person to decide. */
+function isAwaitingDecision(status: string): boolean {
+  return status === 'submitted' || status === 'under_review' || status === 'flagged'
+}
 
 /**
- * Payment verification.
+ * Payments — appointment payment management.
  *
- * The business's queue of pasted M-PESA confirmations. The whole screen exists to
- * support one decision, made by a person: did this money actually arrive? So every
- * row shows what the customer claims (the message, verbatim) next to what the system
- * derived from it (the parsed code and amount) and what is actually owed — and the
- * two buttons are the only way a payment can become `verified`.
+ * Finance answers "what money has the business received and spent?". Payments answers a
+ * different operational question: "what is happening with payments on appointments?" — who
+ * owes what, which booking fees and balances have been collected, and which claims are still
+ * waiting on a decision.
  *
- * A row never auto-approves. Nothing here can settle a payment on its own.
+ * The two views are deliberately not copies of one another. A verified payment shows up here as
+ * an appointment obligation that has been met, and in Finance as exactly one recognised
+ * transaction: the same money, one financial record. Verification itself belongs to
+ * Finance → Reconciliation, and this page links straight to it rather than offering a second
+ * door onto a money decision.
  */
-function PaymentVerificationPage() {
-  const [lens, setLens] = useState<Lens>('awaiting')
-  const [rejecting, setRejecting] = useState<PaymentVerificationItem | null>(null)
+function PaymentsPage() {
+  const { hasModule } = useDashboardContext()
+  const [type, setType] = useState<TypeTab>('all')
+  const [status, setStatus] = useState('')
+  const [dates, setDates] = useState({ from: '', to: '' })
+  const [page, setPage] = useState(1)
+  const [expanded, setExpanded] = useState<string | null>(null)
 
-  const queue = usePaymentVerificationQueue({ status: lens, pageSize: 50 })
-  const { approve, reject, markUnderReview } = usePaymentVerificationActions()
-  // The queue is empty until customers can actually pay, so the screen says why and
-  // points at the one screen that fixes it rather than looking broken.
-  const config = usePaymentConfig()
-  const needsSetup = config.isSuccess && !config.data.hasManualMpesaDetails
+  const enabled = hasModule(MODULE.payments)
 
-  const data = queue.data
-  const items = data?.items ?? []
+  const filters: PaymentListFilters = useMemo(
+    () => ({
+      type: type === 'all' ? undefined : type,
+      status: status || undefined,
+      from: dates.from ? new Date(dates.from).toISOString() : undefined,
+      to: dates.to ? new Date(`${dates.to}T23:59:59.999`).toISOString() : undefined,
+      page,
+      pageSize: PAGE_SIZE,
+    }),
+    [type, status, dates, page],
+  )
 
-  function approveRow(item: PaymentVerificationItem) {
-    approve.mutate(
-      { paymentId: item.paymentId },
-      {
-        onSuccess: () =>
-          toast.success(
-            `Confirmed ${money(item.submittedAmount ?? item.expectedAmount)} received.`,
-          ),
-        onError: (error) => toast.error(errorMessage(error, 'Could not confirm that payment.')),
-      },
-    )
+  const dashboard = usePaymentsDashboard(enabled)
+  const payments = usePayments(filters, enabled)
+
+  if (!enabled) {
+    return <ModulePlaceholder navKey="payments" />
   }
 
-  function confirmReject(reason: string) {
-    if (!rejecting) return
-    reject.mutate(
-      { paymentId: rejecting.paymentId, reason },
-      {
-        onSuccess: () => {
-          toast.success('Payment rejected. The customer can submit a new confirmation.')
-          setRejecting(null)
-        },
-        onError: (error) => toast.error(errorMessage(error, 'Could not reject that payment.')),
-      },
-    )
-  }
+  const data = payments.data
+  const overview = dashboard.data
+  const pageCount = data ? Math.max(1, Math.ceil(data.totalCount / (data.pageSize || PAGE_SIZE))) : 1
+
 
   return (
-    <div>
+    <>
       <PageHeader
         title="Payments"
-        description="Confirm the M-PESA payments customers say they have made. Nothing is marked paid until you confirm it."
+        description="What customers owe against appointments, and where each payment has got to. The books themselves live under Finance."
         actions={
-          <Button variant="ghost" onClick={() => void queue.refetch()} disabled={queue.isFetching}>
-            {queue.isFetching ? (
-              <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-            ) : (
-              <RefreshCw className="size-4" aria-hidden="true" />
-            )}
-            Refresh
-          </Button>
+          <Link to="/dashboard/finances/reconciliation" className="btn btn-sm">
+            <Wallet className="size-4" aria-hidden="true" />
+            Verify payment claims
+          </Link>
         }
       />
 
-      <MetricGrid
-        items={[
-          { value: data?.awaitingCount ?? 0, label: 'Awaiting review' },
-          { value: money(data?.awaitingAmount ?? 0), label: 'Awaiting value' },
-          { value: data?.verifiedCount ?? 0, label: 'Verified' },
-          { value: data?.rejectedCount ?? 0, label: 'Rejected' },
-        ]}
-      />
-
-      <div className="mt-4 flex flex-wrap gap-[0.4rem]">
-        {LENSES.map((option) => (
-          <Button
-            key={option.key}
-            variant={lens === option.key ? 'primary' : 'ghost'}
-            size="sm"
-            onClick={() => setLens(option.key)}
-          >
-            {option.label}
-          </Button>
-        ))}
-      </div>
-
-      {needsSetup ? (
-        <Alert tone="warning" className="mt-4" title="Customers cannot pay by M-PESA yet">
-          <div className="mt-[0.4rem]">
-            Add the PayBill or Till your customers should send to, and the booking fee you collect
-            up front. Until then your booking page offers cash only and nothing lands in this queue.
-          </div>
-          <Link
-            to="/dashboard/settings"
-            search={{ section: 'payments' }}
-            className="link mt-[0.5rem] inline-flex items-center gap-[0.3rem] font-semibold no-underline"
-          >
-            <Settings2 className="size-4" aria-hidden="true" />
-            Set up M-PESA payments
-          </Link>
+      {payments.isError ? (
+        <Alert tone="danger" title="The payments could not be loaded" className="mb-4">
+          <p>{errorMessage(payments.error)}</p>
         </Alert>
       ) : null}
 
-      {queue.isError ? (
-        <Alert tone="danger" className="mt-4">
-          {errorMessage(queue.error, 'Could not load the payment queue.')}
-        </Alert>
-      ) : null}
-
-      {queue.isLoading ? (
-        <div className="mt-4 flex flex-col gap-[0.7rem]">
-          <Skeleton className="h-[7rem] w-full" />
-          <Skeleton className="h-[7rem] w-full" />
+      {dashboard.isPending ? (
+        <div
+          className="grid grid-cols-[repeat(auto-fit,minmax(8rem,1fr))] gap-[0.7rem]"
+          aria-busy="true"
+          aria-label="Loading payment summary"
+        >
+          {Array.from({ length: 4 }, (_, index) => (
+            <Skeleton key={index} className="h-[4.6rem] rounded-card" />
+          ))}
         </div>
-      ) : items.length === 0 ? (
-        <EmptyState
-          className="mt-6"
-          icon={<Wallet className="size-5" aria-hidden="true" />}
-          title={lens === 'awaiting' ? 'Nothing waiting on you' : 'Nothing here yet'}
-          description={
-            lens === 'awaiting'
-              ? 'When a customer pastes their M-PESA confirmation, it lands here for you to check.'
-              : 'Payments you have decided on appear here.'
-          }
+      ) : overview ? (
+        <MetricGrid
+          items={[
+            {
+              value: money(overview.todayCollected),
+              label: `Collected today (${overview.todayCount})`,
+            },
+            {
+              value: money(overview.monthCollected),
+              label: `Collected this month (${overview.monthCount})`,
+            },
+            {
+              value: money(overview.awaitingVerificationAmount),
+              label: `${overview.awaitingVerificationCount} awaiting verification`,
+            },
+            {
+              value: `${overview.failedCount}`,
+              label: 'Failed or expired',
+            },
+          ]}
         />
-      ) : (
-        <ul className="mt-4 flex list-none flex-col gap-[0.7rem] p-0">
-          {items.map((item) => (
-            <PaymentRow
-              key={item.paymentId}
-              item={item}
-              busy={
-                (approve.isPending && approve.variables?.paymentId === item.paymentId) ||
-                (reject.isPending && reject.variables?.paymentId === item.paymentId) ||
-                (markUnderReview.isPending && markUnderReview.variables === item.paymentId)
-              }
-              onApprove={() => approveRow(item)}
-              onReject={() => setRejecting(item)}
-              onReview={() => markUnderReview.mutate(item.paymentId)}
-            />
-          ))}
-        </ul>
-      )}
+      ) : null}
 
-      <RejectDialog
-        item={rejecting}
-        pending={reject.isPending}
-        onCancel={() => setRejecting(null)}
-        onConfirm={confirmReject}
-      />
-    </div>
-  )
-}
-
-type PaymentRowProps = {
-  item: PaymentVerificationItem
-  busy: boolean
-  onApprove: () => void
-  onReject: () => void
-  onReview: () => void
-}
-
-/**
- * One submitted payment.
- *
- * The row leads with the two numbers that decide it — what is owed and what the
- * message says was paid — because that comparison is the whole job. The raw SMS is
- * shown verbatim underneath, never paraphrased: the owner is checking a receipt
- * against their own statement, and a summary would hide the detail they need.
- */
-function PaymentRow({ item, busy, onApprove, onReject, onReview }: PaymentRowProps) {
-  const decidable = item.status === 'submitted' || item.status === 'under_review'
-
-  return (
-    <li className="rounded-card border border-line bg-surface p-[0.9rem]">
-      <div className="flex flex-wrap items-start justify-between gap-[0.8rem]">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-[0.5rem]">
-            <b className="text-label">{item.customerName ?? 'Unknown customer'}</b>
-            <Badge tone={statusTone(item.status)}>{statusLabel(item.status)}</Badge>
-            {item.amountMismatch ? (
-              <Badge tone="danger">
-                <ShieldAlert className="mr-[0.2rem] size-3.5" aria-hidden="true" />
-                Amount mismatch
-              </Badge>
-            ) : null}
-            {item.duplicateOfPaymentId ? (
-              <Badge tone="danger">
-                <ShieldAlert className="mr-[0.2rem] size-3.5" aria-hidden="true" />
-                Code already used
-              </Badge>
-            ) : null}
+      {overview && overview.awaitingVerificationCount > 0 ? (
+        <Card className="mt-4 flex flex-wrap items-center justify-between gap-[0.6rem] p-[0.9rem]">
+          <div className="min-w-0">
+            <h2 className="text-label font-semibold">
+              {overview.awaitingVerificationCount} claim
+              {overview.awaitingVerificationCount === 1 ? '' : 's'} waiting on you
+            </h2>
+            <p className="m-0 text-caption text-muted">
+              {money(overview.awaitingVerificationAmount)} of customer-submitted M-PESA messages have
+              not been checked yet. They are not counted as money received until you verify them.
+            </p>
           </div>
-          <p className="mt-[0.15rem] text-caption text-subtle">
-            {item.serviceNames.length > 0 ? item.serviceNames.join(', ') : 'Service not recorded'}
-            {item.scheduledAt ? ` · ${formatDay(item.scheduledAt)}` : ''}
-            {item.customerPhone ? ` · ${item.customerPhone}` : ''}
-          </p>
-        </div>
+          <Link to="/dashboard/finances/reconciliation" className="btn btn-sm btn-primary">
+            Open Reconciliation
+          </Link>
+        </Card>
+      ) : null}
 
-        <div className="text-right">
-          <b className="block text-label tabular">{money(item.expectedAmount, item.currency)}</b>
-          <span className="text-caption text-subtle">
-            Submitted{' '}
-            {item.submittedAmount === null ? '—' : money(item.submittedAmount, item.currency)}
-          </span>
-        </div>
+      <div className="mt-4">
+        <Tabs
+          label="Filter payments by what they are for"
+          items={TYPE_TABS.map((tab) => ({ value: tab.value, label: tab.label }))}
+          value={type}
+          onValueChange={(value) => {
+            setPage(1)
+            setType(value)
+          }}
+        />
       </div>
 
-      <dl className="mt-[0.7rem] grid grid-cols-[repeat(auto-fit,minmax(9rem,1fr))] gap-[0.5rem] text-caption">
-        <div>
-          <dt className="text-subtle">M-PESA code</dt>
-          <dd className="font-mono">{item.transactionCode ?? '—'}</dd>
-        </div>
-        <div>
-          <dt className="text-subtle">Paid to</dt>
-          <dd>{item.recipient ?? '—'}</dd>
-        </div>
-        <div>
-          <dt className="text-subtle">Reference</dt>
-          <dd className="font-mono">{item.reference}</dd>
-        </div>
-        <div>
-          <dt className="text-subtle">Submitted</dt>
-          <dd>{item.submittedAt ? formatDay(item.submittedAt) : '—'}</dd>
-        </div>
-      </dl>
+      <Card className="mt-[0.8rem] p-[0.9rem]">
+        <div className="flex flex-wrap items-end gap-[0.6rem]">
+          <label className="flex flex-col gap-[0.2rem] text-caption text-muted">
+            Status
+            <select
+              className="select h-control-sm min-h-0 text-meta"
+              value={status}
+              onChange={(event) => {
+                setPage(1)
+                setStatus(event.target.value)
+              }}
+            >
+              {STATUS_OPTIONS.map((option) => (
+                <option key={option.value || 'any'} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
 
-      {item.submittedMessage ? (
-        <blockquote className="mt-[0.7rem] rounded-inset border border-line bg-sunken p-[0.7rem] text-caption whitespace-pre-wrap">
-          {item.submittedMessage}
-        </blockquote>
-      ) : null}
+          <label className="flex flex-col gap-[0.2rem] text-caption text-muted">
+            From
+            <input
+              type="date"
+              className="input h-control-sm min-h-0 text-meta"
+              value={dates.from}
+              onChange={(event) => {
+                setPage(1)
+                setDates((current) => ({ ...current, from: event.target.value }))
+              }}
+            />
+          </label>
 
-      {item.verificationEvents.length > 0 ? (
-        <ul className="mt-[0.7rem] flex list-none flex-col gap-[0.25rem] p-0 text-caption text-subtle">
-          {item.verificationEvents.map((event) => (
-            <li key={event.id} className="flex items-start gap-[0.35rem]">
-              <Clock className="mt-[0.15rem] size-3.5 shrink-0" aria-hidden="true" />
-              <span>
-                <b className="font-medium">{statusLabel(event.kind)}</b>
-                {event.actorName ? ` by ${event.actorName}` : ''} · {formatDay(event.createdAt)}
-                {event.reason ? ` — ${event.reason}` : ''}
-              </span>
-            </li>
-          ))}
-        </ul>
-      ) : null}
+          <label className="flex flex-col gap-[0.2rem] text-caption text-muted">
+            To
+            <input
+              type="date"
+              className="input h-control-sm min-h-0 text-meta"
+              value={dates.to}
+              onChange={(event) => {
+                setPage(1)
+                setDates((current) => ({ ...current, to: event.target.value }))
+              }}
+            />
+          </label>
 
-      {decidable ? (
-        <div className="mt-[0.8rem] flex flex-wrap items-center gap-[0.5rem]">
-          <Button variant="primary" size="sm" onClick={onApprove} disabled={busy}>
-            <BadgeCheck className="size-4" aria-hidden="true" />
-            Confirm payment
-          </Button>
-          <Button variant="danger" size="sm" onClick={onReject} disabled={busy}>
-            <Ban className="size-4" aria-hidden="true" />
-            Reject
-          </Button>
-          {item.status === 'submitted' ? (
-            <Button variant="ghost" size="sm" onClick={onReview} disabled={busy}>
-              Mark as being reviewed
+          {status || dates.from || dates.to || type !== 'all' ? (
+            <Button
+              size="sm"
+              onClick={() => {
+                setPage(1)
+                setType('all')
+                setStatus('')
+                setDates({ from: '', to: '' })
+              }}
+            >
+              Clear filters
             </Button>
           ) : null}
-          {busy ? <Loader2 className="size-4 animate-spin text-muted" aria-hidden="true" /> : null}
+        </div>
+      </Card>
+
+      <Card className="mt-4 overflow-hidden">
+        {payments.isLoading && !data ? (
+          <div className="grid gap-[0.5rem] p-[0.8rem]" aria-busy="true">
+            <Skeleton className="h-[2.6rem]" />
+            <Skeleton className="h-[2.6rem]" />
+            <Skeleton className="h-[2.6rem]" />
+          </div>
+        ) : null}
+
+        {data && data.items.length === 0 ? (
+          <EmptyState
+            title="No payments in this view"
+            description="Appointment booking fees, full payments and balances appear here as soon as they are started."
+          />
+        ) : null}
+
+        {data && data.items.length > 0 ? (
+          <ul className="divide-y divide-line">
+            {data.items.map((payment) => (
+              <PaymentRow
+                key={payment.id}
+                payment={payment}
+                expanded={expanded === payment.id}
+                onToggle={() => setExpanded((current) => (current === payment.id ? null : payment.id))}
+              />
+            ))}
+          </ul>
+        ) : null}
+
+        {data && data.totalCount > PAGE_SIZE ? (
+          <div className="border-t border-line p-[0.6rem]">
+            <PaginationBar page={page} pageCount={pageCount} onPageChange={setPage} />
+          </div>
+        ) : null}
+      </Card>
+
+      <p className="mt-4 text-caption text-muted">
+        Payments is the operational view: obligations, claims and balances attached to appointments.
+        Recognition is Finance's job — a verified payment becomes exactly one transaction there, and
+        only that transaction reaches the Cashbook. Nothing shown on this page is added to financial
+        totals.
+      </p>
+    </>
+  )
+}
+/**
+ * One payment in the register.
+ *
+ * The row is a link into the two places the same payment legitimately lives: the appointment it
+ * belongs to, and — when it is a customer claim or a recognised receipt — the Finance screen that
+ * owns the money decision. Expanding it loads the appointment's whole payment picture (service
+ * total, booking fee, paid so far and what is still owed), which is the question an owner is
+ * actually asking when they open a row.
+ */
+function PaymentRow({
+  payment,
+  expanded,
+  onToggle,
+}: {
+  payment: Payment
+  expanded: boolean
+  onToggle: () => void
+}) {
+  const summary = useAppointmentPaymentSummary(
+    payment.appointmentId ?? '',
+    expanded && Boolean(payment.appointmentId),
+  )
+
+  return (
+    <li className="px-[0.8rem] py-[0.65rem]">
+      <div className="flex flex-wrap items-start justify-between gap-[0.5rem]">
+        <div className="min-w-0">
+          <p className="truncate text-meta font-medium">
+            {payment.customerName ?? 'Customer'} · {typeLabel(payment.type)}
+          </p>
+          <p className="text-caption text-muted">
+            {formatDate(payment.createdAt)} · {payment.method} · {payment.reference}
+            {payment.parsedTransactionCode ? ` · ${payment.parsedTransactionCode}` : ''}
+          </p>
+          {payment.rejectedAt && payment.rejectionReason ? (
+            <p className="text-caption text-danger-ink">Rejected: {payment.rejectionReason}</p>
+          ) : null}
+        </div>
+
+        <div className="flex flex-wrap items-center gap-[0.5rem]">
+          <Badge tone={statusTone(payment.status)}>{statusLabel(payment.status)}</Badge>
+          <span className="tabular text-meta font-semibold">{money(payment.amount)}</span>
+
+          {payment.appointmentId ? (
+            <Link
+              to="/dashboard/appointments/$appointmentId"
+              params={{ appointmentId: payment.appointmentId }}
+              className="link text-meta"
+            >
+              Appointment
+            </Link>
+          ) : null}
+
+          {isAwaitingDecision(payment.status) ? (
+            <Link to="/dashboard/finances/reconciliation" className="link text-meta">
+              Verify in Finance
+            </Link>
+          ) : payment.status === 'verified' || payment.status === 'success' ? (
+            <Link to="/dashboard/finances/transactions" className="link text-meta">
+              View in Finance
+            </Link>
+          ) : null}
+
+          {payment.appointmentId ? (
+            <Button size="sm" onClick={onToggle} aria-expanded={expanded}>
+              <ChevronDown
+                className={expanded ? 'size-3.5 rotate-180' : 'size-3.5'}
+                aria-hidden="true"
+              />
+              Balance
+            </Button>
+          ) : null}
+        </div>
+      </div>
+
+      {expanded && payment.appointmentId ? (
+        <div className="mt-[0.5rem] rounded-md bg-sunken p-[0.6rem]">
+          {summary.isLoading ? (
+            <p className="inline-flex items-center gap-[0.4rem] text-caption text-muted">
+              <Loader2 className="size-3.5 animate-spin" aria-hidden="true" /> Loading this
+              appointment’s payments…
+            </p>
+          ) : null}
+
+          {summary.data ? (
+            <>
+              <dl className="grid gap-[0.4rem] text-caption sm:grid-cols-4">
+                <div>
+                  <dt className="text-muted">Services</dt>
+                  <dd className="tabular font-medium">{money(summary.data.serviceTotal)}</dd>
+                </div>
+                <div>
+                  <dt className="text-muted">Booking fee</dt>
+                  <dd className="tabular font-medium">{money(summary.data.bookingFee)}</dd>
+                </div>
+                <div>
+                  <dt className="text-muted">Paid so far</dt>
+                  <dd className="tabular font-medium">{money(summary.data.amountPaid)}</dd>
+                </div>
+                <div>
+                  <dt className="text-muted">Balance</dt>
+                  <dd className="tabular font-medium">{money(summary.data.balance)}</dd>
+                </div>
+              </dl>
+
+              <p className="mt-[0.4rem] text-caption text-muted">
+                {summary.data.paymentStatus === 'paid'
+                  ? 'Fully paid.'
+                  : summary.data.paymentStatus === 'partially_paid'
+                    ? 'Partially paid.'
+                    : 'Nothing collected yet.'}{' '}
+                Only verified payments count towards “Paid so far”.
+              </p>
+
+              {summary.data.payments.length > 0 ? (
+                <ul className="mt-[0.4rem] flex list-none flex-col gap-[0.25rem] p-0 text-caption">
+                  {summary.data.payments.map((row) => (
+                    <li key={row.id}>
+                      {typeLabel(row.type)} · {money(row.amount)} · {statusLabel(row.status)}
+                      {row.completedAt ? ` · settled ${formatDateTime(row.completedAt)}` : ''}
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </>
+          ) : null}
         </div>
       ) : null}
     </li>
-  )
-}
-
-type RejectDialogProps = {
-  item: PaymentVerificationItem | null
-  pending: boolean
-  onCancel: () => void
-  onConfirm: (reason: string) => void
-}
-
-/**
- * Rejection is a reason, not a button.
- *
- * The reason is mandatory server-side and is shown to the customer, so the dialog
- * offers the common causes and lets the owner add detail. "No" without a why leaves
- * the customer with money paid and no way forward.
- */
-function RejectDialog({ item, pending, onCancel, onConfirm }: RejectDialogProps) {
-  const [reason, setReason] = useState<string>(REJECTION_REASONS[0])
-  const [detail, setDetail] = useState('')
-
-  const resolved =
-    reason === 'Other' ? detail.trim() : detail.trim() ? `${reason}: ${detail.trim()}` : reason
-
-  return (
-    <ConfirmDialog
-      open={Boolean(item)}
-      tone="danger"
-      icon={<Ban className="size-5" aria-hidden="true" />}
-      title="Reject this payment?"
-      description={
-        item
-          ? `The customer will be told why. ${item.customerName ?? 'They'} can pay again and submit a new confirmation.`
-          : undefined
-      }
-      confirmLabel={pending ? 'Rejecting…' : 'Reject payment'}
-      onCancel={onCancel}
-      onConfirm={() => onConfirm(resolved)}
-    >
-      <label className="label" htmlFor="reject-reason">
-        Reason
-      </label>
-      <select
-        id="reject-reason"
-        className="select"
-        value={reason}
-        onChange={(event) => setReason(event.target.value)}
-      >
-        {REJECTION_REASONS.map((option) => (
-          <option key={option} value={option}>
-            {option}
-          </option>
-        ))}
-      </select>
-      <label className="label mt-[0.6rem]" htmlFor="reject-detail">
-        Add detail <span className="text-subtle">(optional)</span>
-      </label>
-      <textarea
-        id="reject-detail"
-        className="textarea"
-        rows={3}
-        value={detail}
-        placeholder="Anything else the customer should know."
-        onChange={(event) => setDetail(event.target.value)}
-      />
-    </ConfirmDialog>
   )
 }
 

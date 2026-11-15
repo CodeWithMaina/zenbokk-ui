@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>About · Aurelia Luxe Hair Atelier</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root,[data-theme="light"]{
+  color-scheme:light;
+  --bg:#f7f6f3;--surface:#fff;--sunken:#f2f0eb;--line:#e9e7e2;--line-strong:#d5d2ca;
+  --fg:#1c1f23;--muted:#5b616b;--accent:#2f6b4f;--accent-hover:#265a42;--accent-soft:#e3f1e8;--accent-ink:#1b5233;--on-accent:#fff;
+  --premium-bg:#24221e;--premium-ink:#efe6d2;--premium-muted:#a99a78;--premium-gold:#cbb27a;--premium-line:rgba(203,178,122,.22);
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  color-scheme:dark;--bg:#141412;--surface:#1d1d1a;--sunken:#10100f;--line:#2e2d29;--line-strong:#46443f;
+  --fg:#f2f0ea;--muted:#a29e94;--accent:#5fa583;--accent-hover:#72b595;--accent-soft:#1f3326;--accent-ink:#9fd6b2;--on-accent:#0f1a14;}}
+:root[data-theme="dark"]{
+  color-scheme:dark;--bg:#141412;--surface:#1d1d1a;--sunken:#10100f;--line:#2e2d29;--line-strong:#46443f;
+  --fg:#f2f0ea;--muted:#a29e94;--accent:#5fa583;--accent-hover:#72b595;--accent-soft:#1f3326;--accent-ink:#9fd6b2;--on-accent:#0f1a14;}
+:root{
+  --font-sans:"Manrope",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --font-display:"Fraunces","Iowan Old Style",Georgia,serif;
+  --gutter:clamp(.9rem,3vw,2rem);--ease:cubic-bezier(.2,.7,.2,1);
+}
+*,*::before,*::after{box-sizing:border-box}
+html{font-size:calc(clamp(.75rem,.714rem + .1613vw,1rem));-webkit-text-size-adjust:100%;height:100%}
+body{margin:0;min-height:100%;display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0px);
+  background:var(--bg);color:var(--fg);font-family:var(--font-sans);font-size:1rem;line-height:1.5;
+  -webkit-font-smoothing:antialiased;overflow-x:hidden}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);background:var(--bg);z-index:10}
+a{color:inherit;text-decoration:none}
+h1,h2,h3,p,ul{margin:0}
+ul{padding:0;list-style:none}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+main{flex:1}
+.wrap{width:100%;max-width:72rem;margin-inline:auto;padding-inline:var(--gutter)}
+
+/* ---------- layout: copy + rules side by side ---------- */
+.about{display:grid;gap:1.1rem;padding-block:clamp(1.4rem,4vw,2.6rem)}
+
+/* identity row */
+.id{display:flex;align-items:center;gap:.75rem}
+.mark{display:grid;place-items:center;flex:none;width:2.6rem;height:2.6rem;border-radius:.8rem;
+  background:var(--accent);color:var(--on-accent);font-family:var(--font-display);font-size:1.3rem;font-weight:500}
+.id b{display:block;font-weight:600;font-size:.95rem;line-height:1.2}
+.id span{display:block;font-size:.8rem;color:var(--muted)}
+.loc{margin-left:auto;display:inline-flex;align-items:center;gap:.35rem;padding:.3rem .65rem;
+  border:1px solid var(--line);border-radius:99px;background:var(--surface);font-size:.78rem;font-weight:500;white-space:nowrap}
+.loc svg{width:.85rem;height:.85rem;fill:none;stroke:var(--accent);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+/* copy card */
+.card{background:var(--surface);border:1px solid var(--line);border-radius:1.1rem;padding:clamp(1.1rem,2.6vw,1.8rem)}
+.title{font-family:var(--font-display);font-weight:500;letter-spacing:-.02em;line-height:1.1;
+  font-size:clamp(1.55rem,4.2vw,2.35rem);text-wrap:balance;max-width:20ch}
+.desc{margin-top:.8rem;max-width:58ch;font-size:.98rem;line-height:1.7;color:var(--muted)}
+.services{display:flex;flex-wrap:wrap;gap:.4rem;margin-top:1.1rem;padding-top:1.1rem;border-top:1px solid var(--line)}
+.services li{padding:.25rem .7rem;border-radius:99px;background:var(--accent-soft);color:var(--accent-ink);font-size:.78rem;font-weight:600}
+.cta{margin-top:1.2rem;display:flex;flex-wrap:wrap;align-items:center;gap:.8rem}
+.btn{display:inline-flex;align-items:center;justify-content:center;min-height:max(2.6rem,44px);padding:0 1.3rem;border-radius:.8rem;
+  background:var(--accent);color:var(--on-accent);font-size:.92rem;font-weight:600;transition:background .2s var(--ease),transform .2s var(--ease)}
+.btn:hover{background:var(--accent-hover)}
+.btn:active{transform:scale(.985)}
+.cta small{font-size:.78rem;color:var(--muted)}
+
+/* rules */
+.rules{background:var(--premium-bg);color:var(--premium-ink);border-radius:1.1rem;padding:clamp(1.1rem,2.6vw,1.6rem)}
+.rules h2{font-family:var(--font-display);font-weight:400;font-size:1.2rem;letter-spacing:-.01em;margin-bottom:.4rem}
+.rule{padding-block:.85rem;border-top:1px solid var(--premium-line)}
+.rule:first-of-type{margin-top:.5rem}
+.rule b{display:block;font-size:.95rem;font-weight:600;color:var(--premium-gold)}
+.rule p{margin-top:.15rem;font-size:.85rem;line-height:1.55;color:var(--premium-muted)}
+
+/* ---------- footer ---------- */
+.foot{border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px)}
+.foot .wrap{display:flex;flex-direction:column;align-items:center;gap:.8rem;text-align:center;padding-block:1.1rem}
+.foot-main{display:flex;flex-direction:column;gap:.1rem;align-items:center}
+.foot-copy,.foot-power{font-size:.78rem;color:var(--muted)}
+.foot-power a{color:var(--fg);font-weight:600}
+.foot-power a:hover{text-decoration:underline;text-underline-offset:.15em}
+.foot-legal,.foot-social{display:flex;flex-wrap:wrap;justify-content:center}
+.foot-legal{gap:.2rem 1rem}
+.foot-legal a{font-size:.78rem;color:var(--muted);transition:color .2s}
+.foot-legal a:hover{color:var(--fg)}
+.foot-social{gap:.35rem}
+.foot-social a{display:grid;place-items:center;width:2rem;height:2rem;border:1px solid var(--line);border-radius:50%;
+  color:var(--muted);transition:color .2s,border-color .2s}
+.foot-social a:hover{color:var(--fg);border-color:var(--line-strong)}
+.foot-social svg{width:.95rem;height:.95rem;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+@media (pointer:coarse){.foot-social a{width:44px;height:44px}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+
+/* ---------- tablet 600px+ ---------- */
+@media (min-width:37.5rem){
+  .rules{display:grid;grid-template-columns:repeat(3,1fr);column-gap:1.4rem}
+  .rules h2{grid-column:1/-1}
+  .rule{border-top:1px solid var(--premium-line);padding-bottom:0}
+  .rule:first-of-type{margin-top:.5rem}
+}
+/* ---------- laptop 900px+ ---------- */
+@media (min-width:56.25rem){
+  .about{grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:1.1rem 1.4rem;align-items:start}
+  .id{grid-column:1/-1}
+  .rules{display:block;position:sticky;top:1.2rem}
+  .rule{padding-bottom:.85rem}
+  .foot .wrap{flex-direction:row;justify-content:space-between;text-align:left}
+  .foot-main{align-items:flex-start}
+}
+/* ---------- large 1440px+ ---------- */
+@media (min-width:90rem){
+  .wrap{max-width:80rem}
+}
+</style>
+</head>
+<body>
+<main>
+  <div class="wrap about">
+    <div class="id">
+      <div class="mark" aria-hidden="true">A</div>
+      <div><b>Aurelia Luxe Hair Atelier</b><span>Hair &amp; Beauty Salon</span></div>
+      <span class="loc"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0z"/><circle cx="12" cy="10" r="3"/></svg>Westlands, Nairobi</span>
+    </div>
+
+    <section class="card" aria-labelledby="about-h">
+      <h1 class="title" id="about-h">Premium hair rituals in the heart of Westlands</h1>
+      <p class="desc">A premium hair atelier offering professional hairstyling, hair treatments, braiding, extensions, and beauty services.</p>
+      <ul class="services" aria-label="Services">
+        <li>Styling</li><li>Braiding</li><li>Treatments</li><li>Extensions</li><li>Natural-hair care</li>
+      </ul>
+      <div class="cta">
+        <a class="btn" href="#">Book your appointment</a>
+        <small>Prices in KES</small>
+      </div>
+    </section>
+
+    <section class="rules" aria-labelledby="rules-h">
+      <h2 id="rules-h">How we keep your time</h2>
+      <div class="rule"><b>30% deposit</b><p>Secures bridal and braiding appointments.</p></div>
+      <div class="rule"><b>Arrive 10 minutes early</b><p>Arrivals more than 20 minutes late may be shortened or rescheduled.</p></div>
+      <div class="rule"><b>24 hours’ notice</b><p>Cancel or reschedule free up to 24 hours before. Inside that window, the deposit is forfeited.</p></div>
+    </section>
+  </div>
+</main>
+
+<footer class="foot">
+  <div class="wrap">
+    <div class="foot-main">
+      <p class="foot-copy">© 2026 Aurelia Luxe Hair Atelier. All rights reserved.</p>
+      <p class="foot-power">Powered by <a href="#">Zenbokk</a></p>
+    </div>
+    <ul class="foot-legal">
+      <li><a href="http://localhost:5173/privacy">Privacy Policy</a></li>
+      <li><a href="http://localhost:5173/terms">Terms of Service</a></li>
+      <li><a href="http://localhost:5173/legal">Legal</a></li>
+    </ul>
+    <ul class="foot-social">
+      <li><a href="#" aria-label="Instagram"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r=".6"/></svg></a></li>
+      <li><a href="#" aria-label="Facebook"><svg viewBox="0 0 24 24"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg></a></li>
+      <li><a href="#" aria-label="TikTok"><svg viewBox="0 0 24 24"><path d="M9 12a4 4 0 1 0 4 4V3c.5 2.5 2.3 4 5 4"/></svg></a></li>
+      <li><a href="https://wa.me/254712440001" aria-label="WhatsApp"><svg viewBox="0 0 24 24"><path d="M3 21l1.6-4.7A8.5 8.5 0 1 1 8 19.5z"/><path d="M9 9.5c0 3 2.5 5.5 5.5 5.5l1-1.5-2-1-.8.8a3 3 0 0 1-1.5-1.5l.8-.8-1-2z"/></svg></a></li>
+    </ul>
+  </div>
+</footer>
+</body>
+</html>

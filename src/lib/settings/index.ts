@@ -9,6 +9,7 @@ export { settingsApi, supportApi } from './api'
 export {
   useSettingsBusiness,
   useSettingsModules,
+  useSetModuleEnabled,
   useSupportContact,
   useUpdateBusiness,
   useUpdateDailyGoal,

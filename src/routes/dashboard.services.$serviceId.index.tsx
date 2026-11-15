@@ -4,17 +4,18 @@ import { useState } from 'react'
 import { toast } from 'sonner'
 import {
   ServiceActionsMenu,
-  ServiceBookingDrawer,
   ServiceDeleteDialog,
   ServiceDetails,
   ServiceGallery,
 } from '../components/services'
+import { BookingWizard } from '../components/booking'
 import { Alert } from '../components/ui/alert'
 import { Button } from '../components/ui/button'
 import { PageHeader } from '../components/ui/page-header'
 import { Skeleton } from '../components/ui/skeleton'
 import { errorMessage } from '../lib/api/client'
 import { useDashboardContext } from '../lib/dashboard/dashboard-context'
+import { MODULE } from '../lib/entitlements'
 import { formatDuration, money } from '../lib/format'
 import {
   isServiceBookable,
@@ -48,7 +49,7 @@ const PAST_TENSE: Record<ServiceStatusAction, string> = {
 function ServiceDetailsPage() {
   const { serviceId } = Route.useParams()
   const navigate = useNavigate()
-  const { hasPermission, business } = useDashboardContext()
+  const { hasPermission, hasModule, business } = useDashboardContext()
   const canManage = hasPermission('serviceCatalog.manage')
 
   const [bookingOpen, setBookingOpen] = useState(false)
@@ -177,13 +178,24 @@ function ServiceDetailsPage() {
         </Button>
       </div>
 
-      <ServiceBookingDrawer
+      <BookingWizard
         open={bookingOpen}
         onClose={() => setBookingOpen(false)}
         businessId={row.businessId}
-        businessSlug={business.slug ?? ''}
+        businessName={business.name}
+        businessLogoUrl={business.logoUrl}
+        paymentsEnabled={hasModule(MODULE.payments)}
         services={bookable.data?.items ?? []}
-        initialServiceId={row.id}
+        prefill={{
+          services: [
+            {
+              id: row.id,
+              name: row.name,
+              price: row.price,
+              durationMinutes: row.durationMinutes,
+            },
+          ],
+        }}
       />
 
       <ServiceDeleteDialog

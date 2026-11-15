@@ -8,8 +8,6 @@
  */
 export { ServiceActionsMenu } from './ServiceActionsMenu'
 export type { ServiceActionsMenuProps } from './ServiceActionsMenu'
-export { ServiceBookingDrawer } from './ServiceBookingDrawer'
-export type { ServiceBookingDrawerProps } from './ServiceBookingDrawer'
 export { ServiceCard } from './ServiceCard'
 export type { ServiceCardProps } from './ServiceCard'
 export { ServiceDeleteDialog } from './ServiceDeleteDialog'

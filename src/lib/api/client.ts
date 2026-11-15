@@ -181,7 +181,7 @@ async function execute<T>(
   }
 
   if (envelope?.error) {
-    throw new ApiError(envelope.error.code, envelope.error.message, response.status)
+    throw new ApiError(envelope.error.code, envelope.error.message, response.status, envelope.error.fields)
   }
 
   throw new ApiError(
@@ -249,7 +249,7 @@ export async function apiDownload(
 
   const envelope = await readEnvelope<unknown>(response)
   if (envelope?.error) {
-    throw new ApiError(envelope.error.code, envelope.error.message, response.status)
+    throw new ApiError(envelope.error.code, envelope.error.message, response.status, envelope.error.fields)
   }
 
   throw new ApiError(

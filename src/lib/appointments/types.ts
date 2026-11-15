@@ -2,7 +2,6 @@ import type {
   Appointment,
   AppointmentDashboard,
   AppointmentDashboardItem,
-  CustomerDashboardItem,
   ServiceDashboardItem,
   StaffDashboardItem,
 } from '../api/types'
@@ -13,6 +12,16 @@ import {
   isAppointmentFinal,
 } from '../dashboard/appointment-status'
 import type { AppointmentStatus } from '../dashboard/appointment-status'
+import {
+  addDaysToDateKey,
+  browserTimeZone,
+  dateKeyToParts,
+  dateKeyWeekday,
+  resolveTimeZone,
+  zonedDateKey,
+  zonedNextDayStartUtc,
+  zonedStartOfDayUtc,
+} from './timezone'
 
 /**
  * Domain vocabulary for the Appointments module.
@@ -71,8 +80,15 @@ export function reservesStaffTime(status: string): boolean {
 //  Views, sorting and date ranges
 // ─────────────────────────────────────────────────────────────
 
-/** The three ways the design presents the same data. */
-export const APPOINTMENT_VIEWS = ['calendar', 'table', 'cards'] as const
+/**
+ * The three ways the module presents the same data.
+ *
+ *  - `calendar` is a time GRID: where appointments sit across days and weeks.
+ *  - `table` is a structured management view: search, sort, paginate, act.
+ *  - `timeline` is a chronological FEED: what is happening during the selected
+ *    period, in clock order, with the gaps between bookings made visible.
+ */
+export const APPOINTMENT_VIEWS = ['calendar', 'table', 'timeline'] as const
 export type AppointmentView = (typeof APPOINTMENT_VIEWS)[number]
 
 /** Calendar granularity. */
@@ -82,14 +98,17 @@ export type CalendarMode = (typeof CALENDAR_MODES)[number]
 /**
  * Sort options, in the order the design offers them.
  *
- * `when-asc` / `when-desc` map onto the server's `scheduledAt` sort. The rest
- * are applied client-side over the loaded page, because the endpoint only sorts
- * by `scheduledAt` and `createdAt` — sorting a page by a name the database did
+ * Every option except the name/price/status ones is decided by the server:
+ * `scheduledAt` is the schedule order, `createdAt` is "what came in just now".
+ * The rest are applied client-side over the loaded page, because the endpoint
+ * does not sort by a display name — sorting a page by a name the database did
  * not order would silently produce the wrong "A to Z".
  */
 export const APPOINTMENT_SORTS = [
   'when-asc',
   'when-desc',
+  'created-desc',
+  'created-asc',
   'customer',
   'staff',
   'service',
@@ -99,8 +118,10 @@ export const APPOINTMENT_SORTS = [
 export type AppointmentSort = (typeof APPOINTMENT_SORTS)[number]
 
 export const APPOINTMENT_SORT_LABELS: Record<AppointmentSort, string> = {
-  'when-asc': 'Date, soonest first',
-  'when-desc': 'Date, latest first',
+  'when-asc': 'Scheduled time, soonest first',
+  'when-desc': 'Scheduled time, latest first',
+  'created-desc': 'Recently created',
+  'created-asc': 'Oldest created',
   customer: 'Customer, A to Z',
   staff: 'Staff, A to Z',
   service: 'Service, A to Z',
@@ -108,9 +129,65 @@ export const APPOINTMENT_SORT_LABELS: Record<AppointmentSort, string> = {
   status: 'Status',
 }
 
+/**
+ * The order the calendar defaults to: a time grid is read top to bottom, so its
+ * rows are always in clock order regardless of what the list is sorted by.
+ */
+export const DEFAULT_APPOINTMENT_SORT: AppointmentSort = 'when-asc'
+
+/**
+ * The order the list-shaped views (table and timeline) default to: what came in
+ * most recently, first.
+ *
+ * This is deliberately not the scheduled order. A booking taken this morning for
+ * next month belongs above one taken yesterday for tomorrow, because the list is
+ * answering "what has just come in?" until the owner says otherwise. The endpoint's
+ * own default is the same `createdAt DESC`, so a client that sends no sort at all
+ * still gets this order.
+ */
+export const DEFAULT_LIST_SORT: AppointmentSort = 'created-desc'
+
+/** The calendar's own order, named so a caller can be explicit rather than rely on a default. */
+export const DEFAULT_CALENDAR_SORT: AppointmentSort = DEFAULT_APPOINTMENT_SORT
+
+/** Sorts the list view offers, in the order they are presented. */
+export const LIST_SORTS = [
+  'created-desc',
+  'created-asc',
+  'when-asc',
+  'when-desc',
+  'customer',
+  'staff',
+  'service',
+  'price-desc',
+  'status',
+] as const satisfies readonly AppointmentSort[]
+
 /** True when the sort has to be applied in the browser rather than by the API. */
 export function isClientSort(sort: AppointmentSort): boolean {
-  return sort !== 'when-asc' && sort !== 'when-desc'
+  return sort === 'customer' || sort === 'staff' || sort === 'service'
+}
+
+/**
+ * The database ordering for a server-side sort.
+ *
+ * One place decides what each label means, so the request the list sends and the
+ * order the endpoint actually applies can never drift apart.
+ */
+export function appointmentSortQuery(sort: AppointmentSort): {
+  sortBy: 'scheduledAt' | 'createdAt'
+  sortDirection: 'asc' | 'desc'
+} {
+  switch (sort) {
+    case 'created-desc':
+      return { sortBy: 'createdAt', sortDirection: 'desc' }
+    case 'created-asc':
+      return { sortBy: 'createdAt', sortDirection: 'asc' }
+    case 'when-desc':
+      return { sortBy: 'scheduledAt', sortDirection: 'desc' }
+    default:
+      return { sortBy: 'scheduledAt', sortDirection: 'asc' }
+  }
 }
 
 export const DATE_PRESETS = [
@@ -141,20 +218,55 @@ export const DATE_PRESET_LABELS: Record<AppointmentDatePreset, string> = {
 // ─────────────────────────────────────────────────────────────
 
 /**
+ * Payment-verification filter.
+ *
+ * Payment is not a column on an appointment: one appointment can hold many payment
+ * records — an upfront booking fee, a later balance, a reversal — so these options
+ * are defined against the payment ledger and aggregated on the server. Only a
+ * genuinely settled (provider-`Success` or owner-`Verified`) payment counts as
+ * collected; a `Submitted`/`UnderReview`/`Flagged` claim never does, and neither do
+ * failed, expired, cancelled, refunded or reversed rows. The wire values below match
+ * the backend's classification exactly.
+ */
+export const PAYMENT_FILTERS = [
+  'all',
+  'verified',
+  'partial',
+  'awaiting',
+  'unpaid',
+  'failed',
+  'refunded',
+] as const
+export type PaymentFilter = (typeof PAYMENT_FILTERS)[number]
+
+export const PAYMENT_FILTER_LABELS: Record<PaymentFilter, string> = {
+  all: 'All payment states',
+  verified: 'Fully paid & verified',
+  partial: 'Partially paid',
+  awaiting: 'Awaiting verification',
+  unpaid: 'Unpaid',
+  failed: 'Failed or expired',
+  refunded: 'Refunded or reversed',
+}
+
+/**
  * The filter set the screens hold.
  *
- * Status, staff and service are **single-valued**, matching
- * `GET /v1/businesses/me/appointments`, which binds `status`, `staffId` and
- * `serviceId` as scalars. The reference design's multi-select chips would need
- * a fan-out of requests (one per combination) and would make the server's
- * `totalCount` meaningless, so the drawer offers "All" plus one value each and
- * keeps every count and page number honest.
+ * Status stays single-valued (one status is one question), while services,
+ * customers and staff are **multi-select**: the endpoint binds `serviceIds`,
+ * `customerIds` and `staffIds` as repeated query keys, so choosing three services
+ * is still ONE request with ONE honest `totalCount` — not a fan-out whose pages
+ * and counts would each be a partial answer.
  */
 export type AppointmentFilters = {
   search: string
   status: AppointmentStatus | null
-  staffId: string | null
-  serviceId: string | null
+  /** Selected staff member ids. Inert while the Staff module is off. */
+  staffIds: string[]
+  serviceIds: string[]
+  customerIds: string[]
+  /** Payment-verification state, aggregated from the payment ledger server-side. */
+  payment: PaymentFilter
   preset: AppointmentDatePreset
   /** `yyyy-MM-dd`, only meaningful while `preset === 'custom'`. */
   from: string
@@ -165,20 +277,24 @@ export type AppointmentFilters = {
 export const DEFAULT_APPOINTMENT_FILTERS: AppointmentFilters = {
   search: '',
   status: null,
-  staffId: null,
-  serviceId: null,
+  staffIds: [],
+  serviceIds: [],
+  customerIds: [],
+  payment: 'all',
   preset: 'week',
   from: '',
   to: '',
-  sort: 'when-asc',
+  sort: DEFAULT_APPOINTMENT_SORT,
 }
 
 /** How many filters differ from their default — the count on the Filters button. */
 export function activeFilterCount(filters: AppointmentFilters): number {
   let count = 0
   if (filters.status) count += 1
-  if (filters.staffId) count += 1
-  if (filters.serviceId) count += 1
+  if (filters.staffIds.length > 0) count += 1
+  if (filters.serviceIds.length > 0) count += 1
+  if (filters.customerIds.length > 0) count += 1
+  if (filters.payment !== 'all') count += 1
   if (filters.preset !== DEFAULT_APPOINTMENT_FILTERS.preset) count += 1
   if (filters.sort !== DEFAULT_APPOINTMENT_FILTERS.sort) count += 1
   return count
@@ -252,43 +368,79 @@ export function isSameDay(a: Date | number, b: Date | number): boolean {
 /** A preset (or a custom range) resolved to an inclusive UTC window. */
 export type DateWindow = { from: string | null; to: string | null }
 
+function pad2(value: number): string {
+  return String(value).padStart(2, '0')
+}
+
+/** Monday of the week containing a date key (Monday-first, matching the calendar). */
+function mondayKey(dateKey: string): string {
+  return addDaysToDateKey(dateKey, -((dateKeyWeekday(dateKey) + 6) % 7))
+}
+
+/** The first day of a month, `monthOffset` whole months away, as a key. */
+function monthStartKey(dateKey: string, monthOffset: number): string {
+  const parts = dateKeyToParts(dateKey)
+  if (!parts) return dateKey
+  const shifted = new Date(Date.UTC(parts.year, parts.month - 1 + monthOffset, 1))
+  return `${shifted.getUTCFullYear()}-${pad2(shifted.getUTCMonth() + 1)}-01`
+}
+
+/**
+ * A preset (or a custom range) resolved to the UTC instants the API filters on,
+ * expressed in the BUSINESS's calendar.
+ *
+ * The API stores and compares instants in UTC, so "today" has to be turned into the
+ * business-local day's own start and end before it is sent — otherwise a business in
+ * Nairobi asked for its Tuesday would receive part of the viewer's Tuesday, and an
+ * appointment either side of local midnight would land on the wrong day. Each
+ * boundary is resolved with the zone database (`zonedStartOfDayUtc`), never by
+ * appending a fixed offset, so a daylight-saving change inside the range is handled.
+ *
+ * With the browser's own timezone (the default) this is exactly the previous
+ * behaviour — the local day the viewer sees.
+ */
 export function resolveDateWindow(
   filters: AppointmentFilters,
   today: Date = new Date(),
+  timeZone: string = browserTimeZone(),
 ): DateWindow {
-  const iso = (date: Date) => date.toISOString()
+  const zone = resolveTimeZone(timeZone)
+  const todayKey = zonedDateKey(today, zone)
+
+  const startOf = (key: string) => zonedStartOfDayUtc(key, zone).toISOString()
+  const endOf = (key: string) =>
+    new Date(zonedNextDayStartUtc(key, zone).getTime() - 1).toISOString()
+  const day = (key: string): DateWindow => ({ from: startOf(key), to: endOf(key) })
+  const span = (startKey: string, endKey: string): DateWindow => ({
+    from: startOf(startKey),
+    to: endOf(endKey),
+  })
 
   switch (filters.preset) {
     case 'today':
-      return { from: iso(startOfDay(today)), to: iso(endOfDay(today)) }
-    case 'tomorrow': {
-      const day = addDays(today, 1)
-      return { from: iso(startOfDay(day)), to: iso(endOfDay(day)) }
-    }
+      return day(todayKey)
+    case 'tomorrow':
+      return day(addDaysToDateKey(todayKey, 1))
     case 'week': {
-      const start = startOfWeek(today)
-      return { from: iso(start), to: iso(endOfDay(addDays(start, 6))) }
+      const monday = mondayKey(todayKey)
+      return span(monday, addDaysToDateKey(monday, 6))
     }
     case 'nextweek': {
-      const start = addDays(startOfWeek(today), 7)
-      return { from: iso(start), to: iso(endOfDay(addDays(start, 6))) }
+      const monday = addDaysToDateKey(mondayKey(todayKey), 7)
+      return span(monday, addDaysToDateKey(monday, 6))
     }
-    case 'month':
-      return {
-        from: iso(startOfMonth(today)),
-        to: iso(endOfDay(addDays(startOfNextMonth(today), -1))),
-      }
+    case 'month': {
+      const first = monthStartKey(todayKey, 0)
+      return span(first, addDaysToDateKey(monthStartKey(todayKey, 1), -1))
+    }
     case 'nextmonth': {
-      const first = startOfNextMonth(today)
-      return { from: iso(first), to: iso(endOfDay(addDays(startOfNextMonth(first), -1))) }
+      const first = monthStartKey(todayKey, 1)
+      return span(first, addDaysToDateKey(monthStartKey(todayKey, 2), -1))
     }
     case 'custom': {
-      const from = fromDateValue(filters.from)
-      const to = fromDateValue(filters.to)
-      return {
-        from: from ? iso(startOfDay(from)) : null,
-        to: to ? iso(endOfDay(to)) : null,
-      }
+      const from = filters.from && dateKeyToParts(filters.from) ? day(filters.from).from : null
+      const to = filters.to && dateKeyToParts(filters.to) ? day(filters.to).to : null
+      return { from, to }
     }
     case 'all':
     default:
@@ -332,6 +484,8 @@ export type AppointmentRow = {
   customerEmail: string | null
   customerPhone: string | null
   customerAvatarUrl: string | null
+  /** `guest` (booked without an account) | `registered` (a real account). */
+  customerType: string
   staffUserId: string | null
   staffName: string | null
   staffEmail: string | null
@@ -348,7 +502,6 @@ export type AppointmentRow = {
 
 /** The reference buckets the endpoint returns alongside a page. */
 export type AppointmentReference = {
-  customers: readonly CustomerDashboardItem[]
   staff: readonly StaffDashboardItem[]
   services: readonly ServiceDashboardItem[]
 }
@@ -381,6 +534,7 @@ export function toAppointmentRow(
     customerEmail: item.customerEmail,
     customerPhone: item.customerPhone,
     customerAvatarUrl: item.customerAvatarUrl,
+    customerType: item.customerType,
     staffUserId: item.staffUserId,
     staffName: item.staffName,
     staffEmail: item.staffEmail,
@@ -396,12 +550,10 @@ export function toAppointmentRow(
 /** The reference buckets, indexed for lookup. */
 export function indexReferences(dashboard: AppointmentDashboard): {
   services: Map<string, ServiceDashboardItem>
-  customers: Map<string, CustomerDashboardItem>
   staff: Map<string, StaffDashboardItem>
 } {
   return {
     services: new Map(dashboard.services.map((service) => [service.id, service])),
-    customers: new Map(dashboard.customers.map((customer) => [customer.userId, customer])),
     staff: new Map(dashboard.staff.map((member) => [member.userId, member])),
   }
 }

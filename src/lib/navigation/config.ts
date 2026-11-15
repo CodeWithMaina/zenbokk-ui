@@ -2,6 +2,7 @@ import {
   Award,
   BarChart3,
   BellRing,
+  BookOpenCheck,
   Boxes,
   Building2,
   CalendarCheck2,
@@ -10,8 +11,12 @@ import {
   CreditCard,
   Gift,
   Image,
+  Landmark,
   Layers,
   LayoutDashboard,
+  Receipt,
+  ReceiptText,
+  Scale,
   Scissors,
   ScrollText,
   Settings,
@@ -223,6 +228,12 @@ export const DASHBOARD_NAV: readonly NavEntry[] = [
     permission: 'storefront.view',
   },
   {
+    // Payments stays the OPERATIONAL module, and it is deliberately separate from Finance.
+    // Finance answers "what money has the business received and spent?"; Payments answers
+    // "what is happening with payments on appointments?" — obligations, booking fees,
+    // balances still owing and each payment's status. The same payment is visible in both
+    // places for different reasons, but it contributes to financial totals exactly once:
+    // in the ledger, and therefore in the Cashbook.
     key: 'payments',
     label: 'Payments',
     icon: Wallet,
@@ -231,6 +242,65 @@ export const DASHBOARD_NAV: readonly NavEntry[] = [
     section: 'workspace',
     module: MODULE.payments,
     permission: 'payments.view',
+  },
+  {
+    // The business's own books, in the order the owner actually works them:
+    //   Cashbook       — the consolidated book: every recognised movement, in and out.
+    //   Reconciliation — verify what customers claim to have paid.
+    //   Transactions   — money recognised as received or sent out.
+    //   Expenses       — money the business spent.
+    // Cashbook leads because it is the answer to "how is the business doing?", and it is where
+    // /dashboard/finances lands. There is no separate Finance Overview or Analytics entry: the
+    // charts live inside the Cashbook rather than competing with it for a slot in the sidebar.
+    key: 'finances',
+    label: 'Finance',
+    icon: Landmark,
+    surface: 'dashboard',
+    section: 'workspace',
+    module: MODULE.financials,
+    permission: 'finances.view',
+    children: [
+      {
+        key: 'finances-cashbook',
+        label: 'Cashbook',
+        icon: BookOpenCheck,
+        to: '/dashboard/finances/cashbook',
+        surface: 'dashboard',
+        section: 'workspace',
+        module: MODULE.financials,
+        permission: 'finances.view',
+      },
+      {
+        key: 'finances-reconciliation',
+        label: 'Reconciliation',
+        icon: Scale,
+        to: '/dashboard/finances/reconciliation',
+        surface: 'dashboard',
+        section: 'workspace',
+        module: MODULE.financials,
+        permission: 'finances.reconcile',
+      },
+      {
+        key: 'finances-transactions',
+        label: 'Transactions',
+        icon: ReceiptText,
+        to: '/dashboard/finances/transactions',
+        surface: 'dashboard',
+        section: 'workspace',
+        module: MODULE.financials,
+        permission: 'finances.view',
+      },
+      {
+        key: 'finances-expenses',
+        label: 'Expenses',
+        icon: Receipt,
+        to: '/dashboard/finances/expenses',
+        surface: 'dashboard',
+        section: 'workspace',
+        module: MODULE.financials,
+        permission: 'finances.view',
+      },
+    ],
   },
   // {
   //   key: 'notifications',

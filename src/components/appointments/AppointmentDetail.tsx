@@ -29,6 +29,7 @@ import { AppointmentErrorState } from './AppointmentEmptyState'
 import { AppointmentPaymentActions } from './AppointmentPaymentActions'
 import { AppointmentQuickActions } from './AppointmentActions'
 import type { AppointmentAction } from './AppointmentActions'
+import { CustomerTypeBadge } from '../ui/customer-type-badge'
 
 export type AppointmentDetailProps = {
   appointmentId: string
@@ -115,6 +116,7 @@ export function AppointmentDetail({
   const customerPhone = appointment?.customerPhone ?? row?.customerPhone ?? null
   const customerEmail = appointment?.customerEmail ?? row?.customerEmail ?? null
   const customerAvatarUrl = appointment?.customerAvatarUrl ?? row?.customerAvatarUrl ?? null
+  const customerType = appointment?.customerType ?? row?.customerType ?? null
   const staffName = appointment?.staffName ?? row?.staffName ?? null
   const staffAvatarUrl = appointment?.staffAvatarUrl ?? row?.staffAvatarUrl ?? null
 
@@ -159,6 +161,7 @@ export function AppointmentDetail({
             <h1 className="truncate text-title font-bold tracking-tight">{customerName}</h1>
             <div className="mt-[0.3rem] flex flex-wrap items-center gap-x-[0.8rem] gap-y-[0.3rem] text-meta text-muted">
               <AppointmentStatusBadge status={appointment.status} />
+              <CustomerTypeBadge type={customerType} />
               <span className="tabular">{appointmentReference(appointment.id)}</span>
               {customerPhone ? <span className="tabular">{customerPhone}</span> : null}
             </div>

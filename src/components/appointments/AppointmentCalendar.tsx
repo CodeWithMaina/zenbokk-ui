@@ -1,15 +1,21 @@
 import { CalendarX2 } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import type { PointerEvent as ReactPointerEvent } from 'react'
-import type { StaffDashboardItem } from '../../lib/api/types'
+import type { PublicOpeningHours, StaffDashboardItem } from '../../lib/api/types'
 import {
   addDays,
+  browserTimeZone,
   calendarWindow,
-  isSameDay,
+  minuteToClock,
+  resolveDaySchedule,
+  resolveTimeZone,
+  scheduleBand,
   serviceColor,
   startOfDay,
   startOfWeek,
   toDateValue,
+  zonedDateKey,
+  zonedMinuteOfDay,
 } from '../../lib/appointments'
 import type { AppointmentRow, CalendarMode } from '../../lib/appointments'
 import { cn } from '../../lib/cn'
@@ -17,17 +23,21 @@ import { formatDay, formatTime } from '../../lib/format'
 import { Avatar } from '../ui/avatar'
 import { EmptyState } from '../ui/empty-state'
 
-/** The visible band of the day, and how tall one hour is drawn. */
+/**
+ * The fallback band, used only while the business's real opening hours are
+ * unknown (the request is still in flight, or it failed). Whenever the hours are
+ * available the calendar draws the business's OWN schedule — see `scheduleBand` —
+ * so a clinic that opens at 07:00 and a salon that closes at 21:00 are both drawn
+ * honestly, and neither is squeezed into a hardcoded 08:00–20:00 working day.
+ */
 export const DAY_START_HOUR = 8
 export const DAY_END_HOUR = 20
 const HOUR_HEIGHT = 56
-const BAND_MINUTES = (DAY_END_HOUR - DAY_START_HOUR) * 60
 const WEEKDAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const
 
-/** Minutes from the top of the band, clamped to it. */
-function bandOffsetMinutes(iso: string): number {
-  const date = new Date(iso)
-  return (date.getHours() - DAY_START_HOUR) * 60 + date.getMinutes()
+/** Minutes from the top of the band, given the band's own start and the business zone. */
+function bandOffsetMinutes(iso: string, startMinute: number, timeZone: string): number {
+  return zonedMinuteOfDay(iso, timeZone) - startMinute
 }
 
 /** Height in pixels for a booked interval, clipped to the visible band. */
@@ -168,6 +178,35 @@ export type AppointmentCalendarProps = {
   onReschedule: (input: { appointmentId: string; start: Date; staffUserId?: string }) => void
   /** Month-cell click: open that day. */
   onSelectDate: (date: Date) => void
+  /**
+   * A month cell was clicked: open the WEEK containing that date.
+   *
+   * This is the first step of the calendar's hierarchy (month → week → day). When
+   * it is not supplied the cell falls back to `onSelectDate`, so a caller that only
+   * knows about single dates keeps working unchanged.
+   */
+  onOpenWeek?: (date: Date) => void
+  /** A day header in the week view was clicked: open that DAY. */
+  onOpenDay?: (date: Date) => void
+  /**
+   * Move to a broader period without changing the selected date (day → week →
+   * month). Supplying it renders the period trail; omitting it hides the trail.
+   */
+  onModeChange?: (mode: CalendarMode) => void
+  /**
+   * The business's opening hours (from the scheduling domain). When supplied, the
+   * time grid's band, its per-day labels and its closed-day treatment follow the
+   * business's real schedule; when omitted — still loading, or the read failed —
+   * the grid falls back to a safe default band and never claims a day is closed.
+   */
+  hours?: PublicOpeningHours | null
+  /**
+   * The business timezone the pane is drawn in. The band, the per-day lookups and the
+   * "now" line all read the clock through it, so an appointment sits where the
+   * business's own day puts it rather than where the viewer's device does. Omitted
+   * (or equal to the browser's) reproduces the previous behaviour exactly.
+   */
+  timeZone?: string
   busy?: boolean
 }
 
@@ -190,29 +229,61 @@ export function AppointmentCalendar({
   onCreateAt,
   onReschedule,
   onSelectDate,
+  onOpenWeek,
+  onOpenDay,
+  onModeChange,
+  hours = null,
+  timeZone,
   busy = false,
 }: AppointmentCalendarProps) {
   const now = useNow()
   const scrollRef = useRef<HTMLDivElement>(null)
   const drag = useDragState()
 
+  /** The business timezone every pane date and instant is read through. */
+  const zone = useMemo(() => resolveTimeZone(timeZone, browserTimeZone()), [timeZone])
+  const todayKey = useMemo(() => zonedDateKey(now, zone), [now, zone])
+
+  // Rows are bucketed by BUSINESS-LOCAL day, so a booking near midnight falls in the
+  // column the business was open for, not the one the viewer's clock happens to be on.
   const byDay = useMemo(() => {
-    const map = new Map<number, AppointmentRow[]>()
+    const map = new Map<string, AppointmentRow[]>()
     for (const row of rows) {
-      const key = startOfDay(new Date(row.scheduledAt)).getTime()
+      const key = zonedDateKey(row.scheduledAt, zone)
       const bucket = map.get(key)
       if (bucket) bucket.push(row)
       else map.set(key, [row])
     }
     return map
-  }, [rows])
+  }, [rows, zone])
 
-  // Keep the band scrolled to the working day rather than to midnight.
+  /**
+   * The local days the current period actually shows. The band is the union of
+   * their opening hours, so a week whose Saturday opens later than its weekdays
+   * still fits its whole Saturday into the same grid as the early weekdays.
+   */
+  const visibleDates = useMemo(() => {
+    if (mode === 'month') {
+      const { start } = calendarWindow('month', anchor)
+      return Array.from({ length: 42 }, (_, index) => addDays(start, index))
+    }
+    if (mode === 'week') {
+      const weekStart = startOfWeek(anchor)
+      return Array.from({ length: 7 }, (_, index) => addDays(weekStart, index))
+    }
+    return [startOfDay(anchor)]
+  }, [mode, anchor])
+
+  const band = useMemo(() => scheduleBand(hours, visibleDates), [hours, visibleDates])
+
+  // Keep the band scrolled to around "now" rather than to the top of the day, so
+  // the current hour is visible when the page opens — without hiding the earlier
+  // working hours, which stay one scroll up.
   useEffect(() => {
     if (mode === 'month' || !scrollRef.current) return
-    const current = bandOffsetMinutes(new Date().toISOString())
+    const current = bandOffsetMinutes(new Date().toISOString(), band.startMinute, zone)
     scrollRef.current.scrollTop = Math.max(0, ((current - 60) / 60) * HOUR_HEIGHT)
-  }, [mode, anchor])
+  }, [mode, anchor, band.startMinute, zone])
 
   if (rows.length === 0 && mode === 'month') {
     return (
@@ -228,13 +299,17 @@ export function AppointmentCalendar({
 
   return (
     <div className="card overflow-hidden" aria-busy={busy || undefined}>
+      {onModeChange ? (
+        <PeriodTrail mode={mode} anchor={anchor} onModeChange={onModeChange} />
+      ) : null}
       {mode === 'month' ? (
         <MonthGrid
           anchor={anchor}
           byDay={byDay}
-          now={now}
+          hours={hours}
+          todayKey={todayKey}
           onSelect={onSelect}
-          onSelectDate={onSelectDate}
+          onSelectDate={onOpenWeek ?? onSelectDate}
         />
       ) : (
         <TimeGrid
@@ -243,14 +318,89 @@ export function AppointmentCalendar({
           byDay={byDay}
           staff={staff}
           now={now}
+          hours={hours}
+          band={band}
+          zone={zone}
+          todayKey={todayKey}
           scrollRef={scrollRef}
           onSelect={onSelect}
           onCreateAt={onCreateAt}
           onReschedule={onReschedule}
+          onOpenDay={onOpenDay}
           drag={drag}
         />
       )}
     </div>
+  )
+}
+
+/**
+ * Where the calendar is, and how to widen it: `Month · Week · Day`.
+ *
+ * The trail is both the answer to "which period am I looking at?" and the drill-up
+ * control (daily → weekly → monthly). Moving to a broader period deliberately does
+ * NOT touch the selected date — the week or month that contains it is what opens,
+ * so a date picked three clicks ago is never thrown away.
+ */
+function PeriodTrail({
+  mode,
+  anchor,
+  onModeChange,
+}: {
+  mode: CalendarMode
+  anchor: Date
+  onModeChange: (mode: CalendarMode) => void
+}) {
+  /** Broadest first, so the trail reads left to right like a breadcrumb. */
+  const trail: readonly { value: CalendarMode; label: string }[] = [
+    { value: 'month', label: 'Month' },
+    { value: 'week', label: 'Week' },
+    { value: 'day', label: 'Day' },
+  ]
+
+  const period =
+    mode === 'month'
+      ? new Intl.DateTimeFormat('en-GB', { month: 'long', year: 'numeric' }).format(anchor)
+      : mode === 'week'
+        ? `${formatDay(calendarWindow('week', anchor).start)} – ${formatDay(addDays(calendarWindow('week', anchor).start, 6))}`
+        : formatDay(anchor)
+
+  return (
+    <nav
+      aria-label="Calendar period"
+      className="flex flex-wrap items-center gap-[0.3rem] border-b border-line px-[0.7rem] py-[0.5rem]"
+    >
+      {trail.map((step, index) => {
+        const current = step.value === mode
+        return (
+          <Fragment key={step.value}>
+            {index > 0 ? (
+              <span aria-hidden="true" className="text-caption text-subtle">
+                /
+              </span>
+            ) : null}
+            {current ? (
+              <span
+                aria-current="true"
+                className="rounded-sm bg-hover px-[0.45rem] py-[0.15rem] text-caption font-semibold text-fg"
+              >
+                {step.label}
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={() => onModeChange(step.value)}
+                aria-label={`Show the ${step.label.toLowerCase()} view`}
+                className="rounded-sm px-[0.45rem] py-[0.15rem] text-caption font-medium text-muted transition-colors hover:bg-hover hover:text-fg focus-visible:shadow-ring focus-visible:outline-none"
+              >
+                {step.label}
+              </button>
+            )}
+          </Fragment>
+        )
+      })}
+      <span className="ml-[0.3rem] truncate text-caption text-subtle">{period}</span>
+    </nav>
   )
 }
 
@@ -291,13 +441,15 @@ function useDragState() {
 function MonthGrid({
   anchor,
   byDay,
-  now,
+  hours,
+  todayKey,
   onSelect,
   onSelectDate,
 }: {
   anchor: Date
-  byDay: ReadonlyMap<number, AppointmentRow[]>
-  now: number
+  byDay: ReadonlyMap<string, AppointmentRow[]>
+  hours: PublicOpeningHours | null
+  todayKey: string
   onSelect: (appointmentId: string) => void
   onSelectDate: (date: Date) => void
 }) {
@@ -320,12 +472,13 @@ function MonthGrid({
       <div className="grid grid-cols-7">
         {Array.from({ length: 42 }, (_, index) => {
           const date = addDays(start, index)
-          const key = startOfDay(date).getTime()
+          const key = toDateValue(date)
           const dayRows = (byDay.get(key) ?? [])
             .slice()
             .sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime())
           const outside = date.getMonth() !== month
-          const today = isSameDay(date, now)
+          const today = key === todayKey
+          const closed = resolveDaySchedule(hours, date).isClosed
 
           return (
             <div
@@ -334,6 +487,7 @@ function MonthGrid({
                 'min-h-[4.6rem] border-r border-b border-line p-[0.3rem] sm:min-h-[7.6rem] sm:p-[0.45rem]',
                 'last:border-r-0 [&:nth-child(7n)]:border-r-0',
                 outside && 'bg-hover text-muted',
+                closed && !outside && 'bg-sunken',
               )}
             >
               <div className="mb-[0.3rem] flex items-center justify-between gap-2">
@@ -351,6 +505,12 @@ function MonthGrid({
                 {dayRows.length > 0 ? (
                   <span className="rounded-pill bg-success-soft px-[0.4rem] text-caption font-bold text-success-ink tabular">
                     {dayRows.length}
+                  </span>
+                ) : closed && !outside ? (
+                  // A closed day is called out, so an empty cell reads as "shut"
+                  // rather than "nothing booked".
+                  <span className="rounded-pill bg-hover px-[0.4rem] text-caption font-semibold text-subtle">
+                    Closed
                   </span>
                 ) : null}
               </div>
@@ -393,13 +553,22 @@ function MonthGrid({
 type TimeGridProps = {
   mode: Exclude<CalendarMode, 'month'>
   anchor: Date
-  byDay: ReadonlyMap<number, AppointmentRow[]>
+  byDay: ReadonlyMap<string, AppointmentRow[]>
   staff: readonly StaffDashboardItem[]
   now: number
+  hours: PublicOpeningHours | null
+  /** The hour-aligned band the grid draws, derived from the business's hours. */
+  band: { startMinute: number; endMinute: number }
+  /** The business timezone instants are read in. */
+  zone: string
+  /** The business-local `yyyy-MM-dd` of today. */
+  todayKey: string
   scrollRef: React.RefObject<HTMLDivElement | null>
   onSelect: (appointmentId: string) => void
   onCreateAt: (input: { start: Date; staffUserId?: string }) => void
   onReschedule: (input: { appointmentId: string; start: Date; staffUserId?: string }) => void
+  /** A weekday header was clicked: open that day (week → day drill-down). */
+  onOpenDay?: (date: Date) => void
   drag: { state: DragState; setState: (next: DragState) => void }
 }
 
@@ -432,10 +601,15 @@ function TimeGrid({
   byDay,
   staff,
   now,
+  hours,
+  band,
+  zone,
+  todayKey,
   scrollRef,
   onSelect,
   onCreateAt,
   onReschedule,
+  onOpenDay,
   drag,
 }: TimeGridProps) {
   const columnRefs = useRef(new Map<string, HTMLDivElement>())
@@ -465,7 +639,7 @@ function TimeGrid({
     const weekStart = startOfWeek(anchor)
     return Array.from({ length: 7 }, (_, index) => {
       const date = addDays(weekStart, index)
-      const rows = byDay.get(startOfDay(date).getTime()) ?? []
+      const rows = byDay.get(toDateValue(date)) ?? []
       return {
         key: toDateValue(date),
         staffUserId: undefined,
@@ -477,6 +651,12 @@ function TimeGrid({
   }, [mode, anchor, staff, byDay])
 
   const { state, setState } = drag
+
+  // The band, in pixels. Derived from the business's hours (via `band`), not from a
+  // fixed working day, so the drop target and the grid lines agree at any opening time.
+  const bandMinutes = Math.max(60, band.endMinute - band.startMinute)
+  const hourCount = Math.max(1, Math.round(bandMinutes / 60))
+  const bandHeightPx = hourCount * HOUR_HEIGHT
 
   // Window-level move/up, so a fast drag that leaves the block still lands.
   useEffect(() => {
@@ -516,11 +696,11 @@ function TimeGrid({
       const rect = element.getBoundingClientRect()
       const offsetY = event.clientY - rect.top
       const minutes = Math.round((offsetY / HOUR_HEIGHT) * 60)
-      const snapped = Math.max(0, Math.min(BAND_MINUTES - 15, Math.round(minutes / 15) * 15))
+      const snapped = Math.max(0, Math.min(bandMinutes - 15, Math.round(minutes / 15) * 15))
 
       const start = startOfDay(target.date)
-      start.setHours(DAY_START_HOUR, 0, 0, 0)
-      start.setMinutes(snapped)
+      start.setHours(0, 0, 0, 0)
+      start.setMinutes(band.startMinute + snapped)
 
       onReschedule({ appointmentId: current.appointmentId, start, staffUserId: target.staffUserId })
     }
@@ -533,13 +713,11 @@ function TimeGrid({
       window.removeEventListener('pointerup', onUp)
       window.removeEventListener('pointercancel', onUp)
     }
-  }, [state, setState, columns, onReschedule])
+  }, [state, setState, columns, onReschedule, band, bandMinutes])
 
-  const minutesNow = (now - startOfDay(new Date(now)).getTime()) / 60_000
-  const nowTop = ((minutesNow - DAY_START_HOUR * 60) / 60) * HOUR_HEIGHT
-  const showNowLine = nowTop >= 0 && nowTop <= (DAY_END_HOUR - DAY_START_HOUR) * HOUR_HEIGHT
-
-  const bandHeightPx = (DAY_END_HOUR - DAY_START_HOUR) * HOUR_HEIGHT
+  const minutesNow = zonedMinuteOfDay(now, zone)
+  const nowTop = ((minutesNow - band.startMinute) / 60) * HOUR_HEIGHT
+  const showNowLine = nowTop >= 0 && nowTop <= bandHeightPx
 
   return (
     <div
@@ -557,10 +735,18 @@ function TimeGrid({
         <div className="sticky top-0 left-0 z-30 border-b border-line bg-hover" aria-hidden="true" />
 
         {columns.map((column) => {
-          const isToday = mode === 'week' && isSameDay(column.date, now)
-          const rows = byDay.get(startOfDay(column.date).getTime()) ?? []
+          const isToday = mode === 'week' && toDateValue(column.date) === todayKey
+          const rows = byDay.get(toDateValue(column.date)) ?? []
           const count = rows.filter((row) => row.status !== 'cancelled').length
           const member = staff.find((entry) => entry.userId === column.key)
+          // The business's real hours for this column's day. "Closed" is only ever
+          // claimed when the hours are actually known — an unanswered read must not
+          // be drawn as a closure.
+          const schedule = resolveDaySchedule(hours, column.date)
+          const closed = Boolean(hours) && schedule.isClosed
+          const hoursLabel = schedule.periods
+            .map((period) => `${minuteToClock(period.openMinute)}–${minuteToClock(period.closeMinute)}`)
+            .join(', ')
 
           return (
             <div
@@ -580,12 +766,37 @@ function TimeGrid({
                   />
                 ) : null}
                 <div className="min-w-0">
-                  <b className="block truncate text-label">{column.title}</b>
-                  <small className="block truncate text-caption text-muted">
-                    {mode === 'day'
-                      ? `${column.subtitle} · ${count} appt${count === 1 ? '' : 's'}`
-                      : column.subtitle}
-                  </small>
+                  {mode === 'week' && onOpenDay ? (
+                    // The day header IS the drill-down: one tap opens that day's
+                    // schedule with the same date the column was showing.
+                    <button
+                      type="button"
+                      onClick={() => onOpenDay(column.date)}
+                      aria-label={`Open ${formatDay(column.date)}`}
+                      className="block w-full min-w-0 text-left focus-visible:shadow-ring focus-visible:outline-none"
+                    >
+                      <b className="block truncate text-label">{column.title}</b>
+                      <small
+                        className={cn(
+                          'block truncate text-caption',
+                          closed ? 'font-semibold text-subtle' : 'text-muted',
+                        )}
+                      >
+                        {closed ? 'Closed' : `${column.subtitle} · ${hoursLabel}`}
+                      </small>
+                    </button>
+                  ) : (
+                    <>
+                      <b className="block truncate text-label">{column.title}</b>
+                      <small className="block truncate text-caption text-muted">
+                        {mode === 'day'
+                          ? `${column.subtitle} · ${count} appt${count === 1 ? '' : 's'}${
+                              closed ? ' · closed' : ''
+                            }`
+                          : column.subtitle}
+                      </small>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
@@ -593,22 +804,23 @@ function TimeGrid({
         })}
 
         <div className="sticky left-0 z-10 bg-surface">
-          {Array.from({ length: DAY_END_HOUR - DAY_START_HOUR }, (_, index) => (
+          {Array.from({ length: hourCount }, (_, index) => (
             <div
               key={index}
               className="pr-[0.5rem] text-right text-caption text-muted tabular"
               style={{ height: HOUR_HEIGHT }}
             >
-              {String(DAY_START_HOUR + index).padStart(2, '0')}:00
+              {minuteToClock(band.startMinute + index * 60)}
             </div>
           ))}
         </div>
 
         {columns.map((column) => {
-          const rows = (byDay.get(startOfDay(column.date).getTime()) ?? []).filter(
+          const rows = (byDay.get(toDateValue(column.date)) ?? []).filter(
             (row) => mode === 'week' || row.staffUserId === column.staffUserId,
           )
           const positioned = positionEvents(rows)
+          const closed = Boolean(hours) && resolveDaySchedule(hours, column.date).isClosed
 
           return (
             <div
@@ -620,24 +832,41 @@ function TimeGrid({
               className="relative border-l border-line"
               style={{ height: bandHeightPx }}
             >
-              <button
-                type="button"
-                tabIndex={-1}
-                aria-hidden="true"
-                className="absolute inset-0 cursor-cell focus:outline-none"
-                onClick={(event) => {
-                  const rect = event.currentTarget.getBoundingClientRect()
-                  const minutes =
-                    Math.round(((event.clientY - rect.top) / HOUR_HEIGHT) * 60 / 15) * 15
-                  const start = startOfDay(column.date)
-                  start.setHours(DAY_START_HOUR, 0, 0, 0)
-                  start.setMinutes(Math.max(0, Math.min(BAND_MINUTES, minutes)))
-                  onCreateAt({ start, staffUserId: column.staffUserId })
-                }}
-              />
+              {closed ? (
+                // A closed day still renders the grid — appointments booked on a
+                // non-working day (if the domain ever allows one) must not vanish —
+                // but the column is visually muted and clicking it will not offer a
+                // slot the business has said it is shut for.
+                <div
+                  className="pointer-events-none absolute inset-0 z-[1] bg-sunken/60"
+                  aria-hidden="true"
+                >
+                  <span className="absolute top-[0.4rem] left-1/2 -translate-x-1/2 rounded-pill bg-surface px-[0.5rem] py-[0.1rem] text-caption font-semibold text-subtle shadow-sm">
+                    Closed
+                  </span>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  tabIndex={-1}
+                  aria-hidden="true"
+                  className="absolute inset-0 cursor-cell focus:outline-none"
+                  onClick={(event) => {
+                    const rect = event.currentTarget.getBoundingClientRect()
+                    const minutes =
+                      Math.round(((event.clientY - rect.top) / HOUR_HEIGHT) * 60 / 15) * 15
+                    const start = startOfDay(column.date)
+                    start.setHours(0, 0, 0, 0)
+                    start.setMinutes(
+                      band.startMinute + Math.max(0, Math.min(bandMinutes - 15, minutes)),
+                    )
+                    onCreateAt({ start, staffUserId: column.staffUserId })
+                  }}
+                />
+              )}
 
               {positioned.map(({ row, lane, lanes }) => {
-                const top = (bandOffsetMinutes(row.scheduledAt) / 60) * HOUR_HEIGHT
+                const top = (bandOffsetMinutes(row.scheduledAt, band.startMinute, zone) / 60) * HOUR_HEIGHT
                 const height = bandHeight(row.scheduledAt, row.endAt)
                 const isDragging = state.appointmentId === row.id && state.active
                 const canDrag =
@@ -683,7 +912,7 @@ function TimeGrid({
                 )
               })}
 
-              {isSameDay(column.date, now) && showNowLine ? (
+              {toDateValue(column.date) === todayKey && showNowLine ? (
                 <div
                   aria-hidden="true"
                   className="pointer-events-none absolute right-0 left-0 z-[2] h-[2px] bg-danger"

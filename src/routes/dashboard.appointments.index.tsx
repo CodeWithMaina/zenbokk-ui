@@ -3,52 +3,58 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import {
   AppointmentBookingForm,
-  AppointmentBookingWizard,
   AppointmentCalendar,
   AppointmentCalendarSkeleton,
   AppointmentCancelDialog,
-  AppointmentCards,
   AppointmentEmptyState,
   AppointmentErrorState,
   AppointmentFilters,
   AppointmentSkeleton,
   AppointmentTable,
+  AppointmentTimeline,
   AppointmentsHeader,
   AppointmentsToolbar,
 } from '../components/appointments'
-import type {
-  AppointmentAction,
-  BookingMode,
-  BookingPrefill,
-  BookingSubmission,
-} from '../components/appointments'
+import type { TimelineScope } from '../components/appointments'
+import type { AppointmentAction, BookingMode, BookingPrefill, BookingSubmission } from '../components/appointments'
+import { BookingWizard } from '../components/booking'
+import type { BookingPrefill as WizardPrefill } from '../components/booking'
 import { ConfirmDialog } from '../components/ui/confirm-dialog'
 import { errorMessage } from '../lib/api/client'
 import type { AppointmentDashboard } from '../lib/api/types'
 import {
+  ALL_DATES_LABEL,
   DEFAULT_APPOINTMENT_FILTERS,
+  DEFAULT_CALENDAR_SORT,
   activeFilterCount,
   addDays,
+  appointmentSortQuery,
   appointmentStatusLabel,
+  calendarPeriod,
   calendarWindow,
   isClientSort,
   isSameDay,
+  periodLabel,
+  presetPeriodUnit,
   resolveDateWindow,
+  shiftPeriod,
+  shiftPeriodAnchor,
   sortAppointments,
   toAppointmentRows,
   toDateValue,
+  zonedStartOfDayUtc,
 } from '../lib/appointments'
 import type {
   AppointmentFilters as Filters,
   AppointmentRow,
   AppointmentView,
-  CalendarMode,
+  Period,
 } from '../lib/appointments'
-import { useAppointmentMutations, useAppointmentPage, useAppointmentRange } from '../lib/appointments'
+import { useAppointmentMutations, useAppointmentPage, useAppointmentRange, useAppointmentPreferences, useBusinessOpeningHours, browserTimeZone, resolveTimeZone } from '../lib/appointments'
 import { useDashboardContext } from '../lib/dashboard/dashboard-context'
 import { MODULE } from '../lib/entitlements'
 import { useDebouncedValue } from '../lib/hooks/use-debounced-value'
-import { formatDay, formatNumber, pluralize } from '../lib/format'
+import { formatNumber, pluralize } from '../lib/format'
 
 export const Route = createFileRoute('/dashboard/appointments/')({
   component: AppointmentsPage,
@@ -56,47 +62,20 @@ export const Route = createFileRoute('/dashboard/appointments/')({
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50] as const
 
-/** Cards load a block at a time; "Show more" reveals the next one. */
-const CARDS_PAGE_SIZE = 24
+/** The timeline loads a block at a time; "Load more" reveals the next one. */
+const TIMELINE_PAGE_SIZE = 24
 
 /** Human label for whatever pane the calendar is showing. */
-function calendarLabel(mode: CalendarMode, anchor: Date): string {
-  if (mode === 'month') {
-    return new Intl.DateTimeFormat('en-GB', { month: 'long', year: 'numeric' }).format(anchor)
-  }
-  if (mode === 'week') {
-    const { start } = calendarWindow('week', anchor)
-    const end = addDays(start, 6)
-    return `${formatDay(start)} – ${formatDay(end)}`
-  }
-  return new Intl.DateTimeFormat('en-GB', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  }).format(anchor)
-}
-
-/** Label for the non-calendar views' date window. */
 /** `HH:mm` for a pre-filled start time, in the viewer's timezone. */
 function clockTime(date: Date): string {
   return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
-}
-
-function windowLabel(filters: Filters): string {
-  const window = resolveDateWindow(filters)
-  if (!window.from || !window.to) return 'All dates'
-  const from = new Date(window.from)
-  const to = new Date(window.to)
-  if (isSameDay(from, to)) return formatDay(from)
-  return `${formatDay(from)} – ${formatDay(to)}`
 }
 
 /**
  * The Appointments module.
  *
  * One page owns the three views, the filters and every write, so the calendar,
- * the table and the cards always describe the same query. Reads are keyed under
+ * the table and the timeline always describe the same query. Reads are keyed under
  * `['appointments', …]`; a mutation invalidates that prefix, which is what
  * makes a refused reschedule snap back to the server's truth instead of leaving
  * a block where the browser wished it had gone.
@@ -116,20 +95,40 @@ function AppointmentsPage() {
 
   const navigate = useNavigate({ from: Route.fullPath })
 
-  const [view, setView] = useState<AppointmentView>('calendar')
-  const [mode, setMode] = useState<CalendarMode>('week')
+  /**
+   * How this owner likes to see their day. Remembered per business across sessions —
+   * the calendar view, its granularity and the sort order — while the search box, the
+   * date range and the filters describe the question being asked right now and are
+   * deliberately not restored.
+   */
+  const { preferences, update: updatePreferences } = useAppointmentPreferences(business.id)
+  const view = preferences.view
+  const mode = preferences.mode
   const [anchor, setAnchor] = useState(() => new Date())
-  const [filters, setFilters] = useState<Filters>(DEFAULT_APPOINTMENT_FILTERS)
+
+  /** Everything except the order, which lives in the remembered preferences. */
+  const [filterState, setFilterState] = useState<Omit<Filters, 'sort'>>(() => {
+    const { sort: _sort, ...rest } = DEFAULT_APPOINTMENT_FILTERS
+    return rest
+  })
+  const filters = useMemo<Filters>(
+    () => ({ ...filterState, sort: preferences.sort }),
+    [filterState, preferences.sort],
+  )
+
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState<number>(25)
-  const [cardPageSize, setCardPageSize] = useState<number>(CARDS_PAGE_SIZE)
+  const [timelinePageSize, setTimelinePageSize] = useState<number>(TIMELINE_PAGE_SIZE)
   const [selected, setSelected] = useState<Set<string>>(() => new Set())
 
   const [filtersOpen, setFiltersOpen] = useState(false)
+  /** Reschedule / rebook, which keeps the shared booking drawer. */
   const [booking, setBooking] = useState<{
     mode: BookingMode
     prefill?: BookingPrefill
   } | null>(null)
+  /** The new-booking flow. An empty object opens it with nothing pre-filled. */
+  const [newBooking, setNewBooking] = useState<WizardPrefill | null>(null)
   const [pendingCancel, setPendingCancel] = useState<AppointmentRow | null>(null)
   const [bulkCancelOpen, setBulkCancelOpen] = useState(false)
 
@@ -137,29 +136,90 @@ function AppointmentsPage() {
   // While the Staff module is off no staff filter is ever sent, even if a stale value
   // lingers in the filter set: the server would ignore it, so the request must omit it.
   const queryFilters = useMemo<Filters>(
-    () => ({ ...filters, search, staffId: staffModuleEnabled ? filters.staffId : null }),
+    () => ({ ...filters, search, staffIds: staffModuleEnabled ? filters.staffIds : [] }),
     [filters, search, staffModuleEnabled],
   )
 
-  const window = useMemo(() => calendarWindow(mode, anchor), [mode, anchor])
+  /**
+   * The business's opening hours — the schedule the calendar's band, its per-day
+   * labels, its closed-day treatment and the timeline's day headers are drawn from.
+   * Read once per business and cached; a failed read leaves the views on their
+   * default band rather than blocking the page.
+   */
+  const openingHours = useBusinessOpeningHours(business.id, enabled)
+
+  /**
+   * The one authoritative business timezone.
+   *
+   * It comes from the scheduling domain's own record (published on the opening-hours
+   * read), never from the viewer's device — a business in Nairobi must not have its
+   * appointments shifted into another day because the dashboard was opened elsewhere.
+   * While the hours are still loading (or if the read failed) the browser's timezone
+   * is the fallback, which is exactly the pre-existing behaviour.
+   */
+  const businessTimeZone = useMemo(
+    () => resolveTimeZone(openingHours.data?.timeZoneId, browserTimeZone()),
+    [openingHours.data?.timeZoneId],
+  )
+
+  const window = useMemo(() => {
+    const local = calendarWindow(mode, anchor)
+    return {
+      start: zonedStartOfDayUtc(toDateValue(local.start), businessTimeZone),
+      end: zonedStartOfDayUtc(toDateValue(local.end), businessTimeZone),
+    }
+  }, [mode, anchor, businessTimeZone])
+
+  /**
+   * The calendar pane's own ordering, resolved once through the same function the
+   * list uses, so "clock order" is defined in exactly one place.
+   */
+  const calendarOrder = useMemo(() => appointmentSortQuery(DEFAULT_CALENDAR_SORT), [])
+
+  /**
+   * How the timeline should read the rows it is given.
+   *
+   * Derived from the date window the filters already resolved rather than from a
+   * separate control, so the feed always describes the same period the rest of the
+   * screen is showing: one day opens its rows, a week groups by day, anything wider
+   * groups by date with the days collapsed until asked for.
+   */
+  const timelineScope: TimelineScope = useMemo(() => {
+    const active = resolveDateWindow(filters, new Date(), businessTimeZone)
+    if (!active.from || !active.to) return 'month'
+    const days = Math.max(
+      1,
+      Math.round((new Date(active.to).getTime() - new Date(active.from).getTime()) / 86_400_000),
+    )
+    if (days <= 1) return 'day'
+    if (days <= 8) return 'week'
+    return 'month'
+  }, [filters, businessTimeZone])
 
   const rangeQuery = useAppointmentRange(
     {
       search: queryFilters.search.trim() || null,
       status: queryFilters.status,
-      staffId: queryFilters.staffId,
-      serviceId: queryFilters.serviceId,
+      paymentStatus: queryFilters.payment === 'all' ? null : queryFilters.payment,
+      staffIds: queryFilters.staffIds,
+      serviceIds: queryFilters.serviceIds,
+      customerIds: queryFilters.customerIds,
       from: window.start.toISOString(),
       to: window.end.toISOString(),
+      // A time grid is read in clock order, so the pane names its own ordering rather
+      // than inheriting whatever the list is sorted by (which now defaults to
+      // "most recently created" and would mean nothing on a calendar).
+      sortBy: calendarOrder.sortBy,
+      sortDirection: calendarOrder.sortDirection,
     },
     enabled && view === 'calendar',
   )
 
-  // Cards walk their own page size (a growing block revealed by "Show more");
+  // The timeline walks its own page size (a growing block revealed by "Load more");
   // the table uses its own page and rows-per-page controls.
-  const listPage = view === 'cards' ? 1 : page
-  const listPageSize = view === 'cards' ? cardPageSize : pageSize
-  const pageQuery = useAppointmentPage(queryFilters, listPage, listPageSize, enabled && view !== 'calendar')
+  const listPage = view === 'timeline' ? 1 : page
+  const listPageSize = view === 'timeline' ? timelinePageSize : pageSize
+  const pageQuery = useAppointmentPage(queryFilters, listPage, listPageSize, enabled && view !== 'calendar', businessTimeZone)
 
   const active = view === 'calendar' ? rangeQuery : pageQuery
   const dashboard: AppointmentDashboard | undefined = active.data
@@ -193,12 +253,6 @@ function AppointmentsPage() {
   const mutations = useAppointmentMutations()
   const canBook = hasPermission('appointments.create') || hasPermission('appointments.manage')
 
-  /** Calendar-originated prefill: the clicked slot and, when known, its staff member. */
-  const bookingStart = booking?.prefill?.start ?? null
-  const bookingStaff = booking?.prefill?.staffUserId
-    ? (reference?.staff.find((member) => member.userId === booking.prefill?.staffUserId) ?? null)
-    : null
-
   const mutateBusy =
     mutations.create.isPending ||
     mutations.reschedule.isPending ||
@@ -210,20 +264,25 @@ function AppointmentsPage() {
 
   const resetPaging = useCallback(() => {
     setPage(1)
-    setCardPageSize(CARDS_PAGE_SIZE)
+    setTimelinePageSize(TIMELINE_PAGE_SIZE)
     setSelected(new Set())
   }, [])
 
   const onFiltersChange = useCallback(
     (next: Filters) => {
-      setFilters(next)
+      const { sort, ...rest } = next
+      setFilterState(rest)
+      // The order is a remembered preference, so it is written back rather than held in
+      // the session's filter state.
+      if (sort !== preferences.sort) updatePreferences({ sort })
       resetPaging()
     },
-    [resetPaging],
+    [preferences.sort, resetPaging, updatePreferences],
   )
 
   const resetFilters = useCallback(() => {
-    setFilters({ ...DEFAULT_APPOINTMENT_FILTERS })
+    const { sort: _sort, ...rest } = DEFAULT_APPOINTMENT_FILTERS
+    setFilterState(rest)
     resetPaging()
   }, [resetPaging])
 
@@ -429,20 +488,92 @@ function AppointmentsPage() {
     [mutations.reschedule, rows],
   )
 
-  const navigateCalendar = useCallback(
-    (direction: -1 | 1) => {
-      setAnchor((current) =>
-        mode === 'month'
-          ? new Date(current.getFullYear(), current.getMonth() + direction, 1)
-          : addDays(current, direction * (mode === 'week' ? 7 : 1)),
-      )
+  /**
+   * The dates on screen — the single source of truth for date navigation in every
+   * view. The calendar's period follows its granularity and focus date; the table
+   * and timeline follow the filter preset. Whichever view moved the period last,
+   * the others inherit it, because they all read this one value.
+   *
+   * `null` means "all dates", which is a real state and cannot be stepped through.
+   */
+  const period = useMemo<Period | null>(() => {
+    if (view === 'calendar') return calendarPeriod(mode, anchor)
+    const unit = presetPeriodUnit(filters.preset)
+    const active = resolveDateWindow(filters, new Date(), businessTimeZone)
+    if (!unit || !active.from || !active.to) return null
+    return { unit, from: new Date(active.from), to: new Date(active.to) }
+  }, [view, mode, anchor, filters, businessTimeZone])
+
+  const periodText = period ? periodLabel(period) : ALL_DATES_LABEL
+
+  /**
+   * Point the filter window at a period, so the timeline and the table describe the
+   * same dates the calendar is showing. The calendar's own fetch window is derived
+   * from `mode`/`anchor`, so writing the filters never disturbs the pane that moved.
+   */
+  const applyPeriod = useCallback(
+    (next: Period) => {
+      // Only a period that really IS today may carry the `today` preset: the drawer
+      // renders the preset's own wording and highlights it as pressed, so labelling a
+      // stepped day "Today" would tell the user the wrong date.
+      const isToday = next.unit === 'day' && isSameDay(next.from, new Date())
+      setFilterState((current) => ({
+        ...current,
+        preset: isToday ? 'today' : 'custom',
+        from: toDateValue(next.from),
+        to: toDateValue(next.to),
+      }))
+      resetPaging()
     },
-    [mode],
+    [resetPaging],
+  )
+
+  /** Previous / next period, by one day, week, month or range length. */
+  const stepPeriod = useCallback(
+    (direction: -1 | 1) => {
+      if (!period) return
+      const next = shiftPeriod(period, direction)
+      setAnchor((current) => shiftPeriodAnchor(period, current, direction))
+      applyPeriod(next)
+    },
+    [applyPeriod, period],
+  )
+
+  /** Jump to the current date without disturbing any other filter. */
+  const goToToday = useCallback(() => {
+    const today = new Date()
+    setAnchor(today)
+    const next = view === 'calendar' ? calendarPeriod(mode, today) : calendarPeriod('day', today)
+    applyPeriod(next)
+  }, [applyPeriod, mode, view])
+
+  /**
+   * Switch pane without losing the dates.
+   *
+   * The calendar describes its period through its granularity and its focus date; the
+   * table and timeline describe theirs through the filter window. So the period is
+   * handed over in whichever form the destination reads: switching never silently
+   * changes which dates are on screen, in either direction.
+   */
+  const changeView = useCallback(
+    (next: AppointmentView) => {
+      if (!period) {
+        // "All dates" is already the widest either pane can show; there is nothing to
+        // hand over.
+      } else if (next === 'calendar') {
+        setAnchor(period.from)
+      } else if (view === 'calendar') {
+        applyPeriod(period)
+      }
+      updatePreferences({ view: next })
+      resetPaging()
+    },
+    [applyPeriod, period, resetPaging, updatePreferences, view],
   )
 
   /**
    * Keyboard shortcuts from the reference design: `n` opens a new booking, `f`
-   * opens the filters, and `1`/`2`/`3` switch calendar/table/cards. The `/`
+   * opens the filters, and `1`/`2`/`3` switch calendar/table/timeline. The `/`
    * shortcut lives with the search box that owns it. Nothing fires while the
    * operator is typing or while a dialog/drawer is open.
    */
@@ -452,14 +583,14 @@ function AppointmentsPage() {
       const target = event.target as HTMLElement | null
       const tag = target?.tagName ?? ''
       if (/^(INPUT|SELECT|TEXTAREA)$/.test(tag) || target?.isContentEditable) return
-      if (filtersOpen || booking || pendingCancel || bulkCancelOpen) return
+      if (filtersOpen || booking || newBooking || pendingCancel || bulkCancelOpen) return
       if (document.querySelector('[role="dialog"]')) return
 
       switch (event.key.toLowerCase()) {
         case 'n':
           if (!canBook) return
           event.preventDefault()
-          setBooking({ mode: 'new' })
+          setNewBooking({})
           break
         case 'f':
           event.preventDefault()
@@ -467,18 +598,15 @@ function AppointmentsPage() {
           break
         case '1':
           event.preventDefault()
-          setView('calendar')
-          resetPaging()
+          changeView('calendar')
           break
         case '2':
           event.preventDefault()
-          setView('table')
-          resetPaging()
+          changeView('table')
           break
         case '3':
           event.preventDefault()
-          setView('cards')
-          resetPaging()
+          changeView('timeline')
           break
         default:
           break
@@ -486,7 +614,7 @@ function AppointmentsPage() {
     }
     document.addEventListener('keydown', onKeyDown)
     return () => document.removeEventListener('keydown', onKeyDown)
-  }, [canBook, filtersOpen, booking, pendingCancel, bulkCancelOpen, resetPaging])
+  }, [canBook, filtersOpen, booking, newBooking, pendingCancel, bulkCancelOpen, changeView])
 
   if (!enabled) {
     return (
@@ -506,12 +634,9 @@ function AppointmentsPage() {
     <div>
       <AppointmentsHeader
         view={view}
-        onViewChange={(next) => {
-          setView(next)
-          resetPaging()
-        }}
+        onViewChange={changeView}
         todayCount={todayCount}
-        onNewBooking={() => setBooking({ mode: 'new' })}
+        onNewBooking={() => setNewBooking({})}
         canBook={canBook}
         busy={mutateBusy}
       />
@@ -521,26 +646,20 @@ function AppointmentsPage() {
         onSearchChange={(value) => onFiltersChange({ ...filters, search: value })}
         filterCount={activeFilterCount(filters)}
         onOpenFilters={() => setFiltersOpen(true)}
-        navigation={
+        navigation={{
+          label: periodText,
+          onPrevious: () => stepPeriod(-1),
+          onNext: () => stepPeriod(1),
+          onToday: goToToday,
+          // "All dates" has no previous or next, so the arrows say so instead of
+          // pretending to move somewhere.
+          disabled: period === null,
+        }}
+        summary={`${
           view === 'calendar'
-            ? {
-                label: calendarLabel(mode, anchor),
-                onPrevious: () => navigateCalendar(-1),
-                onNext: () => navigateCalendar(1),
-                onToday: () => {
-                  setAnchor(new Date())
-                  setMode((current) => (current === 'month' ? 'month' : 'week'))
-                },
-              }
-            : undefined
-        }
-        summary={
-          view === 'calendar'
-            ? `${pluralize(orderedRows.length, 'appointment')} · ${calendarLabel(mode, anchor)}`
-            : `${formatNumber(pageQuery.data?.meta.totalCount ?? 0)} appointments · ${windowLabel(
-                queryFilters,
-              )}`
-        }
+            ? pluralize(orderedRows.length, 'appointment')
+            : formatNumber(pageQuery.data?.meta.totalCount ?? 0) + ' appointments'
+        } · ${periodText}`}
         statusCounts={statusCounts}
         busy={busy}
       />
@@ -558,7 +677,7 @@ function AppointmentsPage() {
           <AppointmentEmptyState
             filtered={filtered}
             onReset={resetFilters}
-            onNewBooking={canBook ? () => setBooking({ mode: 'new' }) : undefined}
+            onNewBooking={canBook ? () => setNewBooking({}) : undefined}
           />
         </div>
       ) : view === 'calendar' ? (
@@ -567,6 +686,8 @@ function AppointmentsPage() {
           anchor={anchor}
           rows={orderedRows}
           staff={reference?.staff ?? []}
+          hours={openingHours.data ?? null}
+          timeZone={businessTimeZone}
           busy={busy}
           onSelect={(appointmentId) =>
             void navigate({
@@ -576,10 +697,28 @@ function AppointmentsPage() {
           }
           onSelectDate={(date) => {
             setAnchor(date)
-            setMode('day')
+            updatePreferences({ mode: 'day' })
           }}
-          onCreateAt={({ start, staffUserId }) =>
-            setBooking({ mode: 'new', prefill: { start, staffUserId: staffUserId ?? null } })
+          // The calendar's hierarchy: a month cell opens its week, a weekday header
+          // opens its day, and the period trail widens back out. Every step keeps the
+          // selected date — the anchor is the one source of truth for "which date is
+          // selected", so filters, the toolbar label and the timeline all follow it.
+          onOpenWeek={(date) => {
+            setAnchor(date)
+            updatePreferences({ mode: 'week' })
+            resetPaging()
+          }}
+          onOpenDay={(date) => {
+            setAnchor(date)
+            updatePreferences({ mode: 'day' })
+            resetPaging()
+          }}
+          onModeChange={(next) => {
+            updatePreferences({ mode: next })
+            resetPaging()
+          }}
+          onCreateAt={({ start }) =>
+            setNewBooking({ date: toDateValue(start), slot: clockTime(start) })
           }
           onReschedule={handleReschedule}
         />
@@ -610,11 +749,20 @@ function AppointmentsPage() {
           busy={busy}
         />
       ) : (
-        <AppointmentCards
+        <AppointmentTimeline
           rows={orderedRows}
-          groupByDate={!isClientSort(queryFilters.sort)}
+          scope={timelineScope}
+          anchor={toDateValue(anchor)}
+          step={TIMELINE_PAGE_SIZE}
           totalCount={pageQuery.data?.meta.totalCount}
-          onShowMore={() => setCardPageSize((size) => size + CARDS_PAGE_SIZE)}
+          onShowMore={() => setTimelinePageSize((size) => size + TIMELINE_PAGE_SIZE)}
+          hours={openingHours.data ?? null}
+          timeZone={businessTimeZone}
+          onOpenCalendarDay={(date) => {
+            setAnchor(date)
+            updatePreferences({ mode: 'day' })
+            resetPaging()
+          }}
           onOpen={(appointmentId) =>
             void navigate({
               to: '/dashboard/appointments/$appointmentId',
@@ -639,7 +787,7 @@ function AppointmentsPage() {
         calendar={{
           mode,
           onModeChange: (next) => {
-            setMode(next)
+            updatePreferences({ mode: next })
             resetPaging()
           },
           anchor: toDateValue(anchor),
@@ -652,29 +800,33 @@ function AppointmentsPage() {
         busy={busy}
       />
 
-      {booking?.mode === 'new' ? (
-        <AppointmentBookingWizard
+      {newBooking ? (
+        <BookingWizard
           open
-          onClose={() => setBooking(null)}
+          onClose={() => setNewBooking(null)}
           businessId={business.id}
-          staffModuleEnabled={staffModuleEnabled}
+          businessName={business.name}
+          businessLogoUrl={business.logoUrl}
           paymentsEnabled={paymentsEnabled}
           services={reference?.services ?? []}
-          initialDate={bookingStart ? toDateValue(bookingStart) : null}
-          initialTime={bookingStart ? clockTime(bookingStart) : null}
-          initialStaff={bookingStaff}
-          onBooked={(_appointment, message) => {
-            setBooking(null)
-            toast.success(message)
+          prefill={newBooking}
+          onBooked={() => toast.success('Booking created.')}
+          onViewAppointment={(appointmentId) => {
+            setNewBooking(null)
+            void navigate({
+              to: '/dashboard/appointments/$appointmentId',
+              params: { appointmentId },
+            })
           }}
         />
-      ) : booking ? (
+      ) : null}
+
+      {booking ? (
         <AppointmentBookingForm
           open
           onClose={() => setBooking(null)}
           mode={booking.mode}
           businessId={business.id}
-          customers={reference?.customers ?? []}
           services={reference?.services ?? []}
           staff={reference?.staff ?? []}
           staffModuleEnabled={staffModuleEnabled}

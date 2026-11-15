@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { LoyaltyProgramDetails, PROGRAM_TABS } from '../components/loyalty'
 import type { ProgramTab } from '../components/loyalty'
+import { ModulePlaceholder } from '../components/shell/ModulePlaceholder'
 import { useDashboardContext } from '../lib/dashboard/dashboard-context'
 import { MODULE } from '../lib/entitlements'
 
@@ -31,6 +32,10 @@ function ProgramDetailsPage() {
   const tab = tabParam ?? 'overview'
   const navigate = useNavigate({ from: Route.fullPath })
   const { hasModule } = useDashboardContext()
+
+  // The program screens live behind the loyalty module. A direct link while it is
+  // off is answered like any other gated route: the placeholder explains why.
+  if (!hasModule(MODULE.loyalty)) return <ModulePlaceholder navKey="programs" />
 
   return (
     <LoyaltyProgramDetails

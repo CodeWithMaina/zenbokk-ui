@@ -9,6 +9,16 @@ Repositories touched: `PunchedApi/` (backend, its own git repo) and
 `zenbokk-ui/` (frontend, its own git repo). Both on branch `main`.
 `punched-pwd/` was not modified.
 
+> **Superseded in part by a later increment.** The guest OTP flow this increment added —
+> `GuestBookingController`, `GuestBookingService`, `GuestBookingDTOs`,
+> `IGuestBookingService`, the `guest-booking-{start,verify}` rate-limit policies, the
+> `guest=true` token claim, `GuestVerifyPanel`, `lib/storefront/guest-session.ts` and
+> `guestBookingApi` — has since been **removed**. Account-free booking now goes through
+> `POST /v1/businesses/{id}/public-bookings`, which needs no token, no one-time code and
+> no proof of ownership, and appointment creation no longer waits on payment
+> verification. Read the inventory, configuration table and next-action sections below
+> as a record of what existed in that increment.
+
 ---
 
 ## 1. What was implemented

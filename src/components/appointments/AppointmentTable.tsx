@@ -12,6 +12,7 @@ import { PaginationBar } from '../ui/pagination-bar'
 import { AppointmentStatusBadge } from './AppointmentStatusBadge'
 import { appointmentActionItems, isBulkCancellable, isBulkConfirmable } from './AppointmentActions'
 import type { AppointmentAction } from './AppointmentActions'
+import { CustomerTypeBadge } from '../ui/customer-type-badge'
 
 export type AppointmentTableProps = {
   rows: readonly AppointmentRow[]
@@ -234,8 +235,11 @@ function AppointmentTableRow({
             decorative
           />
           <span className="min-w-0">
-            <span className={cn('block truncate font-semibold', dimmed && 'line-through')}>
-              {row.customerName}
+            <span className="flex items-center gap-[0.4rem]">
+              <span className={cn('truncate font-semibold', dimmed && 'line-through')}>
+                {row.customerName}
+              </span>
+              <CustomerTypeBadge type={row.customerType} />
             </span>
             <span className="block truncate text-caption text-muted">
               {row.customerPhone ?? row.customerEmail ?? 'No contact'}

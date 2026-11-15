@@ -48,8 +48,20 @@ export function clientStampGoal(
   return Math.max(1, row.stampsRequired ?? fallback)
 }
 
-/** Roster row → `ClientSummary` (cards, tables, selection all share this). */
-export function toClientSummary(row: BusinessCustomer, fallbackGoal = 8): ClientSummary {
+/**
+ * Roster row → `ClientSummary` (cards, tables, selection all share this).
+ *
+ * Stamp progress is loyalty data. When the workspace is not entitled to the
+ * loyalty module the caller passes `withLoyalty = false`, and the summary
+ * carries no stamp figures at all — so neither a card nor a table can surface a
+ * loyalty widget the business does not own. Loyalty screens (which are only
+ * reachable when the module is on) keep the default and show the progress.
+ */
+export function toClientSummary(
+  row: BusinessCustomer,
+  fallbackGoal = 8,
+  withLoyalty = true,
+): ClientSummary {
   const goal = clientStampGoal(row, fallbackGoal)
 
   return {
@@ -59,8 +71,8 @@ export function toClientSummary(row: BusinessCustomer, fallbackGoal = 8): Client
     status: clientStatusDataStatus(row.enrollmentStatus),
     statusLabel: clientStatusLabel(row.enrollmentStatus),
     tone: clientStatusTone(row.enrollmentStatus),
-    stamps: Math.min(row.totalStamps, goal),
-    stampGoal: goal,
+    customerType: row.customerType,
+    ...(withLoyalty ? { stamps: Math.min(row.totalStamps, goal), stampGoal: goal } : {}),
     lastVisit: row.lastStampAt ? formatDate(row.lastStampAt) : 'No visit yet',
   }
 }

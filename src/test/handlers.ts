@@ -57,6 +57,7 @@ export const handlers = [
       paybillNumber: null,
       paybillAccount: null,
       tillNumber: null,
+      phoneNumber: null,
       payeeName: null,
       instructions: null,
       bookingFeePercentage: 0,

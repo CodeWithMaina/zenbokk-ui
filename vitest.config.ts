@@ -36,6 +36,23 @@ export default defineConfig({
     // An unexpected request is a bug (a missing handler or a duplicate fetch),
     // so it fails the test instead of silently hitting the network.
     server: { deps: { inline: ['@tanstack/react-router'] } },
+    /**
+     * Worker pool sizing.
+     *
+     * Every test file runs in its own jsdom environment with React, MSW and the whole app
+     * graph loaded, and each of those is memory-hungry. Vitest's default is one worker per
+     * core, which is sized for much lighter tests: on a 22-core machine it asks for 21 at
+     * once, exhausts memory, and starts failing to spawn workers
+     * ("[vitest-pool]: Failed to start forks worker"). The files assigned to those workers
+     * never run, so a different handful of tests appears to fail on every run while passing
+     * in isolation — the flakiness this cap removes.
+     *
+     * A small, fixed pool is far more reliable here than a pool sized by CPU count, and it
+     * is also faster: less time is spent paging workers in and out than is saved by extra
+     * parallelism. Isolation stays ON (the suite depends on a fresh environment per file
+     * for MSW handlers, storage and timers), so files still run concurrently.
+     */
+    maxWorkers: 4,
     restoreMocks: true,
     unstubGlobals: true,
     coverage: {

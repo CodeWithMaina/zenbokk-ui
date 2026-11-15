@@ -3,14 +3,7 @@ export { StorefrontGate } from './StorefrontGate'
 export { tenantStorefrontBeforeLoad } from './tenant-route'
 export { useStorefront } from './use-storefront'
 export { useStorefrontBootstrap } from './use-storefront-bootstrap'
-export { storefrontApi, bookingApi, guestBookingApi } from './api'
-export {
-  clearGuestSession,
-  guestTokenFor,
-  readGuestSession,
-  writeGuestSession,
-} from './guest-session'
-export type { GuestSession } from './guest-session'
+export { storefrontApi, bookingApi, publicBookingApi } from './api'
 export {
   clearBookingDraft,
   emptyDraft,

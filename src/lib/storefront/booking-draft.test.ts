@@ -25,11 +25,17 @@ describe('booking draft', () => {
 
   it('round-trips a lineup', () => {
     writeBookingDraft(BUSINESS_A, {
+      ...emptyDraft,
       serviceIds: ['s1', 's2'],
       staffId: 'st1',
       startsAt: '2026-05-12T09:30:00Z',
       notes: 'Allergic to almond oil',
       step: 'details',
+      // The details the booking is made with survive a reload too: a storefront customer has no
+      // account to restore them from.
+      customerName: 'Wanjiru Kariuki',
+      customerPhone: '0712345678',
+      customerEmail: 'wanjiru@example.test',
     })
 
     expect(readBookingDraft(BUSINESS_A)).toEqual({
@@ -38,6 +44,9 @@ describe('booking draft', () => {
       startsAt: '2026-05-12T09:30:00Z',
       notes: 'Allergic to almond oil',
       step: 'details',
+      customerName: 'Wanjiru Kariuki',
+      customerPhone: '0712345678',
+      customerEmail: 'wanjiru@example.test',
     })
   })
 
@@ -76,7 +85,14 @@ describe('booking draft', () => {
     expect(readBookingDraft(BUSINESS_A).serviceIds).toEqual(['s1'])
   })
 
-  it('knows the five steps of the wizard', () => {
-    expect(BOOKING_STEPS).toEqual(['services', 'staff', 'time', 'details', 'payment'])
+  it('knows the steps of the wizard', () => {
+    expect(BOOKING_STEPS).toEqual([
+      'services',
+      'staff',
+      'time',
+      'details',
+      'payment',
+      'identity',
+    ])
   })
 })

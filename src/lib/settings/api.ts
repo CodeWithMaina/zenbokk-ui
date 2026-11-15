@@ -46,6 +46,27 @@ export const settingsApi = {
     return apiGet<BusinessModulesResponse>('/v1/businesses/me/modules')
   },
 
+  /**
+   * Enable or disable one module for the caller's own business (owner only).
+   *
+   * This is the business-level switch behind Finance's enable/disable setting: the server
+   * records an OVERRIDE row, invalidates the entitlement cache, and every gated route (nav,
+   * API) answers accordingly. Historical data is never touched.
+   */
+  setModuleEnabled(moduleKey: string, enabled: boolean): Promise<{ message: string }> {
+    return apiRequest<{ message: string }>(`/v1/businesses/me/modules/${moduleKey}`, {
+      method: 'PUT',
+      body: { enabled },
+    })
+  },
+
+  /** Drop the override so the module reverts to whatever the plan grants. */
+  resetModule(moduleKey: string): Promise<{ message: string }> {
+    return apiRequest<{ message: string }>(`/v1/businesses/me/modules/${moduleKey}`, {
+      method: 'DELETE',
+    })
+  },
+
   /** Update the appointment reminder ladder (enabled, offsets, channels). */
   updateReminderPolicy(
     payload: UpdateBusinessReminderPolicyRequest,

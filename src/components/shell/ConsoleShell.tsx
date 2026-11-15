@@ -1,15 +1,16 @@
 import { Link, useNavigate } from '@tanstack/react-router'
 import type { LinkProps } from '@tanstack/react-router'
 import { LogOut, Menu } from 'lucide-react'
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import type { ReactNode } from 'react'
+import { cn } from '../../lib/cn'
 import { useAuth } from '../../lib/auth'
 import type { NavSection } from '../../lib/navigation'
 import { ThemeControl } from '../../theme'
 import { Avatar } from '../ui/avatar'
 import { Button } from '../ui/button'
-import { Drawer } from '../ui/drawer'
 import { ConsoleNavList } from './ConsoleNavList'
+import { NavDrawer } from './NavDrawer'
 
 export type ConsoleShellProps = {
   brand: string
@@ -23,6 +24,12 @@ export type ConsoleShellProps = {
   nav: readonly NavSection[]
   /** Rendered above the page content — plan notices, impersonation banners… */
   banner?: ReactNode
+  /**
+   * Optional actions for the phone header (a notification bell, a profile
+   * shortcut…), placed to the left of the menu button. Desktop ignores them:
+   * the persistent sidebar already carries the account block.
+   */
+  actions?: ReactNode
   children: ReactNode
 }
 
@@ -30,13 +37,18 @@ function Brand({
   name,
   caption,
   to,
+  className,
 }: {
   name: string
   caption?: string
   to: LinkProps['to']
+  className?: string
 }) {
   return (
-    <Link to={to} className="flex min-w-0 items-center gap-[0.55rem] no-underline">
+    <Link
+      to={to}
+      className={cn('flex min-w-0 items-center gap-[0.55rem] no-underline', className)}
+    >
       <span
         className="grid size-[1.85rem] shrink-0 place-items-center rounded-md bg-inverse font-display text-[0.95rem] leading-none text-on-inverse"
         aria-hidden="true"
@@ -85,7 +97,12 @@ function AccountBlock() {
 
 /**
  * Console frame for the signed-in shells (owner, staff, admin): a persistent
- * sidebar from `lg` up, a slide-over menu on phones, and one account block.
+ * sidebar from `lg` up, a right-side navigation drawer on phones, and one
+ * account block.
+ *
+ * On phones the header leads with the business — its name and caption — so the
+ * workspace is always identifiable; the menu button sits on the right, opening a
+ * drawer that slides in from the same edge.
  */
 export function ConsoleShell({
   brand,
@@ -93,9 +110,11 @@ export function ConsoleShell({
   homeTo,
   nav,
   banner,
+  actions,
   children,
 }: ConsoleShellProps) {
   const [navOpen, setNavOpen] = useState(false)
+  const panelId = useId()
 
   return (
     <div className="min-h-svh bg-bg">
@@ -107,17 +126,27 @@ export function ConsoleShell({
         </aside>
 
         <div className="min-w-0 flex-1">
-          <header className="sticky top-0 z-(--z-header) flex items-center justify-between gap-3 border-b border-line bg-surface/95 px-4 py-[0.6rem] backdrop-blur lg:hidden">
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label="Open menu"
-              onClick={() => setNavOpen(true)}
-            >
-              <Menu className="size-[1.1rem]" aria-hidden="true" />
-            </Button>
-            <Brand name={brand} caption={brandCaption} to={homeTo} />
-            <span className="w-[2.2rem]" aria-hidden="true" />
+          <header className="sticky top-0 z-(--z-header) flex items-center gap-3 border-b border-line bg-surface/95 px-3 py-[0.55rem] backdrop-blur lg:hidden">
+            <Brand
+              name={brand}
+              caption={brandCaption}
+              to={homeTo}
+              className="min-w-0 flex-1"
+            />
+            <div className="flex shrink-0 items-center gap-[0.35rem]">
+              {actions}
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Open menu"
+                aria-haspopup="dialog"
+                aria-expanded={navOpen}
+                aria-controls={panelId}
+                onClick={() => setNavOpen(true)}
+              >
+                <Menu className="size-[1.25rem]" aria-hidden="true" />
+              </Button>
+            </div>
           </header>
 
           {banner}
@@ -125,17 +154,18 @@ export function ConsoleShell({
         </div>
       </div>
 
-      <Drawer
+      <NavDrawer
         open={navOpen}
         onClose={() => setNavOpen(false)}
         title={brand}
         description={brandCaption}
         closeLabel="Close menu"
+        id={panelId}
         bodyClassName="flex flex-col"
       >
         <ConsoleNavList sections={nav} onNavigate={() => setNavOpen(false)} />
         <AccountBlock />
-      </Drawer>
+      </NavDrawer>
     </div>
   )
 }

@@ -20,11 +20,14 @@ import { Route as ContactRouteImport } from './routes/contact'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as EnterpriseRouteImport } from './routes/enterprise'
 import { Route as GalleryRouteImport } from './routes/gallery'
+import { Route as LegalRouteImport } from './routes/legal'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as RegisterRouteImport } from './routes/register'
 import { Route as ReviewsRouteImport } from './routes/reviews'
 import { Route as SearchRouteImport } from './routes/search'
 import { Route as StaffRouteImport } from './routes/staff'
+import { Route as TermsRouteImport } from './routes/terms'
 import { Route as SlugIndexRouteImport } from './routes/$slug.index'
 import { Route as SlugAboutRouteImport } from './routes/$slug.about'
 import { Route as SlugAccountRouteImport } from './routes/$slug.account'
@@ -52,6 +55,7 @@ import { Route as DashboardAppointmentsRouteImport } from './routes/dashboard.ap
 import { Route as DashboardAttendanceRouteImport } from './routes/dashboard.attendance'
 import { Route as DashboardCardDesignRouteImport } from './routes/dashboard.card-design'
 import { Route as DashboardCustomersRouteImport } from './routes/dashboard.customers'
+import { Route as DashboardFinancesRouteImport } from './routes/dashboard.finances'
 import { Route as DashboardGalleryRouteImport } from './routes/dashboard.gallery'
 import { Route as DashboardLoyaltyRouteImport } from './routes/dashboard.loyalty'
 import { Route as DashboardNotificationsRouteImport } from './routes/dashboard.notifications'
@@ -91,6 +95,12 @@ import { Route as DashboardAppointmentsIndexRouteImport } from './routes/dashboa
 import { Route as DashboardAppointmentsAppointmentIdRouteImport } from './routes/dashboard.appointments.$appointmentId'
 import { Route as DashboardCustomersIndexRouteImport } from './routes/dashboard.customers.index'
 import { Route as DashboardCustomersClientIdRouteImport } from './routes/dashboard.customers.$clientId'
+import { Route as DashboardFinancesIndexRouteImport } from './routes/dashboard.finances.index'
+import { Route as DashboardFinancesAnalyticsRouteImport } from './routes/dashboard.finances.analytics'
+import { Route as DashboardFinancesCashbookRouteImport } from './routes/dashboard.finances.cashbook'
+import { Route as DashboardFinancesExpensesRouteImport } from './routes/dashboard.finances.expenses'
+import { Route as DashboardFinancesReconciliationRouteImport } from './routes/dashboard.finances.reconciliation'
+import { Route as DashboardFinancesTransactionsRouteImport } from './routes/dashboard.finances.transactions'
 import { Route as DashboardProgramsIndexRouteImport } from './routes/dashboard.programs.index'
 import { Route as DashboardProgramsProgramIdRouteImport } from './routes/dashboard.programs.$programId'
 import { Route as DashboardServicesIndexRouteImport } from './routes/dashboard.services.index'
@@ -101,6 +111,9 @@ import { Route as DashboardStaffStaffIdRouteImport } from './routes/dashboard.st
 import { Route as DashboardStorefrontIndexRouteImport } from './routes/dashboard.storefront.index'
 import { Route as DashboardStorefrontBuilderRouteImport } from './routes/dashboard.storefront.builder'
 import { Route as DashboardStorefrontTemplatesRouteImport } from './routes/dashboard.storefront.templates'
+import { Route as DashboardFinancesExpensesExpenseIdRouteImport } from './routes/dashboard.finances.expenses.$expenseId'
+import { Route as DashboardFinancesReconciliationClaimIdRouteImport } from './routes/dashboard.finances.reconciliation.$claimId'
+import { Route as DashboardFinancesTransactionsTransactionIdRouteImport } from './routes/dashboard.finances.transactions.$transactionId'
 import { Route as DashboardServicesServiceIdIndexRouteImport } from './routes/dashboard.services.$serviceId.index'
 import { Route as DashboardServicesServiceIdEditRouteImport } from './routes/dashboard.services.$serviceId.edit'
 
@@ -159,9 +172,19 @@ const GalleryRoute = GalleryRouteImport.update({
   path: '/gallery',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LegalRoute = LegalRouteImport.update({
+  id: '/legal',
+  path: '/legal',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PrivacyRoute = PrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RegisterRoute = RegisterRouteImport.update({
@@ -182,6 +205,11 @@ const SearchRoute = SearchRouteImport.update({
 const StaffRoute = StaffRouteImport.update({
   id: '/staff',
   path: '/staff',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TermsRoute = TermsRouteImport.update({
+  id: '/terms',
+  path: '/terms',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SlugIndexRoute = SlugIndexRouteImport.update({
@@ -317,6 +345,11 @@ const DashboardCardDesignRoute = DashboardCardDesignRouteImport.update({
 const DashboardCustomersRoute = DashboardCustomersRouteImport.update({
   id: '/customers',
   path: '/customers',
+  getParentRoute: () => DashboardRoute,
+} as any)
+const DashboardFinancesRoute = DashboardFinancesRouteImport.update({
+  id: '/finances',
+  path: '/finances',
   getParentRoute: () => DashboardRoute,
 } as any)
 const DashboardGalleryRoute = DashboardGalleryRouteImport.update({
@@ -525,6 +558,41 @@ const DashboardCustomersClientIdRoute =
     path: '/$clientId',
     getParentRoute: () => DashboardCustomersRoute,
   } as any)
+const DashboardFinancesIndexRoute = DashboardFinancesIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => DashboardFinancesRoute,
+} as any)
+const DashboardFinancesAnalyticsRoute =
+  DashboardFinancesAnalyticsRouteImport.update({
+    id: '/analytics',
+    path: '/analytics',
+    getParentRoute: () => DashboardFinancesRoute,
+  } as any)
+const DashboardFinancesCashbookRoute =
+  DashboardFinancesCashbookRouteImport.update({
+    id: '/cashbook',
+    path: '/cashbook',
+    getParentRoute: () => DashboardFinancesRoute,
+  } as any)
+const DashboardFinancesExpensesRoute =
+  DashboardFinancesExpensesRouteImport.update({
+    id: '/expenses',
+    path: '/expenses',
+    getParentRoute: () => DashboardFinancesRoute,
+  } as any)
+const DashboardFinancesReconciliationRoute =
+  DashboardFinancesReconciliationRouteImport.update({
+    id: '/reconciliation',
+    path: '/reconciliation',
+    getParentRoute: () => DashboardFinancesRoute,
+  } as any)
+const DashboardFinancesTransactionsRoute =
+  DashboardFinancesTransactionsRouteImport.update({
+    id: '/transactions',
+    path: '/transactions',
+    getParentRoute: () => DashboardFinancesRoute,
+  } as any)
 const DashboardProgramsIndexRoute = DashboardProgramsIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -580,6 +648,24 @@ const DashboardStorefrontTemplatesRoute =
     path: '/templates',
     getParentRoute: () => DashboardStorefrontRoute,
   } as any)
+const DashboardFinancesExpensesExpenseIdRoute =
+  DashboardFinancesExpensesExpenseIdRouteImport.update({
+    id: '/$expenseId',
+    path: '/$expenseId',
+    getParentRoute: () => DashboardFinancesExpensesRoute,
+  } as any)
+const DashboardFinancesReconciliationClaimIdRoute =
+  DashboardFinancesReconciliationClaimIdRouteImport.update({
+    id: '/$claimId',
+    path: '/$claimId',
+    getParentRoute: () => DashboardFinancesReconciliationRoute,
+  } as any)
+const DashboardFinancesTransactionsTransactionIdRoute =
+  DashboardFinancesTransactionsTransactionIdRouteImport.update({
+    id: '/$transactionId',
+    path: '/$transactionId',
+    getParentRoute: () => DashboardFinancesTransactionsRoute,
+  } as any)
 const DashboardServicesServiceIdIndexRoute =
   DashboardServicesServiceIdIndexRouteImport.update({
     id: '/',
@@ -605,11 +691,14 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof DashboardRouteWithChildren
   '/enterprise': typeof EnterpriseRoute
   '/gallery': typeof GalleryRoute
+  '/legal': typeof LegalRoute
   '/login': typeof LoginRoute
+  '/privacy': typeof PrivacyRoute
   '/register': typeof RegisterRoute
   '/reviews': typeof ReviewsRoute
   '/search': typeof SearchRoute
   '/staff': typeof StaffRouteWithChildren
+  '/terms': typeof TermsRoute
   '/$slug/about': typeof SlugAboutRoute
   '/$slug/account': typeof SlugAccountRoute
   '/$slug/book': typeof SlugBookRoute
@@ -634,6 +723,7 @@ export interface FileRoutesByFullPath {
   '/dashboard/attendance': typeof DashboardAttendanceRoute
   '/dashboard/card-design': typeof DashboardCardDesignRoute
   '/dashboard/customers': typeof DashboardCustomersRouteWithChildren
+  '/dashboard/finances': typeof DashboardFinancesRouteWithChildren
   '/dashboard/gallery': typeof DashboardGalleryRoute
   '/dashboard/loyalty': typeof DashboardLoyaltyRoute
   '/dashboard/notifications': typeof DashboardNotificationsRoute
@@ -671,6 +761,11 @@ export interface FileRoutesByFullPath {
   '/admin/subscriptions/$businessId': typeof AdminSubscriptionsBusinessIdRoute
   '/dashboard/appointments/$appointmentId': typeof DashboardAppointmentsAppointmentIdRoute
   '/dashboard/customers/$clientId': typeof DashboardCustomersClientIdRoute
+  '/dashboard/finances/analytics': typeof DashboardFinancesAnalyticsRoute
+  '/dashboard/finances/cashbook': typeof DashboardFinancesCashbookRoute
+  '/dashboard/finances/expenses': typeof DashboardFinancesExpensesRouteWithChildren
+  '/dashboard/finances/reconciliation': typeof DashboardFinancesReconciliationRouteWithChildren
+  '/dashboard/finances/transactions': typeof DashboardFinancesTransactionsRouteWithChildren
   '/dashboard/programs/$programId': typeof DashboardProgramsProgramIdRoute
   '/dashboard/services/$serviceId': typeof DashboardServicesServiceIdRouteWithChildren
   '/dashboard/services/new': typeof DashboardServicesNewRoute
@@ -682,10 +777,14 @@ export interface FileRoutesByFullPath {
   '/admin/notifications/': typeof AdminNotificationsIndexRoute
   '/dashboard/appointments/': typeof DashboardAppointmentsIndexRoute
   '/dashboard/customers/': typeof DashboardCustomersIndexRoute
+  '/dashboard/finances/': typeof DashboardFinancesIndexRoute
   '/dashboard/programs/': typeof DashboardProgramsIndexRoute
   '/dashboard/services/': typeof DashboardServicesIndexRoute
   '/dashboard/staff/': typeof DashboardStaffIndexRoute
   '/dashboard/storefront/': typeof DashboardStorefrontIndexRoute
+  '/dashboard/finances/expenses/$expenseId': typeof DashboardFinancesExpensesExpenseIdRoute
+  '/dashboard/finances/reconciliation/$claimId': typeof DashboardFinancesReconciliationClaimIdRoute
+  '/dashboard/finances/transactions/$transactionId': typeof DashboardFinancesTransactionsTransactionIdRoute
   '/dashboard/services/$serviceId/edit': typeof DashboardServicesServiceIdEditRoute
   '/dashboard/services/$serviceId/': typeof DashboardServicesServiceIdIndexRoute
 }
@@ -698,10 +797,13 @@ export interface FileRoutesByTo {
   '/contact': typeof ContactRoute
   '/enterprise': typeof EnterpriseRoute
   '/gallery': typeof GalleryRoute
+  '/legal': typeof LegalRoute
   '/login': typeof LoginRoute
+  '/privacy': typeof PrivacyRoute
   '/register': typeof RegisterRoute
   '/reviews': typeof ReviewsRoute
   '/search': typeof SearchRoute
+  '/terms': typeof TermsRoute
   '/$slug/about': typeof SlugAboutRoute
   '/$slug/account': typeof SlugAccountRoute
   '/$slug/book': typeof SlugBookRoute
@@ -756,6 +858,11 @@ export interface FileRoutesByTo {
   '/admin/subscriptions/$businessId': typeof AdminSubscriptionsBusinessIdRoute
   '/dashboard/appointments/$appointmentId': typeof DashboardAppointmentsAppointmentIdRoute
   '/dashboard/customers/$clientId': typeof DashboardCustomersClientIdRoute
+  '/dashboard/finances/analytics': typeof DashboardFinancesAnalyticsRoute
+  '/dashboard/finances/cashbook': typeof DashboardFinancesCashbookRoute
+  '/dashboard/finances/expenses': typeof DashboardFinancesExpensesRouteWithChildren
+  '/dashboard/finances/reconciliation': typeof DashboardFinancesReconciliationRouteWithChildren
+  '/dashboard/finances/transactions': typeof DashboardFinancesTransactionsRouteWithChildren
   '/dashboard/programs/$programId': typeof DashboardProgramsProgramIdRoute
   '/dashboard/services/new': typeof DashboardServicesNewRoute
   '/dashboard/staff/$staffId': typeof DashboardStaffStaffIdRoute
@@ -766,10 +873,14 @@ export interface FileRoutesByTo {
   '/admin/notifications': typeof AdminNotificationsIndexRoute
   '/dashboard/appointments': typeof DashboardAppointmentsIndexRoute
   '/dashboard/customers': typeof DashboardCustomersIndexRoute
+  '/dashboard/finances': typeof DashboardFinancesIndexRoute
   '/dashboard/programs': typeof DashboardProgramsIndexRoute
   '/dashboard/services': typeof DashboardServicesIndexRoute
   '/dashboard/staff': typeof DashboardStaffIndexRoute
   '/dashboard/storefront': typeof DashboardStorefrontIndexRoute
+  '/dashboard/finances/expenses/$expenseId': typeof DashboardFinancesExpensesExpenseIdRoute
+  '/dashboard/finances/reconciliation/$claimId': typeof DashboardFinancesReconciliationClaimIdRoute
+  '/dashboard/finances/transactions/$transactionId': typeof DashboardFinancesTransactionsTransactionIdRoute
   '/dashboard/services/$serviceId/edit': typeof DashboardServicesServiceIdEditRoute
   '/dashboard/services/$serviceId': typeof DashboardServicesServiceIdIndexRoute
 }
@@ -786,11 +897,14 @@ export interface FileRoutesById {
   '/dashboard': typeof DashboardRouteWithChildren
   '/enterprise': typeof EnterpriseRoute
   '/gallery': typeof GalleryRoute
+  '/legal': typeof LegalRoute
   '/login': typeof LoginRoute
+  '/privacy': typeof PrivacyRoute
   '/register': typeof RegisterRoute
   '/reviews': typeof ReviewsRoute
   '/search': typeof SearchRoute
   '/staff': typeof StaffRouteWithChildren
+  '/terms': typeof TermsRoute
   '/$slug/about': typeof SlugAboutRoute
   '/$slug/account': typeof SlugAccountRoute
   '/$slug/book': typeof SlugBookRoute
@@ -815,6 +929,7 @@ export interface FileRoutesById {
   '/dashboard/attendance': typeof DashboardAttendanceRoute
   '/dashboard/card-design': typeof DashboardCardDesignRoute
   '/dashboard/customers': typeof DashboardCustomersRouteWithChildren
+  '/dashboard/finances': typeof DashboardFinancesRouteWithChildren
   '/dashboard/gallery': typeof DashboardGalleryRoute
   '/dashboard/loyalty': typeof DashboardLoyaltyRoute
   '/dashboard/notifications': typeof DashboardNotificationsRoute
@@ -852,6 +967,11 @@ export interface FileRoutesById {
   '/admin/subscriptions/$businessId': typeof AdminSubscriptionsBusinessIdRoute
   '/dashboard/appointments/$appointmentId': typeof DashboardAppointmentsAppointmentIdRoute
   '/dashboard/customers/$clientId': typeof DashboardCustomersClientIdRoute
+  '/dashboard/finances/analytics': typeof DashboardFinancesAnalyticsRoute
+  '/dashboard/finances/cashbook': typeof DashboardFinancesCashbookRoute
+  '/dashboard/finances/expenses': typeof DashboardFinancesExpensesRouteWithChildren
+  '/dashboard/finances/reconciliation': typeof DashboardFinancesReconciliationRouteWithChildren
+  '/dashboard/finances/transactions': typeof DashboardFinancesTransactionsRouteWithChildren
   '/dashboard/programs/$programId': typeof DashboardProgramsProgramIdRoute
   '/dashboard/services/$serviceId': typeof DashboardServicesServiceIdRouteWithChildren
   '/dashboard/services/new': typeof DashboardServicesNewRoute
@@ -863,10 +983,14 @@ export interface FileRoutesById {
   '/admin/notifications/': typeof AdminNotificationsIndexRoute
   '/dashboard/appointments/': typeof DashboardAppointmentsIndexRoute
   '/dashboard/customers/': typeof DashboardCustomersIndexRoute
+  '/dashboard/finances/': typeof DashboardFinancesIndexRoute
   '/dashboard/programs/': typeof DashboardProgramsIndexRoute
   '/dashboard/services/': typeof DashboardServicesIndexRoute
   '/dashboard/staff/': typeof DashboardStaffIndexRoute
   '/dashboard/storefront/': typeof DashboardStorefrontIndexRoute
+  '/dashboard/finances/expenses/$expenseId': typeof DashboardFinancesExpensesExpenseIdRoute
+  '/dashboard/finances/reconciliation/$claimId': typeof DashboardFinancesReconciliationClaimIdRoute
+  '/dashboard/finances/transactions/$transactionId': typeof DashboardFinancesTransactionsTransactionIdRoute
   '/dashboard/services/$serviceId/edit': typeof DashboardServicesServiceIdEditRoute
   '/dashboard/services/$serviceId/': typeof DashboardServicesServiceIdIndexRoute
 }
@@ -884,11 +1008,14 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/enterprise'
     | '/gallery'
+    | '/legal'
     | '/login'
+    | '/privacy'
     | '/register'
     | '/reviews'
     | '/search'
     | '/staff'
+    | '/terms'
     | '/$slug/about'
     | '/$slug/account'
     | '/$slug/book'
@@ -913,6 +1040,7 @@ export interface FileRouteTypes {
     | '/dashboard/attendance'
     | '/dashboard/card-design'
     | '/dashboard/customers'
+    | '/dashboard/finances'
     | '/dashboard/gallery'
     | '/dashboard/loyalty'
     | '/dashboard/notifications'
@@ -950,6 +1078,11 @@ export interface FileRouteTypes {
     | '/admin/subscriptions/$businessId'
     | '/dashboard/appointments/$appointmentId'
     | '/dashboard/customers/$clientId'
+    | '/dashboard/finances/analytics'
+    | '/dashboard/finances/cashbook'
+    | '/dashboard/finances/expenses'
+    | '/dashboard/finances/reconciliation'
+    | '/dashboard/finances/transactions'
     | '/dashboard/programs/$programId'
     | '/dashboard/services/$serviceId'
     | '/dashboard/services/new'
@@ -961,10 +1094,14 @@ export interface FileRouteTypes {
     | '/admin/notifications/'
     | '/dashboard/appointments/'
     | '/dashboard/customers/'
+    | '/dashboard/finances/'
     | '/dashboard/programs/'
     | '/dashboard/services/'
     | '/dashboard/staff/'
     | '/dashboard/storefront/'
+    | '/dashboard/finances/expenses/$expenseId'
+    | '/dashboard/finances/reconciliation/$claimId'
+    | '/dashboard/finances/transactions/$transactionId'
     | '/dashboard/services/$serviceId/edit'
     | '/dashboard/services/$serviceId/'
   fileRoutesByTo: FileRoutesByTo
@@ -977,10 +1114,13 @@ export interface FileRouteTypes {
     | '/contact'
     | '/enterprise'
     | '/gallery'
+    | '/legal'
     | '/login'
+    | '/privacy'
     | '/register'
     | '/reviews'
     | '/search'
+    | '/terms'
     | '/$slug/about'
     | '/$slug/account'
     | '/$slug/book'
@@ -1035,6 +1175,11 @@ export interface FileRouteTypes {
     | '/admin/subscriptions/$businessId'
     | '/dashboard/appointments/$appointmentId'
     | '/dashboard/customers/$clientId'
+    | '/dashboard/finances/analytics'
+    | '/dashboard/finances/cashbook'
+    | '/dashboard/finances/expenses'
+    | '/dashboard/finances/reconciliation'
+    | '/dashboard/finances/transactions'
     | '/dashboard/programs/$programId'
     | '/dashboard/services/new'
     | '/dashboard/staff/$staffId'
@@ -1045,10 +1190,14 @@ export interface FileRouteTypes {
     | '/admin/notifications'
     | '/dashboard/appointments'
     | '/dashboard/customers'
+    | '/dashboard/finances'
     | '/dashboard/programs'
     | '/dashboard/services'
     | '/dashboard/staff'
     | '/dashboard/storefront'
+    | '/dashboard/finances/expenses/$expenseId'
+    | '/dashboard/finances/reconciliation/$claimId'
+    | '/dashboard/finances/transactions/$transactionId'
     | '/dashboard/services/$serviceId/edit'
     | '/dashboard/services/$serviceId'
   id:
@@ -1064,11 +1213,14 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/enterprise'
     | '/gallery'
+    | '/legal'
     | '/login'
+    | '/privacy'
     | '/register'
     | '/reviews'
     | '/search'
     | '/staff'
+    | '/terms'
     | '/$slug/about'
     | '/$slug/account'
     | '/$slug/book'
@@ -1093,6 +1245,7 @@ export interface FileRouteTypes {
     | '/dashboard/attendance'
     | '/dashboard/card-design'
     | '/dashboard/customers'
+    | '/dashboard/finances'
     | '/dashboard/gallery'
     | '/dashboard/loyalty'
     | '/dashboard/notifications'
@@ -1130,6 +1283,11 @@ export interface FileRouteTypes {
     | '/admin/subscriptions/$businessId'
     | '/dashboard/appointments/$appointmentId'
     | '/dashboard/customers/$clientId'
+    | '/dashboard/finances/analytics'
+    | '/dashboard/finances/cashbook'
+    | '/dashboard/finances/expenses'
+    | '/dashboard/finances/reconciliation'
+    | '/dashboard/finances/transactions'
     | '/dashboard/programs/$programId'
     | '/dashboard/services/$serviceId'
     | '/dashboard/services/new'
@@ -1141,10 +1299,14 @@ export interface FileRouteTypes {
     | '/admin/notifications/'
     | '/dashboard/appointments/'
     | '/dashboard/customers/'
+    | '/dashboard/finances/'
     | '/dashboard/programs/'
     | '/dashboard/services/'
     | '/dashboard/staff/'
     | '/dashboard/storefront/'
+    | '/dashboard/finances/expenses/$expenseId'
+    | '/dashboard/finances/reconciliation/$claimId'
+    | '/dashboard/finances/transactions/$transactionId'
     | '/dashboard/services/$serviceId/edit'
     | '/dashboard/services/$serviceId/'
   fileRoutesById: FileRoutesById
@@ -1161,11 +1323,14 @@ export interface RootRouteChildren {
   DashboardRoute: typeof DashboardRouteWithChildren
   EnterpriseRoute: typeof EnterpriseRoute
   GalleryRoute: typeof GalleryRoute
+  LegalRoute: typeof LegalRoute
   LoginRoute: typeof LoginRoute
+  PrivacyRoute: typeof PrivacyRoute
   RegisterRoute: typeof RegisterRoute
   ReviewsRoute: typeof ReviewsRoute
   SearchRoute: typeof SearchRoute
   StaffRoute: typeof StaffRouteWithChildren
+  TermsRoute: typeof TermsRoute
   InvitationsAcceptRoute: typeof InvitationsAcceptRoute
   ServicesServiceIdRoute: typeof ServicesServiceIdRoute
   TeamStaffIdRoute: typeof TeamStaffIdRoute
@@ -1252,11 +1417,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof GalleryRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/legal': {
+      id: '/legal'
+      path: '/legal'
+      fullPath: '/legal'
+      preLoaderRoute: typeof LegalRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/login': {
       id: '/login'
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/privacy': {
+      id: '/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PrivacyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/register': {
@@ -1285,6 +1464,13 @@ declare module '@tanstack/react-router' {
       path: '/staff'
       fullPath: '/staff'
       preLoaderRoute: typeof StaffRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/terms': {
+      id: '/terms'
+      path: '/terms'
+      fullPath: '/terms'
+      preLoaderRoute: typeof TermsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/$slug/': {
@@ -1474,6 +1660,13 @@ declare module '@tanstack/react-router' {
       path: '/customers'
       fullPath: '/dashboard/customers'
       preLoaderRoute: typeof DashboardCustomersRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/dashboard/finances': {
+      id: '/dashboard/finances'
+      path: '/finances'
+      fullPath: '/dashboard/finances'
+      preLoaderRoute: typeof DashboardFinancesRouteImport
       parentRoute: typeof DashboardRoute
     }
     '/dashboard/gallery': {
@@ -1749,6 +1942,48 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardCustomersClientIdRouteImport
       parentRoute: typeof DashboardCustomersRoute
     }
+    '/dashboard/finances/': {
+      id: '/dashboard/finances/'
+      path: '/'
+      fullPath: '/dashboard/finances/'
+      preLoaderRoute: typeof DashboardFinancesIndexRouteImport
+      parentRoute: typeof DashboardFinancesRoute
+    }
+    '/dashboard/finances/analytics': {
+      id: '/dashboard/finances/analytics'
+      path: '/analytics'
+      fullPath: '/dashboard/finances/analytics'
+      preLoaderRoute: typeof DashboardFinancesAnalyticsRouteImport
+      parentRoute: typeof DashboardFinancesRoute
+    }
+    '/dashboard/finances/cashbook': {
+      id: '/dashboard/finances/cashbook'
+      path: '/cashbook'
+      fullPath: '/dashboard/finances/cashbook'
+      preLoaderRoute: typeof DashboardFinancesCashbookRouteImport
+      parentRoute: typeof DashboardFinancesRoute
+    }
+    '/dashboard/finances/expenses': {
+      id: '/dashboard/finances/expenses'
+      path: '/expenses'
+      fullPath: '/dashboard/finances/expenses'
+      preLoaderRoute: typeof DashboardFinancesExpensesRouteImport
+      parentRoute: typeof DashboardFinancesRoute
+    }
+    '/dashboard/finances/reconciliation': {
+      id: '/dashboard/finances/reconciliation'
+      path: '/reconciliation'
+      fullPath: '/dashboard/finances/reconciliation'
+      preLoaderRoute: typeof DashboardFinancesReconciliationRouteImport
+      parentRoute: typeof DashboardFinancesRoute
+    }
+    '/dashboard/finances/transactions': {
+      id: '/dashboard/finances/transactions'
+      path: '/transactions'
+      fullPath: '/dashboard/finances/transactions'
+      preLoaderRoute: typeof DashboardFinancesTransactionsRouteImport
+      parentRoute: typeof DashboardFinancesRoute
+    }
     '/dashboard/programs/': {
       id: '/dashboard/programs/'
       path: '/'
@@ -1818,6 +2053,27 @@ declare module '@tanstack/react-router' {
       fullPath: '/dashboard/storefront/templates'
       preLoaderRoute: typeof DashboardStorefrontTemplatesRouteImport
       parentRoute: typeof DashboardStorefrontRoute
+    }
+    '/dashboard/finances/expenses/$expenseId': {
+      id: '/dashboard/finances/expenses/$expenseId'
+      path: '/$expenseId'
+      fullPath: '/dashboard/finances/expenses/$expenseId'
+      preLoaderRoute: typeof DashboardFinancesExpensesExpenseIdRouteImport
+      parentRoute: typeof DashboardFinancesExpensesRoute
+    }
+    '/dashboard/finances/reconciliation/$claimId': {
+      id: '/dashboard/finances/reconciliation/$claimId'
+      path: '/$claimId'
+      fullPath: '/dashboard/finances/reconciliation/$claimId'
+      preLoaderRoute: typeof DashboardFinancesReconciliationClaimIdRouteImport
+      parentRoute: typeof DashboardFinancesReconciliationRoute
+    }
+    '/dashboard/finances/transactions/$transactionId': {
+      id: '/dashboard/finances/transactions/$transactionId'
+      path: '/$transactionId'
+      fullPath: '/dashboard/finances/transactions/$transactionId'
+      preLoaderRoute: typeof DashboardFinancesTransactionsTransactionIdRouteImport
+      parentRoute: typeof DashboardFinancesTransactionsRoute
     }
     '/dashboard/services/$serviceId/': {
       id: '/dashboard/services/$serviceId/'
@@ -1999,6 +2255,74 @@ const DashboardCustomersRouteChildren: DashboardCustomersRouteChildren = {
 const DashboardCustomersRouteWithChildren =
   DashboardCustomersRoute._addFileChildren(DashboardCustomersRouteChildren)
 
+interface DashboardFinancesExpensesRouteChildren {
+  DashboardFinancesExpensesExpenseIdRoute: typeof DashboardFinancesExpensesExpenseIdRoute
+}
+
+const DashboardFinancesExpensesRouteChildren: DashboardFinancesExpensesRouteChildren =
+  {
+    DashboardFinancesExpensesExpenseIdRoute:
+      DashboardFinancesExpensesExpenseIdRoute,
+  }
+
+const DashboardFinancesExpensesRouteWithChildren =
+  DashboardFinancesExpensesRoute._addFileChildren(
+    DashboardFinancesExpensesRouteChildren,
+  )
+
+interface DashboardFinancesReconciliationRouteChildren {
+  DashboardFinancesReconciliationClaimIdRoute: typeof DashboardFinancesReconciliationClaimIdRoute
+}
+
+const DashboardFinancesReconciliationRouteChildren: DashboardFinancesReconciliationRouteChildren =
+  {
+    DashboardFinancesReconciliationClaimIdRoute:
+      DashboardFinancesReconciliationClaimIdRoute,
+  }
+
+const DashboardFinancesReconciliationRouteWithChildren =
+  DashboardFinancesReconciliationRoute._addFileChildren(
+    DashboardFinancesReconciliationRouteChildren,
+  )
+
+interface DashboardFinancesTransactionsRouteChildren {
+  DashboardFinancesTransactionsTransactionIdRoute: typeof DashboardFinancesTransactionsTransactionIdRoute
+}
+
+const DashboardFinancesTransactionsRouteChildren: DashboardFinancesTransactionsRouteChildren =
+  {
+    DashboardFinancesTransactionsTransactionIdRoute:
+      DashboardFinancesTransactionsTransactionIdRoute,
+  }
+
+const DashboardFinancesTransactionsRouteWithChildren =
+  DashboardFinancesTransactionsRoute._addFileChildren(
+    DashboardFinancesTransactionsRouteChildren,
+  )
+
+interface DashboardFinancesRouteChildren {
+  DashboardFinancesAnalyticsRoute: typeof DashboardFinancesAnalyticsRoute
+  DashboardFinancesCashbookRoute: typeof DashboardFinancesCashbookRoute
+  DashboardFinancesExpensesRoute: typeof DashboardFinancesExpensesRouteWithChildren
+  DashboardFinancesReconciliationRoute: typeof DashboardFinancesReconciliationRouteWithChildren
+  DashboardFinancesTransactionsRoute: typeof DashboardFinancesTransactionsRouteWithChildren
+  DashboardFinancesIndexRoute: typeof DashboardFinancesIndexRoute
+}
+
+const DashboardFinancesRouteChildren: DashboardFinancesRouteChildren = {
+  DashboardFinancesAnalyticsRoute: DashboardFinancesAnalyticsRoute,
+  DashboardFinancesCashbookRoute: DashboardFinancesCashbookRoute,
+  DashboardFinancesExpensesRoute: DashboardFinancesExpensesRouteWithChildren,
+  DashboardFinancesReconciliationRoute:
+    DashboardFinancesReconciliationRouteWithChildren,
+  DashboardFinancesTransactionsRoute:
+    DashboardFinancesTransactionsRouteWithChildren,
+  DashboardFinancesIndexRoute: DashboardFinancesIndexRoute,
+}
+
+const DashboardFinancesRouteWithChildren =
+  DashboardFinancesRoute._addFileChildren(DashboardFinancesRouteChildren)
+
 interface DashboardProgramsRouteChildren {
   DashboardProgramsProgramIdRoute: typeof DashboardProgramsProgramIdRoute
   DashboardProgramsIndexRoute: typeof DashboardProgramsIndexRoute
@@ -2078,6 +2402,7 @@ interface DashboardRouteChildren {
   DashboardAttendanceRoute: typeof DashboardAttendanceRoute
   DashboardCardDesignRoute: typeof DashboardCardDesignRoute
   DashboardCustomersRoute: typeof DashboardCustomersRouteWithChildren
+  DashboardFinancesRoute: typeof DashboardFinancesRouteWithChildren
   DashboardGalleryRoute: typeof DashboardGalleryRoute
   DashboardLoyaltyRoute: typeof DashboardLoyaltyRoute
   DashboardNotificationsRoute: typeof DashboardNotificationsRoute
@@ -2100,6 +2425,7 @@ const DashboardRouteChildren: DashboardRouteChildren = {
   DashboardAttendanceRoute: DashboardAttendanceRoute,
   DashboardCardDesignRoute: DashboardCardDesignRoute,
   DashboardCustomersRoute: DashboardCustomersRouteWithChildren,
+  DashboardFinancesRoute: DashboardFinancesRouteWithChildren,
   DashboardGalleryRoute: DashboardGalleryRoute,
   DashboardLoyaltyRoute: DashboardLoyaltyRoute,
   DashboardNotificationsRoute: DashboardNotificationsRoute,
@@ -2144,11 +2470,14 @@ const rootRouteChildren: RootRouteChildren = {
   DashboardRoute: DashboardRouteWithChildren,
   EnterpriseRoute: EnterpriseRoute,
   GalleryRoute: GalleryRoute,
+  LegalRoute: LegalRoute,
   LoginRoute: LoginRoute,
+  PrivacyRoute: PrivacyRoute,
   RegisterRoute: RegisterRoute,
   ReviewsRoute: ReviewsRoute,
   SearchRoute: SearchRoute,
   StaffRoute: StaffRouteWithChildren,
+  TermsRoute: TermsRoute,
   InvitationsAcceptRoute: InvitationsAcceptRoute,
   ServicesServiceIdRoute: ServicesServiceIdRoute,
   TeamStaffIdRoute: TeamStaffIdRoute,

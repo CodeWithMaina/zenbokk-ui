@@ -1294,6 +1294,60 @@ html {
     }
   }
 
+  /* Console navigation drawer: slides in from the right, with a dimming
+     backdrop. Unlike `.drawer` it keeps its side-anchored shape on phones, so
+     the mobile menu reads as a nav panel rather than a bottom sheet. Open/close
+     are driven by the `is-open` modifier (transition both ways) instead of a
+     one-shot entry keyframe, so the exit animates too. */
+  .nav-scrim {
+    position: fixed;
+    inset: 0;
+    z-index: var(--z-scrim);
+    border: 0;
+    padding: 0;
+    background: var(--scrim);
+    opacity: 0;
+    transition: opacity 0.3s var(--ease-standard);
+  }
+  .nav-scrim.is-open {
+    opacity: 1;
+  }
+  .nav-panel {
+    position: fixed;
+    inset: 0 0 0 auto;
+    z-index: var(--z-drawer);
+    display: flex;
+    flex-direction: column;
+    width: min(20rem, 85vw);
+    max-width: 100%;
+    background: var(--surface);
+    border-left: 1px solid var(--line);
+    box-shadow: var(--shadow-overlay);
+    transform: translateX(100%);
+    transition: transform 0.34s var(--ease-standard);
+    will-change: transform;
+    overscroll-behavior: contain;
+  }
+  .nav-panel.is-open {
+    transform: translateX(0);
+  }
+  .nav-panel-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6rem;
+    padding: 1rem var(--spacing-sheet);
+    border-bottom: 1px solid var(--line);
+  }
+  .nav-panel-body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    padding: 1rem var(--spacing-sheet) calc(1rem + env(safe-area-inset-bottom, 0px));
+  }
+
   /* toast and tooltip (inverse surfaces) */
   .toast {
     position: fixed;
@@ -4232,240 +4286,1258 @@ html {
 }
 
 /* ==========================================================================
-   Storefront footer — shared by every storefront page (StorefrontChrome).
-   Everything reads `currentColor`, so it adapts to the owner's configured
-   background and text colour and falls back to the app's surface tokens when
-   none is set.
+   Storefront contact — single-action channel cards (`sf-contact-card`).
+   The `sf-channel*` names are deliberately distinct from the builder's
+   `.sf-about` and `.sf-contact-list` recipes, so this never restyles a
+   designed page.
    ========================================================================== */
 
 @layer components {
-  .sf-footer {
-    margin-top: var(--spacing-section, 3rem);
-    border-top: 1px solid var(--line);
+  .sf-contact-info {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .sf-channel-list {
+    display: grid;
+    gap: 0.7rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .sf-contact-card {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    padding: 0.9rem 1rem;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-card);
     background: var(--surface);
     color: var(--fg);
-    font-size: var(--text-sm, 0.9rem);
-    line-height: 1.6;
-  }
-  .sf-footer > .sf-container {
-    padding-block: clamp(2.4rem, 5vw, 3.6rem) 1.6rem;
-  }
-  .sf-footer a {
-    color: inherit;
     text-decoration: none;
-    opacity: 0.78;
-    transition: opacity 0.2s var(--ease-standard);
+    transition:
+      border-color 0.3s var(--ease-standard),
+      transform 0.3s var(--ease-standard);
   }
-  .sf-footer a:hover {
-    opacity: 1;
+  .sf-contact-card:hover {
+    border-color: var(--accent);
+  }
+  .sf-contact-card:active {
+    transform: scale(0.995);
+  }
+  .sf-contact-card:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+  }
+  .sf-contact-card-icon {
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: var(--radius-md);
+    background: var(--accent-soft);
+    color: var(--accent-ink);
+  }
+  .sf-contact-card-body {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+  }
+  .sf-contact-card-label {
+    font-size: var(--text-caption);
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--fg-muted);
+  }
+  .sf-contact-card-value {
+    font-weight: 600;
+    overflow-wrap: anywhere;
+  }
+  .sf-contact-card-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    flex: none;
+    font-size: var(--text-meta);
+    font-weight: 600;
+    color: var(--accent);
+  }
+  /* On the narrowest screens the value is the message; the action text would
+     only crowd it, so the whole card stays the tap target. */
+  @media (max-width: 26rem) {
+    .sf-contact-card-action {
+      display: none;
+    }
+  }
+}
+
+/* ==========================================================================
+   Storefront About — the compact editorial page (`ab-`).
+   An identity row (monogram · name/category · location pill), a card (title,
+   description, service tags, one accent action) and a premium rules panel.
+   Local names from the design map onto our tokens (`--muted` → `--fg-muted`,
+   `--sunken` → `--surface-sunken`); no theme variable is redeclared and the only
+   raw colours are the constant premium palette.
+   ========================================================================== */
+
+@layer components {
+  .ab-page {
+    width: 100%;
+  }
+  .ab {
+    display: grid;
+    gap: 1.1rem;
+    width: 100%;
+    max-width: var(--container-page);
+    margin-inline: auto;
+    padding-block: clamp(1.4rem, 4vw, 2.6rem);
+    padding-inline: var(--spacing-gutter);
+    color: var(--fg);
+  }
+
+  /* identity row --------------------------------------------------------- */
+  .ab-identity {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  .ab-location {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    margin-inline-start: auto;
+    padding: 0.3rem 0.65rem;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-pill);
+    background: var(--surface);
+    font-size: 0.78rem;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+  .ab-location-icon {
+    width: 0.85rem;
+    height: 0.85rem;
+    color: var(--accent);
+  }
+
+  /* card ---------------------------------------------------------------- */
+  .ab-card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-card);
+    padding: clamp(1.1rem, 2.6vw, 1.8rem);
+  }
+  .ab-title {
+    margin: 0;
+    max-width: 20ch;
+    font-family: var(--font-display);
+    font-weight: 500;
+    font-size: clamp(1.55rem, 4.2vw, 2.35rem);
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+  }
+  .ab-desc {
+    margin: 0.8rem 0 0;
+    max-width: 58ch;
+    font-size: var(--text-body);
+    line-height: 1.7;
+    color: var(--fg-muted);
+  }
+  .ab-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin: 1.1rem 0 0;
+    padding: 1.1rem 0 0;
+    border-top: 1px solid var(--line);
+    list-style: none;
+  }
+  .ab-tags li {
+    padding: 0.25rem 0.7rem;
+    border-radius: var(--radius-pill);
+    background: var(--accent-soft);
+    color: var(--accent-ink);
+    font-size: 0.78rem;
+    font-weight: 600;
+  }
+  .ab-cta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.8rem;
+    margin-top: 1.2rem;
+  }
+  .ab-cta-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: var(--size-control-md);
+    padding-inline: 1.3rem;
+    border-radius: var(--radius-md);
+    background: var(--accent);
+    color: var(--on-accent);
+    font-size: 0.92rem;
+    font-weight: 600;
+    transition:
+      background 0.2s var(--ease-standard),
+      transform 0.2s var(--ease-standard);
+  }
+  .ab-cta-btn:hover {
+    background: var(--accent-hover);
+  }
+  .ab-cta-btn:active {
+    transform: scale(0.985);
+  }
+  .ab-cta-btn:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+  }
+  .ab-cta-note {
+    font-size: 0.78rem;
+    color: var(--fg-muted);
+  }
+
+  /* rules panel ---------------------------------------------------------- */
+  .ab-rules {
+    background: var(--premium-bg);
+    color: var(--premium-ink);
+    border-radius: var(--radius-card);
+    padding: clamp(1.1rem, 2.6vw, 1.6rem);
+  }
+  .ab-rules-title {
+    margin: 0 0 0.4rem;
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-size: 1.2rem;
+    letter-spacing: -0.01em;
+  }
+  .ab-rule-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .ab-rule {
+    padding-block: 0.85rem;
+    border-top: 1px solid var(--premium-line);
+  }
+  .ab-rule:first-child {
+    margin-top: 0.5rem;
+  }
+  .ab-rule-head {
+    display: block;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--premium-gold);
+  }
+  .ab-rule-body {
+    margin: 0.15rem 0 0;
+    font-size: 0.85rem;
+    line-height: 1.55;
+    color: var(--premium-muted);
+  }
+
+  /* skeleton ------------------------------------------------------------- */
+  .ab-card-skeleton {
+    display: grid;
+    align-content: start;
+    gap: 0.8rem;
+  }
+
+  /* tablet 600px+: the rules become three equal columns. */
+  @media (min-width: 37.5rem) {
+    .ab-rules {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      column-gap: 1.4rem;
+    }
+    .ab-rules-title {
+      grid-column: 1 / -1;
+    }
+    .ab-rule {
+      padding-bottom: 0;
+    }
+  }
+
+  /* laptop 900px+: two columns; the card left, the rules right and sticky. */
+  @media (min-width: 56.25rem) {
+    .ab {
+      grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+      gap: 1.1rem 1.4rem;
+      align-items: start;
+    }
+    .ab-identity {
+      grid-column: 1 / -1;
+    }
+    .ab-rules {
+      display: block;
+      position: sticky;
+      top: 1.2rem;
+    }
+    .ab-rule {
+      padding-bottom: 0.85rem;
+    }
+  }
+
+  /* large 1440px+: a slightly wider container only. */
+  @media (min-width: 90rem) {
+    .ab {
+      max-width: var(--container-page-wide);
+    }
+  }
+}
+
+/* The only motion here is the button's hover/press; reduced motion removes it. */
+@media (prefers-reduced-motion: reduce) {
+  .ab-cta-btn {
+    transition: none;
+  }
+}
+
+/* ==========================================================================
+   Storefront footer — one minimal block (`sf-foot-`). The copyright and a
+   platform credit, the legal links and the business's social icons. Stacked and
+   centred on mobile, a single row on `lg`. Colours follow the owner's tokens
+   (`--sf-*` / the configured footer colours) with the app's own as fallback.
+   ========================================================================== */
+
+@layer components {
+  .sf-foot {
+    border-top: 1px solid var(--sf-border, var(--line));
+    background: var(--sf-foot-bg, transparent);
+    color: var(--sf-foot-ink, var(--sf-text, var(--fg)));
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .sf-foot-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.85rem;
+    width: 100%;
+    max-width: var(--container-page);
+    margin-inline: auto;
+    padding: clamp(1.1rem, 3vw, 1.6rem) var(--spacing-gutter);
+    text-align: center;
+  }
+  .sf-foot-brandline {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.15rem;
+    margin: 0;
+  }
+  .sf-foot-copy,
+  .sf-foot-power {
+    margin: 0;
+    font-size: var(--text-caption);
+    color: color-mix(in srgb, currentColor 62%, transparent);
+  }
+  .sf-foot-power a {
+    color: currentColor;
+    font-weight: 600;
+  }
+  .sf-foot-power a:hover {
     text-decoration: underline;
     text-underline-offset: 0.15em;
   }
 
-  .sf-footer-title {
-    margin: 0 0 0.9rem;
-    font-size: var(--text-caption);
-    font-weight: 600;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    color: color-mix(in srgb, currentColor 58%, transparent);
-  }
-
-  .sf-footer-list {
+  .sf-foot-legal,
+  .sf-foot-social {
     display: flex;
-    flex-direction: column;
-    gap: 0.55rem;
+    flex-wrap: wrap;
+    justify-content: center;
     margin: 0;
     padding: 0;
     list-style: none;
   }
-  .sf-footer-list.is-inline {
-    flex-direction: row;
-    flex-wrap: wrap;
-    gap: 0.3rem 1.2rem;
+  .sf-foot-legal {
+    gap: 0.2rem 1rem;
   }
-  .sf-footer-list li {
-    display: flex;
-    align-items: flex-start;
-    gap: 0.55rem;
+  .sf-foot-legal a {
+    font-size: var(--text-caption);
+    color: color-mix(in srgb, currentColor 62%, transparent);
+    transition: color 0.2s var(--ease-standard);
   }
-  .sf-footer-icon {
-    flex: none;
-    width: 1rem;
-    height: 1rem;
-    margin-top: 0.15rem;
-    color: color-mix(in srgb, currentColor 55%, transparent);
+  .sf-foot-legal a:hover,
+  .sf-foot-legal a:focus-visible {
+    color: currentColor;
   }
 
-  .sf-footer-brand {
-    display: flex;
-    flex-direction: column;
-    gap: 0.7rem;
-    max-width: 26rem;
+  .sf-foot-social {
+    gap: 0.35rem;
   }
-  .sf-footer-logo {
-    height: 2.2rem;
-    width: auto;
-  }
-  .sf-footer-mono {
+  .sf-foot-social a {
     display: grid;
     place-items: center;
-    width: 2.4rem;
-    height: 2.4rem;
-    border-radius: var(--radius-md);
-    background: var(--accent);
-    color: #fff;
-    font-family: var(--font-display);
-    font-size: 1.15rem;
-    font-weight: 600;
+    width: 2rem;
+    height: 2rem;
+    border: 1px solid var(--sf-border, var(--line));
+    border-radius: var(--radius-round);
+    color: color-mix(in srgb, currentColor 62%, transparent);
+    transition:
+      color 0.2s var(--ease-standard),
+      border-color 0.2s var(--ease-standard);
   }
-  .sf-footer-name {
-    margin: 0;
-    font-family: var(--font-display);
-    font-size: 1.3rem;
-    font-weight: 600;
-    line-height: 1.2;
-    letter-spacing: -0.01em;
+  .sf-foot-social a:hover {
+    color: currentColor;
+    border-color: var(--sf-border, var(--line-strong));
   }
-  .sf-footer-desc {
-    margin: 0;
-    color: color-mix(in srgb, currentColor 72%, transparent);
+  .sf-foot-social a:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
   }
 
-  /* columns / default grid */
-  .sf-footer-grid {
-    display: grid;
-    grid-template-columns: 1.6fr 1fr 1.2fr;
-    gap: clamp(1.6rem, 4vw, 3.2rem);
-  }
-  .sf-footer-grid > .sf-footer-bottom {
-    grid-column: 1 / -1;
-  }
-  .sf-footer.is-contact .sf-footer-grid {
-    grid-template-columns: 1.2fr 1fr 1.6fr;
-  }
-
-  .sf-footer-bottom {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.9rem 1.4rem;
-    margin-top: clamp(1.8rem, 4vw, 2.6rem);
-    padding-top: 1.3rem;
-    border-top: 1px solid color-mix(in srgb, currentColor 16%, transparent);
-  }
-  .sf-footer-bottom.is-center {
-    justify-content: center;
-  }
-
-  .sf-footer-legal {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.4rem 1.2rem;
-    color: color-mix(in srgb, currentColor 68%, transparent);
-  }
-
-  .sf-footer-social {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-    margin: 0;
-    padding: 0;
-    list-style: none;
-  }
-  .sf-footer-social a {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 2.2rem;
-    padding: 0 0.8rem;
-    border: 1px solid color-mix(in srgb, currentColor 22%, transparent);
-    border-radius: var(--radius-md);
-    font-size: var(--text-caption);
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    opacity: 0.9;
-  }
-  .sf-footer-social a:hover {
-    border-color: color-mix(in srgb, currentColor 45%, transparent);
-    opacity: 1;
-  }
-
-  /* minimal */
-  .sf-footer-minimal {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
-    gap: 1.2rem;
-  }
-  .sf-footer-minimal .sf-footer-brand {
-    flex-direction: row;
-    align-items: center;
-    max-width: none;
-  }
-  .sf-footer-minimal .sf-footer-desc {
-    display: none;
-  }
-  .sf-footer-minimal-side {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 1.2rem;
-  }
-
-  /* centered */
-  .sf-footer-centered {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 1.4rem;
-    text-align: center;
-  }
-  .sf-footer-centered .sf-footer-brand {
-    align-items: center;
-    max-width: 36rem;
-  }
-  .sf-footer-centered .sf-footer-list {
-    align-items: center;
-  }
-
-  /* editorial */
-  .sf-footer.is-editorial .sf-footer-brand {
-    max-width: 40rem;
-  }
-  .sf-footer-editorial-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr auto;
-    gap: clamp(1.6rem, 4vw, 3rem);
-    margin-top: 2.2rem;
-  }
-
-  @media (max-width: 48rem) {
-    .sf-footer-grid,
-    .sf-footer.is-contact .sf-footer-grid,
-    .sf-footer-editorial-grid {
-      grid-template-columns: 1fr 1fr;
-    }
-    .sf-footer-grid > .sf-footer-brand,
-    .sf-footer.is-editorial .sf-footer-brand {
-      grid-column: 1 / -1;
+  @media (pointer: coarse) {
+    .sf-foot-social a {
+      width: 44px;
+      height: 44px;
     }
   }
-  @media (max-width: 34rem) {
-    .sf-footer-grid,
-    .sf-footer.is-contact .sf-footer-grid,
-    .sf-footer-editorial-grid {
-      grid-template-columns: 1fr;
+
+  /* laptop 900px+: one row — copyright left, legal centre, social right. */
+  @media (min-width: 56.25rem) {
+    .sf-foot-inner {
+      flex-direction: row;
+      justify-content: space-between;
+      text-align: left;
     }
-    .sf-footer-bottom {
-      flex-direction: column;
+    .sf-foot-brandline {
       align-items: flex-start;
-    }
-    .sf-footer-bottom.is-center {
-      align-items: center;
     }
   }
 }
+
+/* ==========================================================================
+   Booking flow (`bkw-*`)
+   ──────────────────────────────────────────────────────────────────────────
+   One namespaced block for the owner booking wizard. Everything here is either
+   geometry the utility layer cannot express (the modal's own breakpoints, the
+   dynamic-viewport sheet, the sticky footer with safe-area padding) or the
+   printed receipt, whose paper palette is deliberately constant in both themes.
+
+   Only `bkw-` names are used: the prototype's short global class names are not
+   ported, because they collided with the console's own recipes.
+   ========================================================================== */
+@layer components {
+  /* Scrim + shell. Under 48rem the dialog is the whole screen on the dynamic
+     viewport; from 48rem it is a centred card that grows at 64rem and 90rem. */
+  .bkw-scrim {
+    position: fixed;
+    inset: 0;
+    z-index: var(--z-scrim);
+    border: 0;
+    padding: 0;
+    background: var(--scrim);
+    animation: fade-in 0.25s ease both;
+  }
+  .bkw-modal {
+    position: fixed;
+    inset: 0;
+    z-index: var(--z-drawer);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: var(--surface);
+    height: 100dvh;
+  }
+  @media (min-width: 48rem) {
+    .bkw-modal {
+      inset: 50% auto auto 50%;
+      width: min(90%, 56.25rem); /* 900px */
+      height: min(90dvh, 51.25rem); /* 820px */
+      border: 1px solid var(--line);
+      border-radius: var(--radius-panel);
+      box-shadow: var(--elev-3);
+      transform: translate(-50%, -50%);
+    }
+  }
+  @media (min-width: 64rem) {
+    .bkw-modal {
+      width: min(90%, 68.75rem); /* 1100px */
+    }
+  }
+  @media (min-width: 90rem) {
+    .bkw-modal {
+      width: min(86%, 75rem); /* 1200px */
+    }
+  }
+
+  /* Fixed header, independently scrolling content, sticky footer. */
+  .bkw-head {
+    flex: none;
+    padding: calc(0.9rem + env(safe-area-inset-top, 0px)) 1rem 0.9rem;
+    border-bottom: 1px solid var(--line);
+    background: var(--surface);
+  }
+  @media (min-width: 40rem) {
+    .bkw-head {
+      padding: 1.2rem 1.6rem 1rem;
+    }
+  }
+  .bkw-body {
+    flex: 1;
+    display: flex;
+    min-height: 0;
+  }
+  .bkw-main {
+    flex: 1;
+    min-width: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    padding: 1.1rem 1rem 1.4rem;
+    container-type: inline-size;
+  }
+  @media (min-width: 40rem) {
+    .bkw-main {
+      padding: 1.6rem;
+    }
+  }
+  .bkw-measure {
+    max-width: 44rem;
+  }
+  .bkw-side {
+    display: none;
+    flex: none;
+    width: 21.5rem;
+    overflow-y: auto;
+    padding: 1.2rem 1.1rem;
+    background: var(--premium-bg);
+    color: var(--premium-ink);
+    container-type: inline-size;
+  }
+  @media (min-width: 64rem) {
+    .bkw-side {
+      display: block;
+    }
+  }
+  .bkw-foot {
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.7rem;
+    padding: 0.8rem 1rem calc(0.8rem + env(safe-area-inset-bottom, 0px));
+    border-top: 1px solid var(--line);
+    background: var(--surface);
+  }
+  @media (min-width: 40rem) {
+    .bkw-foot {
+      padding: 0.9rem 1.6rem calc(0.9rem + env(safe-area-inset-bottom, 0px));
+    }
+  }
+  /* The phone summary bar and the footer share one sticky block, so the bar can
+     never end up behind the buttons. */
+  .bkw-mobile-summary {
+    flex: none;
+    background: var(--premium-bg);
+    color: var(--premium-ink);
+    border-top: 1px solid var(--line);
+  }
+  @media (min-width: 64rem) {
+    .bkw-mobile-summary {
+      display: none;
+    }
+  }
+  .bkw-mobile-summary > summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.7rem;
+    min-height: max(2.9rem, 44px);
+    padding: 0 1rem;
+    cursor: pointer;
+    list-style: none;
+    font-weight: 600;
+  }
+  .bkw-mobile-summary > summary::-webkit-details-marker {
+    display: none;
+  }
+  .bkw-mobile-summary[open] > summary + div {
+    max-height: 52dvh;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 0 1rem 0.9rem;
+  }
+
+  /* Confirmation view: the same premium panel, filling the dialog. */
+  .bkw-confirm {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: calc(1.2rem + env(safe-area-inset-top, 0px)) 1rem 1.8rem;
+    background: var(--premium-bg);
+    color: var(--premium-ink);
+  }
+  @media (min-width: 40rem) {
+    .bkw-confirm {
+      padding: 1.8rem;
+    }
+  }
+
+  /* Stepper: circles joined by a line. A completed step's circle and the line
+     leading out of it are green; nothing slides, fills or boxes. */
+  .bkw-steps {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    margin: 0.9rem 0 0;
+    padding: 0;
+    list-style: none;
+  }
+  .bkw-step {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    min-width: 0;
+  }
+  .bkw-step-line {
+    position: absolute;
+    left: 50%;
+    top: calc(0.85rem - 1px);
+    width: 100%;
+    height: 2px;
+    background: var(--line);
+    transition: background-color 0.3s var(--ease-standard);
+  }
+  .bkw-step.done .bkw-step-line {
+    background: var(--accent);
+  }
+  .bkw-step:last-child .bkw-step-line {
+    display: none;
+  }
+  .bkw-step-button {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.45rem;
+    max-width: 100%;
+    padding: 0.2rem 0.2rem 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .bkw-step-button:disabled {
+    cursor: default;
+  }
+  .bkw-step-circle {
+    display: grid;
+    place-items: center;
+    width: 1.7rem;
+    height: 1.7rem;
+    border: 1.5px solid var(--line-strong);
+    border-radius: var(--radius-round);
+    background: var(--surface);
+    color: var(--fg-subtle);
+    font-size: var(--text-caption);
+    font-weight: 600;
+    transition:
+      background-color 0.3s var(--ease-standard),
+      border-color 0.3s var(--ease-standard),
+      color 0.3s var(--ease-standard);
+  }
+  .bkw-step.current .bkw-step-circle {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+    color: var(--accent-ink);
+  }
+  .bkw-step.done .bkw-step-circle {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--on-accent);
+  }
+  .bkw-step-label {
+    display: none;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--fg-subtle);
+    font-size: var(--text-meta);
+  }
+  @media (min-width: 48rem) {
+    .bkw-step-label {
+      display: block;
+    }
+  }
+  .bkw-step.done .bkw-step-label {
+    color: var(--fg-muted);
+  }
+  .bkw-step.current .bkw-step-label {
+    color: var(--fg);
+    font-weight: 600;
+  }
+  .bkw-step-button:focus-visible .bkw-step-circle {
+    box-shadow: var(--focus-ring);
+  }
+  .bkw-step-button:focus-visible {
+    outline: none;
+  }
+
+  /* Step controls ---------------------------------------------------------- */
+  /* A selectable card (booking type, payment plan, payment method). Container
+     queries come from the parent, so these grids reflow next to the receipt. */
+  .bkw-choice-grid {
+    display: grid;
+    gap: 0.6rem;
+    grid-template-columns: 1fr;
+  }
+  @container (min-width: 30rem) {
+    .bkw-choice-grid.two {
+      grid-template-columns: 1fr 1fr;
+    }
+    .bkw-choice-grid.three {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+  .bkw-choice {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    width: 100%;
+    min-height: max(4.2rem, 44px);
+    padding: 0.8rem 0.95rem;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    background: var(--surface);
+    text-align: left;
+    transition:
+      border-color 0.2s var(--ease-standard),
+      background-color 0.2s var(--ease-standard);
+  }
+  .bkw-choice:hover {
+    border-color: var(--line-strong);
+  }
+  .bkw-choice.is-on {
+    border-color: var(--accent);
+    background: var(--selected);
+  }
+  .bkw-choice-icon {
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 2.4rem;
+    height: 2.4rem;
+    border-radius: var(--radius-md);
+    background: var(--surface-sunken);
+    color: var(--fg-muted);
+  }
+  .bkw-choice.is-on .bkw-choice-icon {
+    background: var(--accent);
+    color: var(--on-accent);
+  }
+
+  /* Result rows: customers and services. */
+  .bkw-list {
+    margin-top: 0.8rem;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    background: var(--surface);
+    overflow: hidden;
+  }
+  .bkw-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    width: 100%;
+    min-height: max(3.6rem, 44px);
+    padding: 0.6rem 0.9rem;
+    border: 0;
+    border-bottom: 1px solid var(--line);
+    background: none;
+    text-align: left;
+    transition: background-color 0.2s var(--ease-standard);
+  }
+  .bkw-row:last-child {
+    border-bottom: 0;
+  }
+  .bkw-row:hover {
+    background: var(--hover);
+  }
+  .bkw-row.is-on {
+    background: var(--selected);
+    box-shadow: inset 3px 0 0 var(--accent);
+  }
+  .bkw-row-text {
+    flex: 1;
+    min-width: 0;
+  }
+  .bkw-row-text > b,
+  .bkw-row-text > small {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .bkw-check {
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 1.25rem;
+    height: 1.25rem;
+    border: 1.5px solid var(--line-strong);
+    border-radius: var(--radius-xs);
+    color: transparent;
+    transition:
+      background-color 0.2s var(--ease-standard),
+      border-color 0.2s var(--ease-standard);
+  }
+  .bkw-row.is-on .bkw-check {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--on-accent);
+  }
+  .bkw-list-foot {
+    padding: 0.6rem 0.9rem;
+    border-top: 1px solid var(--line);
+    background: var(--hover);
+    font-size: var(--text-meta);
+    color: var(--fg-muted);
+  }
+
+  /* Date strip: snap-scrolling, one week, today marked, past days disabled. */
+  .bkw-days {
+    display: flex;
+    gap: 0.4rem;
+    margin: 0.7rem 0 1.2rem;
+    overflow-x: auto;
+    scrollbar-width: none;
+    scroll-snap-type: x proximity;
+  }
+  .bkw-days::-webkit-scrollbar {
+    display: none;
+  }
+  .bkw-day {
+    position: relative;
+    flex: 1 0 3.7rem;
+    min-height: max(3.9rem, 44px);
+    padding: 0.5rem 0.35rem;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    background: var(--surface);
+    text-align: center;
+    line-height: 1.25;
+    scroll-snap-align: start;
+    transition:
+      background-color 0.2s var(--ease-standard),
+      border-color 0.2s var(--ease-standard);
+  }
+  .bkw-day:hover:not(:disabled) {
+    border-color: var(--line-strong);
+  }
+  .bkw-day.is-on {
+    background: var(--inverse);
+    border-color: var(--inverse);
+    color: var(--fg-inverse);
+  }
+  .bkw-day.is-on small {
+    color: inherit;
+    opacity: 0.8;
+  }
+  .bkw-day.ex {
+    border-style: dashed;
+  }
+  .bkw-day:disabled {
+    color: var(--fg-disabled);
+    background: var(--surface-sunken);
+    cursor: not-allowed;
+  }
+  .bkw-day:disabled small {
+    color: inherit;
+  }
+  .bkw-day small:first-of-type {
+    display: block;
+    font-size: var(--text-caption);
+  }
+  .bkw-day b {
+    display: block;
+    font-size: 1.1rem;
+    font-weight: 600;
+  }
+  .bkw-day-dot {
+    position: absolute;
+    top: 0.35rem;
+    right: 0.35rem;
+    width: 0.35rem;
+    height: 0.35rem;
+    border-radius: var(--radius-round);
+    background: var(--accent);
+  }
+  .bkw-day.is-on .bkw-day-dot {
+    background: var(--fg-inverse);
+  }
+
+  /* Time slots, grouped by the server's own day parts. */
+  .bkw-slots {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(5rem, 1fr));
+    gap: 0.45rem;
+    margin-bottom: 1rem;
+  }
+  .bkw-slot {
+    min-height: max(2.6rem, 44px);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    background: var(--surface);
+    font-size: var(--text-label);
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    transition:
+      background-color 0.2s var(--ease-standard),
+      border-color 0.2s var(--ease-standard);
+  }
+  .bkw-slot:hover:not(:disabled) {
+    border-color: var(--accent);
+  }
+  .bkw-slot.is-on {
+    background: var(--inverse);
+    border-color: var(--inverse);
+    color: var(--fg-inverse);
+  }
+  .bkw-slot:disabled {
+    color: var(--fg-disabled);
+    background: var(--surface-sunken);
+    text-decoration: line-through;
+  }
+
+  /* Month picker: a sheet under 40rem, a centred card above it. */
+  .bkw-calendar-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: var(--z-popover);
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    background: var(--scrim);
+  }
+  @media (min-width: 40rem) {
+    .bkw-calendar-overlay {
+      align-items: center;
+    }
+  }
+  .bkw-calendar {
+    width: 100%;
+    max-width: 23rem;
+    padding: 1rem 1rem calc(1rem + env(safe-area-inset-bottom, 0px));
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
+    animation: rise 0.25s var(--ease-standard) both;
+  }
+  @media (min-width: 40rem) {
+    .bkw-calendar {
+      border-radius: var(--radius-panel);
+    }
+  }
+  .bkw-calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 0.2rem;
+    text-align: center;
+  }
+  .bkw-calendar-weekday {
+    padding: 0.3rem 0;
+    font-size: var(--text-caption);
+    font-weight: 600;
+    letter-spacing: var(--tracking-caps);
+    text-transform: uppercase;
+    color: var(--fg-subtle);
+  }
+  .bkw-calendar-day {
+    min-height: max(2.5rem, 42px);
+    border: 1px solid transparent;
+    border-radius: var(--radius-md);
+    background: none;
+    font-weight: 500;
+  }
+  .bkw-calendar-day:hover:not(:disabled) {
+    background: var(--hover);
+    border-color: var(--line);
+  }
+  .bkw-calendar-day.today {
+    border-color: var(--line-strong);
+  }
+  .bkw-calendar-day.is-on {
+    background: var(--inverse);
+    border-color: var(--inverse);
+    color: var(--fg-inverse);
+  }
+  .bkw-calendar-day:disabled {
+    color: var(--fg-disabled);
+  }
+
+  /* Read-only figures, notes and the review cards. */
+  .bkw-readonly {
+    display: flex;
+    align-items: center;
+    min-height: var(--size-control-lg);
+    padding: 0 0.8rem;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    background: var(--surface-sunken);
+    font-weight: 600;
+  }
+  .bkw-note {
+    padding: 0.8rem 0.95rem;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    background: var(--surface-sunken);
+    font-size: var(--text-meta);
+  }
+  .bkw-note.warn {
+    background: var(--warning-soft);
+    border-color: transparent;
+    color: var(--warning-ink);
+  }
+  .bkw-review {
+    margin-bottom: 0.8rem;
+    padding: 0.3rem 1rem 0.6rem;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    background: var(--surface);
+  }
+  .bkw-review > header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6rem;
+    padding: 0.6rem 0 0.2rem;
+  }
+
+  /* ── The receipt ────────────────────────────────────────────────────────
+     Paper palette is fixed: a receipt looks the same in both themes, so the
+     colours are declared once here and never read from the theme variables. */
+  .bkw-receipt-wrap {
+    --bkw-paper: #fbf8f1;
+    --bkw-ink: #24221e;
+    --bkw-muted: #7b7566;
+    --bkw-dot: #cdc5b1;
+    --bkw-green: #2f6b4f;
+    --bkw-warn: #a8731a;
+    filter: drop-shadow(0 0.9rem 1.1rem rgba(0, 0, 0, 0.3));
+  }
+  .bkw-receipt-zag {
+    display: block;
+    width: 100%;
+    height: 0.5rem;
+  }
+  .bkw-receipt {
+    padding: 0.9rem 1.1rem 1.1rem;
+    background: var(--bkw-paper);
+    color: var(--bkw-ink);
+    font-size: var(--text-meta);
+  }
+  .bkw-receipt-head {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 0.6rem;
+  }
+  .bkw-receipt-title {
+    font-family: var(--font-display);
+    font-size: 1.4rem;
+    line-height: 1;
+  }
+  .bkw-receipt-meta {
+    margin-top: 0.35rem;
+    font-size: var(--text-caption);
+    color: var(--bkw-muted);
+  }
+  .bkw-receipt-brand {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    font-weight: 600;
+  }
+  .bkw-receipt-pills {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0.3rem;
+  }
+  .bkw-receipt-pill {
+    padding: 0.1rem 0.5rem;
+    border: 1px solid var(--bkw-dot);
+    border-radius: var(--radius-pill);
+    color: var(--bkw-muted);
+    font-size: 0.64rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .bkw-receipt-pill.confirmed {
+    border-color: var(--bkw-green);
+    color: var(--bkw-green);
+  }
+  /* Punched notches at every dashed divider, cut out of the paper. */
+  .bkw-receipt-cut {
+    position: relative;
+    margin: 0.9rem -1.1rem;
+    border-top: 1.5px dashed var(--bkw-dot);
+  }
+  .bkw-receipt-cut::before,
+  .bkw-receipt-cut::after {
+    content: "";
+    position: absolute;
+    top: -0.55rem;
+    width: 1.1rem;
+    height: 1.1rem;
+    border-radius: var(--radius-round);
+    background: var(--premium-bg);
+  }
+  .bkw-receipt-cut::before {
+    left: -0.55rem;
+  }
+  .bkw-receipt-cut::after {
+    right: -0.55rem;
+  }
+  .bkw-receipt-label {
+    margin: 0 0 0.4rem;
+    font-size: 0.64rem;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--bkw-muted);
+  }
+  /* A dotted leader runs between a label and its figure. */
+  .bkw-receipt-line {
+    display: flex;
+    align-items: baseline;
+    gap: 0.4rem;
+    padding: 0.2rem 0;
+  }
+  .bkw-receipt-line > span:first-child {
+    min-width: 0;
+  }
+  .bkw-receipt-line > span:first-child > small {
+    display: block;
+    font-size: var(--text-caption);
+    font-weight: 500;
+    color: var(--bkw-muted);
+  }
+  .bkw-receipt-leader {
+    flex: 1;
+    min-width: 0.6rem;
+    border-bottom: 1.5px dotted var(--bkw-dot);
+    transform: translateY(-0.2em);
+  }
+  .bkw-receipt-line > span:last-child {
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .bkw-receipt-line.quiet > span:first-child {
+    color: var(--bkw-muted);
+  }
+  .bkw-receipt-mono {
+    font-family: var(--font-mono);
+    letter-spacing: 0.04em;
+  }
+  .bkw-receipt-placeholder {
+    color: var(--bkw-muted);
+    font-style: italic;
+  }
+  .bkw-receipt-total {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-top: 0.55rem;
+    padding-top: 0.6rem;
+    border-top: 1.5px solid var(--bkw-ink);
+  }
+  .bkw-receipt-total > span:first-child {
+    font-size: 0.66rem;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+  .bkw-receipt-total > span:last-child {
+    font-family: var(--font-display);
+    font-size: 1.6rem;
+    line-height: 1;
+  }
+  .bkw-stamp {
+    display: inline-block;
+    margin-top: 0.8rem;
+    padding: 0.25rem 0.7rem;
+    border: 2px solid var(--bkw-green);
+    border-radius: var(--radius-xs);
+    color: var(--bkw-green);
+    font-size: 0.66rem;
+    font-weight: 800;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    transform: rotate(-4deg);
+  }
+  .bkw-stamp.pending {
+    border-color: var(--bkw-warn);
+    color: var(--bkw-warn);
+  }
+  .bkw-barcode {
+    display: block;
+    width: 78%;
+    height: 2.1rem;
+    margin: 0.9rem auto 0;
+  }
+  .bkw-barcode-number {
+    margin-top: 0.3rem;
+    text-align: center;
+    font-size: 0.6rem;
+    letter-spacing: 0.3em;
+    color: var(--bkw-muted);
+  }
+
+  /* Confirmation: gold ring, reference chip, actions. */
+  .bkw-ring {
+    display: grid;
+    place-items: center;
+    width: 3.8rem;
+    height: 3.8rem;
+    margin: 0 auto 1rem;
+    border: 1.5px solid var(--premium-gold);
+    border-radius: var(--radius-round);
+    background: color-mix(in srgb, var(--premium-gold) 12%, transparent);
+    color: var(--premium-gold);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .bkw-ring svg path {
+      stroke-dashoffset: 0 !important;
+    }
+  }
+  .bkw-refchip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.3rem 0.35rem 0.3rem 0.9rem;
+    border: 1px solid var(--premium-ink-line);
+    border-radius: var(--radius-md);
+  }
+  .bkw-refchip > span {
+    font-size: 0.66rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--premium-muted);
+  }
+  .bkw-refchip > b {
+    font-family: var(--font-mono);
+    letter-spacing: 0.08em;
+  }
+  .bkw-confirm-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    justify-content: flex-end;
+  }
+}
+
+
+
+
+

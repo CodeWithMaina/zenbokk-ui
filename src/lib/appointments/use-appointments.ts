@@ -21,11 +21,16 @@ export function useAppointmentPage(
   page: number,
   pageSize: number,
   enabled = true,
+  /**
+   * The business timezone the date window is resolved in. Omitted (or equal to the
+   * browser's) reproduces the previous behaviour exactly.
+   */
+  timeZone?: string,
 ) {
-  const query = toAppointmentQuery(filters, page, pageSize)
+  const query = toAppointmentQuery(filters, page, pageSize, new Date(), timeZone)
   return useQuery({
     queryKey: queryKeys.ownerAppointments(query),
-    queryFn: () => appointmentsApi.list(query),
+    queryFn: ({ signal }) => appointmentsApi.list(query, signal),
     enabled,
     staleTime: 20_000,
   })
@@ -41,7 +46,7 @@ export function useAppointmentPage(
 export function useAppointmentRange(query: AppointmentRangeQuery, enabled = true) {
   return useQuery({
     queryKey: queryKeys.appointmentRange(query),
-    queryFn: () => appointmentsApi.listRange(query),
+    queryFn: ({ signal }) => appointmentsApi.listRange(query, signal),
     enabled,
     staleTime: 20_000,
   })

@@ -233,7 +233,12 @@ export function AppointmentPaymentActions({
           appointmentId={appointmentId}
           outstanding={outstanding}
           manualMpesa={Boolean(publicDetails.data?.enabled)}
-          paybill={publicDetails.data?.paybillNumber ?? publicDetails.data?.tillNumber ?? null}
+          paybill={
+            publicDetails.data?.paybillNumber ??
+            publicDetails.data?.tillNumber ??
+            publicDetails.data?.phoneNumber ??
+            null
+          }
         />
       ) : null}
     </div>

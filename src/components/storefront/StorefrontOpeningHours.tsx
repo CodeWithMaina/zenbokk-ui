@@ -42,8 +42,6 @@ export function StorefrontOpeningHours({ variant = 'panel' }: { variant?: 'panel
     return rank(a.dayOfWeek) - rank(b.dayOfWeek)
   })
 
-  const specialHours = data.specialHours.slice(0, 6)
-
   return (
     <div className="grid gap-[0.7rem]">
       <dl className="grid gap-[0.35rem] text-meta">
@@ -71,33 +69,6 @@ export function StorefrontOpeningHours({ variant = 'panel' }: { variant?: 'panel
           book.
         </p>
       ) : null}
-
-      {specialHours.length > 0 ? (
-        <div className="grid gap-[0.3rem]">
-          <p className="eyebrow">Upcoming changes</p>
-          <ul className="grid gap-[0.2rem] text-caption text-muted">
-            {specialHours.map((special) => (
-              <li key={special.date} className="flex flex-wrap items-baseline justify-between gap-x-[1rem]">
-                <span>{formatSpecialDate(special.date)}</span>
-                <span>
-                  {special.isClosed
-                    ? (special.label ?? 'Closed')
-                    : special.periods
-                        .map((period) => `${period.opensAt}–${period.closesAt}`)
-                        .join(', ')}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
     </div>
   )
-}
-
-/** `2026-12-25` → `Fri 25 Dec`, without a UTC/DST shift. */
-function formatSpecialDate(isoDate: string): string {
-  const date = new Date(`${isoDate}T12:00:00`)
-  if (Number.isNaN(date.getTime())) return isoDate
-  return date.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })
 }

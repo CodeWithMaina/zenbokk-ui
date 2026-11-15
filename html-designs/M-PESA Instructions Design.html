@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>M-PESA instructions · PayBill, Till, Phone</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  color-scheme:light dark;
+  --bg:#f7f6f3;--surface:#fff;--sunken:#f2f0eb;--hover:#f9f8f5;--pressed:#f1efea;
+  --line:#e9e7e2;--fg:#1c1f23;--muted:#5b616b;--subtle:#8a8f97;
+  --accent-soft:#e3f1e8;--accent-ink:#1b5233;--ring:rgba(47,107,79,.38);--accent:#2f6b4f;
+  --success-soft:#e3f1e8;--success-ink:#1b5233;--success-line:rgba(27,82,51,.22);
+  --font-sans:"Manrope",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --font-mono:ui-monospace,"SF Mono","Cascadia Mono",Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#141412;--surface:#1d1d1a;--sunken:#10100f;--hover:#242421;--pressed:#2a2a27;
+  --line:#2e2d29;--fg:#f2f0ea;--muted:#a29e94;--subtle:#7c786f;
+  --accent-soft:#1f3326;--accent-ink:#9fd6b2;--ring:rgba(95,165,131,.5);--accent:#5fa583;
+  --success-soft:#1f3326;--success-ink:#9fd6b2;--success-line:rgba(159,214,178,.22);}}
+*,*::before,*::after{box-sizing:border-box}
+html{font-size:calc(clamp(.75rem,.714rem + .1613vw,1rem));-webkit-text-size-adjust:100%}
+body{margin:0;padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px);
+  background:var(--bg);color:var(--fg);font-family:var(--font-sans);font-size:1rem;line-height:1.4;
+  font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased}
+h1,p,ol,dl,dd{margin:0}
+ol{padding:0;list-style:none}
+:focus-visible{outline:none;box-shadow:0 0 0 .2rem var(--ring)}
+
+.page{max-width:86rem;margin-inline:auto;padding:clamp(1.2rem,4vw,2.5rem) clamp(.9rem,3vw,2rem)}
+.page-head{margin-bottom:1.3rem}
+.page-head h1{font-size:clamp(1.3rem,1.1rem + .6vw,1.6rem);font-weight:700;letter-spacing:-.02em}
+.page-head p{margin-top:.25rem;font-size:.85rem;color:var(--muted)}
+.grid{display:grid;gap:1.2rem;grid-template-columns:1fr;max-width:30rem;margin-inline:auto}
+@media (min-width:56.25rem){.grid{grid-template-columns:repeat(3,minmax(0,1fr));max-width:none;align-items:start}}
+
+/* ---- the component ---- */
+.mp{overflow:hidden;border:1px solid var(--line);border-radius:1.1rem;background:var(--surface)}
+.mp-head{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:.4rem 1rem;
+  padding:.8rem .9rem;border-bottom:1px solid var(--line);background:var(--sunken)}
+.pill{display:inline-flex;align-items:center;padding:.15rem .6rem;border-radius:99px;
+  background:var(--accent-soft);color:var(--accent-ink);font-size:.78rem;font-weight:600}
+.mp-head p{margin-top:.35rem;font-size:.85rem;color:var(--muted)}
+.mp-amount{font-size:clamp(1.35rem,1.2rem + .5vw,1.5rem);font-weight:700;letter-spacing:-.02em;line-height:1.15}
+.mp-body{display:flex;flex-direction:column;gap:.9rem;padding:.9rem}
+.note{font-size:.72rem;color:var(--subtle)}
+.txt{font-size:.85rem}
+.steps{display:flex;flex-direction:column;gap:.9rem}
+.step{display:flex;gap:.7rem}
+.step-n{flex:none;display:grid;place-items:center;width:1.4rem;height:1.4rem;margin-top:.1rem;border-radius:50%;
+  background:var(--accent-soft);color:var(--accent-ink);font-size:.72rem;font-weight:700}
+.step-b{flex:1;min-width:0;font-size:.85rem}
+.muted{color:var(--muted)}
+.path{display:flex;flex-wrap:wrap;align-items:center;gap:.2rem;margin-top:.35rem}
+.path b{padding:.15rem .5rem;border-radius:.6rem;background:var(--sunken);font-weight:600}
+.path svg{width:.9rem;height:.9rem;color:var(--subtle)}
+.rows{margin:.4rem 0 0;border:1px solid var(--line);border-radius:.9rem;overflow:hidden}
+.row{display:flex;align-items:center;justify-content:space-between;gap:.75rem;padding:.7rem .9rem}
+.row+.row{border-top:1px solid var(--line)}
+.row div{min-width:0}
+.row dt{font-size:.72rem;color:var(--muted)}
+.row dd{font-family:var(--font-mono);font-size:1.05rem;font-weight:600;letter-spacing:.02em;word-break:break-all}
+.copy{display:inline-flex;align-items:center;justify-content:center;gap:.35rem;flex:none;min-width:5.4rem;
+  height:2.3rem;padding:0 .8rem;border:1px solid var(--line);border-radius:.8rem;background:var(--surface);color:var(--fg);
+  font:inherit;font-size:.85rem;font-weight:600;cursor:pointer;transition:background .2s,border-color .2s,color .2s}
+.copy:hover{background:var(--hover)}
+.copy:active{background:var(--pressed)}
+.copy svg{width:.9rem;height:.9rem}
+.copy.is-done{background:var(--success-soft);border-color:var(--success-line);color:var(--success-ink)}
+@media (pointer:coarse){.copy{height:max(2.3rem,44px)}}
+.verify{display:flex;gap:.45rem;align-items:flex-start;padding:.55rem .7rem;border-radius:.9rem;
+  background:var(--success-soft);color:var(--success-ink)}
+.verify svg{flex:none;width:1rem;height:1rem;margin-top:.1rem}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<main class="page">
+  <header class="page-head">
+    <h1>M-PESA payment instructions</h1>
+    <p>One component, three routes: PayBill, Till and Send Money to a phone number. Tap Copy to try it.</p>
+  </header>
+  <div class="grid" id="grid"></div>
+  <span class="sr" role="status" aria-live="polite" id="live"></span>
+</main>
+
+<script>
+const ICON = {
+  copy:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>',
+  check:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>',
+  chev:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>',
+  shield:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>'
+};
+const money = n => 'KES ' + Number(n).toLocaleString('en-KE');
+const PAYEE = 'Aurelia Luxe Hair Atelier';
+
+const CASES = [
+  { name:'PayBill', path:['M-PESA','Lipa na M-PESA','Pay Bill'], amount:1800, total:6000, pct:30,
+    fields:[{id:'pb',label:'Business number',display:'400200',copy:'400200'},
+            {id:'ac',label:'Account number',display:'AURELIA-1042',copy:'AURELIA-1042'}] },
+  { name:'Till', path:['M-PESA','Lipa na M-PESA','Buy Goods and Services'], amount:1500, total:1500, pct:30,
+    fields:[{id:'tl',label:'Till number',display:'5123456',copy:'5123456'}] },
+  { name:'Send Money', path:['M-PESA','Send Money'], amount:2400, total:8000, pct:30, phone:true,
+    fields:[{id:'ph',label:'M-PESA number',display:'0712 440 001',copy:'0712440001'}] }
+];
+
+function card(c, i){
+  let n = 0;
+  const all = [...c.fields, {id:'am',label:'Amount',display:String(c.amount),copy:String(c.amount)}];
+  const rows = all.map(f => `
+    <div class="row">
+      <div><dt>${f.label}</dt><dd>${f.display}</dd></div>
+      <button type="button" class="copy" data-copy="${f.copy}" aria-label="Copy ${f.label}">${ICON.copy}<span>Copy</span></button>
+    </div>`).join('');
+  const path = c.path.map((p,k)=>`<span style="display:inline-flex;align-items:center;gap:.2rem"><b>${p}</b>${k<c.path.length-1?ICON.chev:''}</span>`).join('');
+  const partial = c.amount !== c.total
+    ? `<p class="note">${money(c.amount)} of the ${money(c.total)} total (${c.pct}%). The balance is settled at your appointment.</p>` : '';
+  return `
+  <section class="mp" aria-label="${c.name} payment instructions">
+    <div class="mp-head">
+      <div><span class="pill">M-PESA · ${c.name}</span><p>Booking fee to pay now</p></div>
+      <b class="mp-amount">${money(c.amount)}</b>
+    </div>
+    <div class="mp-body">
+      ${partial}
+      <ol class="steps">
+        <li class="step"><span class="step-n">${++n}</span><div class="step-b"><span class="muted">On your phone, open</span><span class="path">${path}</span></div></li>
+        <li class="step"><span class="step-n">${++n}</span><div class="step-b"><span class="muted">Enter these details exactly</span><dl class="rows">${rows}</dl></div></li>
+        <li class="step"><span class="step-n">${++n}</span><div class="step-b"><span class="verify">${ICON.shield}<span>Before you enter your PIN, check the name shown is <b>“${PAYEE}”</b>. If it isn’t, cancel.</span></span></div></li>
+        <li class="step"><span class="step-n">${++n}</span><div class="step-b">Paste the M-PESA confirmation message you receive below.${c.phone?'<span class="note" style="display:block;margin-top:.25rem">Standard M-PESA send-money charges apply.</span>':''}</div></li>
+      </ol>
+    </div>
+  </section>`;
+}
+document.getElementById('grid').innerHTML = CASES.map(card).join('');
+
+let timer, last;
+function fallbackCopy(v){
+  const t = document.createElement('textarea'); t.value = v; t.style.position='fixed'; t.style.opacity='0';
+  document.body.appendChild(t); t.select();
+  try{ document.execCommand('copy'); }catch(e){}
+  t.remove();
+}
+document.getElementById('grid').addEventListener('click', async e => {
+  const b = e.target.closest('.copy'); if(!b) return;
+  try{ await navigator.clipboard.writeText(b.dataset.copy); }catch(_){ fallbackCopy(b.dataset.copy); }
+  if(last){ last.classList.remove('is-done'); last.innerHTML = ICON.copy + '<span>Copy</span>'; }
+  b.classList.add('is-done'); b.innerHTML = ICON.check + '<span>Copied</span>'; last = b;
+  document.getElementById('live').textContent = 'Copied to clipboard';
+  clearTimeout(timer);
+  timer = setTimeout(()=>{ b.classList.remove('is-done'); b.innerHTML = ICON.copy + '<span>Copy</span>';
+    document.getElementById('live').textContent=''; last=null; }, 2000);
+});
+</script>
+</body>
+</html>

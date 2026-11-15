@@ -1,12 +1,15 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Loader2 } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { errorMessage } from '../../../lib/api/client'
-import { paymentsApi, usePaymentStatus, usePublicPaymentDetails } from '../../../lib/payments/api'
+import { usePaymentStatus, usePublicPaymentDetails } from '../../../lib/payments/api'
 import type { Payment } from '../../../lib/payments/api'
+import { publicBookingApi } from '../../../lib/storefront/api'
+import { scanMpesaMessage } from '../../../lib/payments/mpesa-message'
 import { Alert } from '../../ui/alert'
 import { Button } from '../../ui/button'
 import { MpesaInstructions } from './MpesaInstructions'
+import { MpesaConfirmationField } from './MpesaConfirmationField'
 
 export type StorefrontMpesaPanelProps = {
   businessId: string
@@ -15,16 +18,21 @@ export type StorefrontMpesaPanelProps = {
   serviceTotal: number
   /** Server-computed booking fee (the configured percentage of `serviceTotal`). */
   bookingFee: number
-  /** Short-lived guest token, when the visitor is booking without an account. */
-  guestToken?: string | null
+  /**
+   * The booking-fee payment the server created as part of the booking, when it reported one.
+   *
+   * Nothing secret is carried here: the paste is attached to the appointment through the public
+   * payment-proof route and the server decides which of the appointment's payments the evidence
+   * belongs to. The id only lets the panel follow that payment's verification state live.
+   */
+  paymentId?: string | null
   /**
    * A confirmation the customer already pasted in the booking wizard.
    *
-   * When present the panel does the two calls itself, in order and without a tap:
-   * create the booking-fee payment, then submit the message. That is what makes the
-   * paste part of the booking flow rather than a chore after it. A failure here never
-   * undoes the booking — the appointment stands, the slot is held, and the panel
-   * offers the retry with the text still in place.
+   * When present the panel submits it without a tap, which is what makes the paste part of the
+   * booking flow rather than a chore after it. A failure here never undoes the booking — the
+   * appointment stands, the slot is held, and the panel offers the retry with the text still in
+   * place.
    */
   autoSubmitMessage?: string | null
 }
@@ -50,67 +58,73 @@ export function StorefrontMpesaPanel({
   appointmentId,
   serviceTotal,
   bookingFee,
-  guestToken,
+  paymentId,
   autoSubmitMessage,
 }: StorefrontMpesaPanelProps) {
   const details = usePublicPaymentDetails(businessId)
   const queryClient = useQueryClient()
-  const [paymentId, setPaymentId] = useState<string | null>(null)
+  // The payment the booking already carries, plus one a paste itself may have produced (a fee
+  // added for an appointment that had none yet) — the panel follows whichever the server names.
+  const [pastedPaymentId, setPastedPaymentId] = useState<string | null>(null)
+  const [revealed, setRevealed] = useState(false)
   const [message, setMessage] = useState(() => autoSubmitMessage?.trim() ?? '')
 
-  const status = usePaymentStatus(paymentId)
+  // The pasted SMS is scanned as it is typed; only a message that reads like a
+  // genuine confirmation can be submitted.
+  const scan = useMemo(() => scanMpesaMessage(message), [message])
 
-  const start = useMutation({
-    mutationFn: () =>
-      paymentsApi.create(
-        {
-          appointmentId,
-          method: 'mpesa',
-          type: 'booking_fee',
-          // A manual payment is made from the customer's own handset, so no number is
-          // required — the platform never dials anything.
-          idempotencyKey: `storefront-manual-${appointmentId}`,
-        },
-        guestToken,
-      ),
-    onSuccess: (payment) => setPaymentId(payment.id),
-  })
+  const status = usePaymentStatus(paymentId ?? pastedPaymentId ?? null)
+  const started = revealed || Boolean(paymentId) || Boolean(pastedPaymentId)
 
   const submit = useMutation({
-    mutationFn: (body: { paymentId: string; message: string }) =>
-      paymentsApi.submitMpesaMessage(body.paymentId, body.message, guestToken),
-    onSuccess: (payment) => {
-      queryClient.setQueryData(['payments', 'payment', payment.id], payment)
+    mutationFn: (body: { message: string }) =>
+      publicBookingApi.submitPaymentProof(businessId, appointmentId, { message: body.message }),
+    onSuccess: (response) => {
+      // The server is the authority on which payment the evidence landed on, so the id it
+      // returns is the one the status below follows.
+      if (response.payment) {
+        setPastedPaymentId(response.payment.id)
+        queryClient.setQueryData(['payments', 'payment', response.payment.id], response.payment)
+      }
+      void queryClient.invalidateQueries({
+        queryKey: ['payments', 'appointment', appointmentId],
+      })
       setMessage('')
     },
   })
 
-  // The wizard already collected the confirmation, so carry it through without
-  // asking the customer to paste it a second time: create the payment, then submit.
-  // Guarded so a re-render (or StrictMode's double invoke) cannot open two payments.
+  // The wizard already collected the confirmation, so carry it through without asking the
+  // customer to paste it a second time. Guarded so a re-render (or StrictMode's double invoke)
+  // cannot submit twice; the server treats a repeated paste as evidence for the same payment,
+  // never as a second one.
   const carried = useRef(false)
   const handedOver = autoSubmitMessage?.trim() ?? ''
   useEffect(() => {
     if (carried.current || handedOver.length === 0) return
     if (!details.data?.enabled) return
+    // Only a message that reads like a genuine confirmation is carried: the wizard
+    // already scanned it, and this re-checks in case it was edited. Anything else is
+    // left for the customer to paste correctly below.
+    if (!scanMpesaMessage(handedOver).ok) return
     carried.current = true
 
     void (async () => {
       try {
-        const payment = await start.mutateAsync()
-        await submit.mutateAsync({ paymentId: payment.id, message: handedOver })
+        await submit.mutateAsync({ message: handedOver })
       } catch {
-        // Deliberately swallowed: the mutation state below already carries the
-        // server's own message, and the booking itself is untouched.
+        // Deliberately swallowed: the mutation state below already carries the server's own
+        // message, and the booking is untouched. The field is revealed so the text stays in
+        // place for the retry.
+        setRevealed(true)
       }
     })()
-  }, [details.data?.enabled, handedOver, start, submit])
+  }, [details.data?.enabled, handedOver, submit])
 
   const payment: Payment | undefined = status.data
   const awaitingReview = payment?.status === 'submitted' || payment?.status === 'under_review'
   const verified = payment?.status === 'verified' || payment?.status === 'success'
   const rejected = payment?.status === 'rejected'
-  const working = start.isPending || submit.isPending
+  const working = submit.isPending
 
   if (details.isLoading) {
     return (
@@ -133,12 +147,11 @@ export function StorefrontMpesaPanel({
   }
 
   return (
-    <div className="mt-[0.9rem] rounded-card border border-line bg-surface p-[1rem]">
+    <div className="mt-[0.9rem]">
       <MpesaInstructions
         details={details.data}
         amount={bookingFee}
         serviceTotal={serviceTotal}
-        showSteps={false}
       />
 
       {working ? (
@@ -170,15 +183,6 @@ export function StorefrontMpesaPanel({
         </Alert>
       ) : null}
 
-      {start.isError ? (
-        <Alert tone="danger" className="mt-[0.9rem]">
-          {errorMessage(
-            start.error,
-            'We could not start that payment. You can still pay at the studio.',
-          )}
-        </Alert>
-      ) : null}
-
       {submit.isError ? (
         <Alert tone="danger" className="mt-[0.9rem]">
           {errorMessage(submit.error, 'We could not read that message. Paste the whole SMS.')}
@@ -187,45 +191,34 @@ export function StorefrontMpesaPanel({
 
       {!verified && !awaitingReview ? (
         <div className="mt-[0.9rem]">
-          {!paymentId ? (
+          {!started ? (
             <Button
               variant="primary"
-              onClick={() => start.mutate()}
-              disabled={start.isPending || bookingFee <= 0}
+              onClick={() => setRevealed(true)}
+              disabled={bookingFee <= 0}
             >
-              {start.isPending ? (
-                <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-              ) : null}
               I have paid — continue
             </Button>
           ) : (
             <>
-              <label className="label" htmlFor="sf-mpesa-message">
-                Paste your M-PESA confirmation message
-              </label>
-              <textarea
+              <MpesaConfirmationField
                 id="sf-mpesa-message"
-                className="input min-h-[6rem] w-full"
+                label="Paste your M-PESA confirmation message"
                 value={message}
-                placeholder="QJK42NUM01 Confirmed. Ksh500.00 sent to …"
-                onChange={(event) => setMessage(event.target.value)}
+                onChange={setMessage}
+                rows={4}
               />
               <div className="mt-[0.6rem] flex flex-wrap items-center gap-[0.6rem]">
                 <Button
                   variant="primary"
-                  onClick={() =>
-                    paymentId && submit.mutate({ paymentId, message: message.trim() })
-                  }
-                  disabled={submit.isPending || message.trim().length === 0}
+                  onClick={() => submit.mutate({ message: message.trim() })}
+                  disabled={submit.isPending || !scan.ok}
                 >
                   {submit.isPending ? (
                     <Loader2 className="size-4 animate-spin" aria-hidden="true" />
                   ) : null}
                   Submit for verification
                 </Button>
-                <span className="text-caption text-subtle">
-                  Copy the whole SMS, including the transaction code.
-                </span>
               </div>
             </>
           )}

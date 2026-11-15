@@ -3,26 +3,29 @@ import type { ReactNode } from 'react'
 import type { ServiceDashboardItem, StaffDashboardItem } from '../../lib/api/types'
 import {
   APPOINTMENT_SORT_LABELS,
-  APPOINTMENT_SORTS,
   APPOINTMENT_STATUSES,
   DATE_PRESET_LABELS,
   DATE_PRESETS,
+  LIST_SORTS,
+  PAYMENT_FILTER_LABELS,
+  PAYMENT_FILTERS,
+  activeFilterCount,
   appointmentStatusLabel,
-  serviceColor,
 } from '../../lib/appointments'
 import type {
   AppointmentDatePreset,
   AppointmentFilters as Filters,
   AppointmentSort,
+  AppointmentStatus,
   CalendarMode,
+  PaymentFilter,
 } from '../../lib/appointments'
-import { formatDuration, money } from '../../lib/format'
-import { Avatar } from '../ui/avatar'
 import { Chip } from '../ui/chip'
 import { Field, Input } from '../ui/field'
 import { FilterDrawer } from '../ui/filter-drawer'
 import { OptionRow } from '../ui/option-row'
 import { SegmentedControl } from '../ui/segmented-control'
+import { CustomerMultiSelect, ServiceMultiSelect, StaffMultiSelect } from './MultiSelectFilters'
 
 /** Small uppercase section heading, matching the design's group labels. */
 function FilterGroup({ title, hint, children }: { title: ReactNode; hint?: ReactNode; children: ReactNode }) {
@@ -35,12 +38,6 @@ function FilterGroup({ title, hint, children }: { title: ReactNode; hint?: React
       <div className="mt-[0.5rem]">{children}</div>
     </section>
   )
-}
-
-export type AppointmentFilterCounts = {
-  staff: ReadonlyMap<string, number>
-  service: ReadonlyMap<string, number>
-  status: ReadonlyMap<string, number>
 }
 
 export type AppointmentFiltersProps = {
@@ -59,11 +56,6 @@ export type AppointmentFiltersProps = {
   services: readonly ServiceDashboardItem[]
   /** Rows the drawer's result count reflects. */
   resultCount: number
-  /**
-   * Per-option counts. Only supplied when the loaded rows are the whole range
-   * (the calendar pane), so a page number is never presented as a total.
-   */
-  counts?: AppointmentFilterCounts
   /** Calendar view: the pane's granularity and a jump-to date. */
   calendar?: {
     mode: CalendarMode
@@ -94,11 +86,13 @@ export function AppointmentFilters({
   staffEnabled = true,
   services,
   resultCount,
-  counts,
   calendar,
   busy = false,
 }: AppointmentFiltersProps) {
   const patch = (next: Partial<Filters>) => onChange({ ...filters, ...next })
+
+  /** How many filters are narrowing the list right now — shown in the drawer's header. */
+  const activeCount = activeFilterCount(filters)
 
   const datePresets: readonly AppointmentDatePreset[] = calendar
     ? DATE_PRESETS.filter((preset) => preset !== 'custom' && preset !== 'all')
@@ -108,7 +102,18 @@ export function AppointmentFilters({
     <FilterDrawer
       open={open}
       onClose={onClose}
-      title="Filters"
+      title={
+        activeCount > 0 ? (
+          <span className="flex items-center gap-[0.45rem]">
+            Filters
+            <span className="rounded-pill bg-inverse px-[0.45rem] py-[0.05rem] text-caption font-semibold text-on-inverse">
+              {activeCount}
+            </span>
+          </span>
+        ) : (
+          'Filters'
+        )
+      }
       description={
         calendar
           ? `Calendar · ${resultCount} result${resultCount === 1 ? '' : 's'}`
@@ -188,7 +193,7 @@ export function AppointmentFilters({
       {!calendar ? (
         <FilterGroup title="Sort by">
           <div className="space-y-[0.45rem]">
-            {APPOINTMENT_SORTS.map((sort: AppointmentSort) => (
+            {LIST_SORTS.map((sort: AppointmentSort) => (
               <OptionRow
                 key={sort}
                 role="radio"
@@ -202,95 +207,85 @@ export function AppointmentFilters({
       ) : null}
 
       {staffEnabled ? (
-      <FilterGroup title="Staff">
-        <div className="space-y-[0.45rem]">
-          <OptionRow
-            role="radio"
-            title="All staff"
-            meta={counts ? `${counts.staff.get('all') ?? 0}` : undefined}
-            selected={filters.staffId === null}
-            onSelectedChange={() => patch({ staffId: null })}
+        <FilterGroup title="Staff">
+          <StaffMultiSelect
+            staff={staff}
+            selected={filters.staffIds}
+            onSelectedChange={(staffIds) => patch({ staffIds })}
           />
-          {staff.map((member) => (
-            <OptionRow
-              key={member.userId}
-              role="radio"
-              title={
-                <span className="flex items-center gap-[0.5rem]">
-                  <Avatar
-                    size="sm"
-                    name={member.fullName}
-                    src={member.avatarUrl ?? undefined}
-                    decorative
-                  />
-                  {member.fullName}
-                </span>
-              }
-              description={member.email}
-              selected={filters.staffId === member.userId}
-              onSelectedChange={() => patch({ staffId: member.userId })}
-              meta={counts ? `${counts.staff.get(member.userId) ?? 0}` : undefined}
-            />
-          ))}
-          {staff.length === 0 ? (
-            <p className="text-meta text-muted">No staff members are linked to this business yet.</p>
-          ) : null}
-        </div>
-      </FilterGroup>
+        </FilterGroup>
       ) : null}
 
-      <FilterGroup title="Service">
-        <div className="space-y-[0.45rem]">
-          <OptionRow
-            role="radio"
-            title="All services"
-            meta={counts ? `${counts.service.get('all') ?? 0}` : undefined}
-            selected={filters.serviceId === null}
-            onSelectedChange={() => patch({ serviceId: null })}
-          />
-          {services.map((service) => (
-            <OptionRow
-              key={service.id}
-              role="radio"
-              title={
-                <span className="flex items-center gap-[0.5rem]">
-                  <span
-                    aria-hidden="true"
-                    className="size-[0.6rem] shrink-0 rounded-round"
-                    style={{ backgroundColor: serviceColor(service.id) }}
-                  />
-                  {service.name}
-                </span>
-              }
-              description={`${formatDuration(service.durationMinutes)} · ${money(service.price)}`}
-              selected={filters.serviceId === service.id}
-              onSelectedChange={() => patch({ serviceId: service.id })}
-              meta={counts ? `${counts.service.get(service.id) ?? 0}` : undefined}
-            />
-          ))}
-        </div>
+      <FilterGroup title="Services">
+        <ServiceMultiSelect
+          services={services}
+          selected={filters.serviceIds}
+          onSelectedChange={(serviceIds) => patch({ serviceIds })}
+        />
+      </FilterGroup>
+
+      <FilterGroup title="Customers">
+        <CustomerMultiSelect
+          selected={filters.customerIds}
+          onSelectedChange={(customerIds) => patch({ customerIds })}
+        />
       </FilterGroup>
 
       <FilterGroup title="Status">
-        <div className="space-y-[0.45rem]">
-          <OptionRow
-            role="radio"
-            title="All statuses"
-            meta={counts ? `${counts.status.get('all') ?? 0}` : undefined}
-            selected={filters.status === null}
-            onSelectedChange={() => patch({ status: null })}
-          />
-          {APPOINTMENT_STATUSES.map((status) => (
-            <OptionRow
-              key={status}
-              role="radio"
-              title={appointmentStatusLabel(status)}
-              selected={filters.status === status}
-              onSelectedChange={() => patch({ status })}
-              meta={counts ? `${counts.status.get(status) ?? 0}` : undefined}
-            />
-          ))}
-        </div>
+        <Field label="Appointment status" htmlFor="appointment-filter-status">
+          <select
+            id="appointment-filter-status"
+            className="select"
+            value={filters.status ?? ''}
+            onChange={(event) =>
+              patch({ status: (event.target.value || null) as AppointmentStatus | null })
+            }
+          >
+            <option value="">All statuses</option>
+            {APPOINTMENT_STATUSES.map((status) => (
+              <option key={status} value={status}>
+                {appointmentStatusLabel(status)}
+              </option>
+            ))}
+          </select>
+        </Field>
+        {filters.status ? (
+          <button
+            type="button"
+            onClick={() => patch({ status: null })}
+            className="mt-[0.5rem] text-meta text-muted transition-colors hover:text-fg focus-visible:shadow-ring focus-visible:outline-none"
+          >
+            Clear status
+          </button>
+        ) : null}
+      </FilterGroup>
+
+      <FilterGroup title="Payment" hint="from the payment ledger">
+        <Field label="Payment state" htmlFor="appointment-filter-payment">
+          <select
+            id="appointment-filter-payment"
+            className="select"
+            value={filters.payment}
+            onChange={(event) => patch({ payment: event.target.value as PaymentFilter })}
+          >
+            {/* `all` is a real option, not an absence: it removes ONLY the payment
+                filter, leaving every other selection alone. */}
+            {PAYMENT_FILTERS.map((option) => (
+              <option key={option} value={option}>
+                {PAYMENT_FILTER_LABELS[option]}
+              </option>
+            ))}
+          </select>
+        </Field>
+        {filters.payment !== 'all' ? (
+          <button
+            type="button"
+            onClick={() => patch({ payment: 'all' })}
+            className="mt-[0.5rem] text-meta text-muted transition-colors hover:text-fg focus-visible:shadow-ring focus-visible:outline-none"
+          >
+            Clear payment filter
+          </button>
+        ) : null}
       </FilterGroup>
     </FilterDrawer>
   )

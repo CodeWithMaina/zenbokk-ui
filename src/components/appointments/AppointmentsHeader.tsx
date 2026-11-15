@@ -1,4 +1,4 @@
-import { CalendarDays, LayoutGrid, Plus, Table2 } from 'lucide-react'
+import { CalendarDays, ListOrdered, Plus, Table2 } from 'lucide-react'
 import type { ReactNode } from 'react'
 import type { AppointmentView } from '../../lib/appointments'
 import { pluralize } from '../../lib/format'
@@ -9,13 +9,13 @@ import { SegmentedControl } from '../ui/segmented-control'
 const VIEW_OPTIONS: readonly { value: AppointmentView; label: string; icon: ReactNode }[] = [
   { value: 'calendar', label: 'Calendar', icon: <CalendarDays className="size-3.5" aria-hidden="true" /> },
   { value: 'table', label: 'Table', icon: <Table2 className="size-3.5" aria-hidden="true" /> },
-  { value: 'cards', label: 'Cards', icon: <LayoutGrid className="size-3.5" aria-hidden="true" /> },
+  { value: 'timeline', label: 'Timeline', icon: <ListOrdered className="size-3.5" aria-hidden="true" /> },
 ]
 
 const VIEW_NOUN: Record<AppointmentView, string> = {
   calendar: 'Calendar',
   table: 'Table',
-  cards: 'Cards',
+  timeline: 'Timeline',
 }
 
 export type AppointmentsHeaderProps = {

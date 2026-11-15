@@ -88,7 +88,7 @@ export function useUpdateReminderPolicy() {
   })
 }
 
-/** Update the business daily goal. */
+/** Update the business daily goal (metric + targets). */
 export function useUpdateDailyGoal() {
   const queryClient = useQueryClient()
   return useMutation({
@@ -96,6 +96,29 @@ export function useUpdateDailyGoal() {
     onSuccess: (business: BusinessResponse) => {
       queryClient.setQueryData(queryKeys.settingsBusiness(), business)
       refreshBusiness(queryClient)
+    },
+  })
+}
+
+/**
+ * Enable or disable one module for the caller's business.
+ *
+ * Turning a module off must reach *every* surface at once — the sidebar entry, the route
+ * guard, and the cached reads that module backs — so this invalidates the shell bootstrap
+ * (which carries the entitlement list the navigation resolves against) as well as the
+ * settings read. It deliberately does not clear feature data: disabling Finance hides the
+ * screens, it does not delete a book of record.
+ */
+export function useSetModuleEnabled() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (input: { moduleKey: string; enabled: boolean }) =>
+      settingsApi.setModuleEnabled(input.moduleKey, input.enabled),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.settingsModules() })
+      refreshBusiness(queryClient)
+      void queryClient.invalidateQueries({ queryKey: ['finances'] })
     },
   })
 }

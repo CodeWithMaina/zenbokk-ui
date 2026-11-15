@@ -103,10 +103,93 @@ describe('date presets', () => {
   })
 })
 
+/**
+ * The same presets, resolved in a business timezone that is not the browser's.
+ *
+ * The API filters on UTC instants, so "today" must be the business-local day's own
+ * start and end — otherwise a booking either side of business-local midnight lands in
+ * the wrong day for anyone viewing from elsewhere. The browser here is Africa/Nairobi
+ * (UTC+3); New York is used for the offset and daylight-saving cases.
+ */
+describe('date presets in the business timezone', () => {
+  const NAIROBI = 'Africa/Nairobi'
+  const NEW_YORK = 'America/New_York'
+  const today = new Date(2026, 4, 13, 10, 30)
+
+  it('bounds a Nairobi day by Nairobi midnight, not the viewer’s', () => {
+    const window = resolveDateWindow(filters({ preset: 'today' }), today, NAIROBI)
+    expect(window.from).toBe('2026-05-12T21:00:00.000Z')
+    expect(window.to).toBe('2026-05-13T20:59:59.999Z')
+  })
+
+  it('bounds a New York day by New York midnight', () => {
+    const window = resolveDateWindow(filters({ preset: 'today' }), today, NEW_YORK)
+    // EDT (UTC−4) in May.
+    expect(window.from).toBe('2026-05-13T04:00:00.000Z')
+    expect(window.to).toBe('2026-05-14T03:59:59.999Z')
+  })
+
+  it('spans a whole business-local week, Monday to Sunday', () => {
+    const window = resolveDateWindow(filters({ preset: 'week' }), today, NAIROBI)
+    expect(window.from).toBe('2026-05-10T21:00:00.000Z') // Monday 11 May, local midnight
+    expect(window.to).toBe('2026-05-17T20:59:59.999Z') // Sunday 17 May, local end
+  })
+
+  it('spans a whole business-local month', () => {
+    const window = resolveDateWindow(filters({ preset: 'month' }), today, NAIROBI)
+    expect(window.from).toBe('2026-04-30T21:00:00.000Z')
+    expect(window.to).toBe('2026-05-31T20:59:59.999Z')
+  })
+
+  it('crosses a year boundary without losing a day', () => {
+    const window = resolveDateWindow(
+      filters({ preset: 'today' }),
+      new Date(2026, 11, 31, 10, 30),
+      NAIROBI,
+    )
+    expect(window.from).toBe('2026-12-30T21:00:00.000Z')
+    expect(window.to).toBe('2026-12-31T20:59:59.999Z')
+  })
+
+  it('uses each side of a daylight-saving change', () => {
+    // 8 Mar 2026 starts on EST (UTC−5) and 9 Mar on EDT (UTC−4), so the local day is
+    // 23 hours long — which a fixed-offset calculation would get wrong.
+    const window = resolveDateWindow(
+      filters({ preset: 'today' }),
+      new Date(2026, 2, 8, 12, 0),
+      NEW_YORK,
+    )
+    expect(window.from).toBe('2026-03-08T05:00:00.000Z')
+    expect(window.to).toBe('2026-03-09T03:59:59.999Z')
+  })
+
+  it('reads a custom range as business-local dates', () => {
+    const window = resolveDateWindow(
+      filters({ preset: 'custom', from: '2026-06-01', to: '2026-06-03' }),
+      today,
+      NAIROBI,
+    )
+    expect(window.from).toBe('2026-05-31T21:00:00.000Z')
+    expect(window.to).toBe('2026-06-03T20:59:59.999Z')
+  })
+
+  it('falls back to the browser timezone for an unusable identifier', () => {
+    const navigatorZone = resolveDateWindow(filters({ preset: 'today' }), today)
+    const fallback = resolveDateWindow(filters({ preset: 'today' }), today, 'Mars/Olympus')
+    expect(fallback).toEqual(navigatorZone)
+  })
+})
+
 describe('query building', () => {
   it('sends the window, the filters and the server-side sort', () => {
     const query = toAppointmentQuery(
-      filters({ preset: 'today', status: 'booked', staffId: 'staff-1', serviceId: 'svc-1' }),
+      filters({
+        preset: 'today',
+        status: 'booked',
+        staffIds: ['staff-1'],
+        serviceIds: ['svc-1'],
+        customerIds: ['cus-1'],
+      }),
       2,
       25,
       new Date(2026, 4, 13, 10, 30),
@@ -114,8 +197,9 @@ describe('query building', () => {
 
     expect(query).toMatchObject({
       status: 'booked',
-      staffId: 'staff-1',
-      serviceId: 'svc-1',
+      staffIds: ['staff-1'],
+      serviceIds: ['svc-1'],
+      customerIds: ['cus-1'],
       sortBy: 'scheduledAt',
       sortDirection: 'asc',
       page: 2,
@@ -125,8 +209,20 @@ describe('query building', () => {
     expect(query.to).toBeTruthy()
   })
 
+  it('sends several chosen values as one request rather than a fan-out', () => {
+    const query = toAppointmentQuery(
+      filters({ serviceIds: ['svc-1', 'svc-2', 'svc-3'] }),
+      1,
+      25,
+    )
+
+    // All three ids travel together: one query, one honest total.
+    expect(query.serviceIds).toEqual(['svc-1', 'svc-2', 'svc-3'])
+  })
+
   it('falls back to scheduledAt ascending for a sort the database cannot do', () => {
     const query = toAppointmentQuery(filters({ sort: 'customer' }), 1, 25)
+    expect(query.sortBy).toBe('scheduledAt')
     expect(query.sortDirection).toBe('asc')
     expect(isClientSort('customer')).toBe(true)
   })
@@ -135,9 +231,30 @@ describe('query building', () => {
     expect(toAppointmentQuery(filters({ sort: 'when-desc' }), 1, 25).sortDirection).toBe('desc')
   })
 
+  it('orders by creation time when the list asks for recent records', () => {
+    expect(toAppointmentQuery(filters({ sort: 'created-desc' }), 1, 25)).toMatchObject({
+      sortBy: 'createdAt',
+      sortDirection: 'desc',
+    })
+    expect(toAppointmentQuery(filters({ sort: 'created-asc' }), 1, 25)).toMatchObject({
+      sortBy: 'createdAt',
+      sortDirection: 'asc',
+    })
+    // Creation order is the database's job, never the browser's.
+    expect(isClientSort('created-desc')).toBe(false)
+  })
+
   it('drops a blank search rather than sending an empty term', () => {
     expect(toAppointmentQuery(filters({ search: '   ' }), 1, 25).search).toBeNull()
     expect(toAppointmentQuery(filters({ search: 'wanjiru' }), 1, 25).search).toBe('wanjiru')
+  })
+
+  it('sends the payment-verification filter, and omits it for All', () => {
+    expect(toAppointmentQuery(filters({ payment: 'verified' }), 1, 25).paymentStatus).toBe('verified')
+    expect(toAppointmentQuery(filters({ payment: 'awaiting' }), 1, 25).paymentStatus).toBe('awaiting')
+    // "All payment states" removes the filter rather than sending a value the server
+    // would have to interpret.
+    expect(toAppointmentQuery(filters({ payment: 'all' }), 1, 25).paymentStatus).toBeNull()
   })
 })
 
@@ -146,12 +263,28 @@ describe('activeFilterCount', () => {
     expect(activeFilterCount(DEFAULT_APPOINTMENT_FILTERS)).toBe(0)
   })
 
+  it('counts the payment filter once when it is set', () => {
+    expect(activeFilterCount(filters({ payment: 'all' }))).toBe(0)
+    expect(activeFilterCount(filters({ payment: 'refunded' }))).toBe(1)
+  })
+
   it('counts each non-default filter', () => {
     expect(
       activeFilterCount(
-        filters({ status: 'confirmed', staffId: 's', preset: 'all', sort: 'customer' }),
+        filters({
+          status: 'confirmed',
+          staffIds: ['s'],
+          serviceIds: ['a', 'b'],
+          customerIds: ['c'],
+          preset: 'all',
+          sort: 'customer',
+        }),
       ),
-    ).toBe(4)
+    ).toBe(6)
+  })
+
+  it('counts a multi-select filter once, however many values it holds', () => {
+    expect(activeFilterCount(filters({ serviceIds: ['a', 'b', 'c'] }))).toBe(1)
   })
 })
 

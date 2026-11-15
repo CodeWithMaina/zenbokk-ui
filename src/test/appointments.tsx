@@ -90,6 +90,7 @@ export function makeDashboardItem(
     customerEmail: 'wanjiru@example.test',
     customerPhone: '+254712345678',
     customerAvatarUrl: null,
+    customerType: 'registered',
     staffUserId: TEST_STAFF_ID,
     staffName: 'Amara Okafor',
     staffEmail: 'amara@example.test',
@@ -110,6 +111,7 @@ export function makeAppointment(overrides: Partial<Appointment> = {}): Appointme
     customerEmail: 'wanjiru@example.test',
     customerPhone: '+254712345678',
     customerAvatarUrl: null,
+    customerType: 'registered',
     staffUserId: TEST_STAFF_ID,
     staffName: 'Amara Okafor',
     staffEmail: 'amara@example.test',
@@ -240,7 +242,6 @@ export function makeAppointmentDashboard(
   return {
     meta: { page: 1, pageSize: 25, totalCount: appointments.length, totalPages: 1 },
     appointments,
-    customers: [makeCustomerBucket()],
     staff: [makeStaffBucket()],
     services: [makeServiceBucket()],
     ...overrides,

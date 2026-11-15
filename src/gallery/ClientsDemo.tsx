@@ -4,8 +4,6 @@ import {
   ActivityTimeline,
   AppointmentCard,
   Avatar,
-  BookingConfirmation,
-  BookingSheet,
   BulkActionBar,
   Button,
   ClientGrid,
@@ -27,7 +25,7 @@ import {
   StatusPill,
   Toast,
 } from '../components/ui'
-import type { BookingSelection } from '../components/ui'
+import { BookingWizard } from '../components/booking'
 import { appointments, activity, clients, services } from './data'
 
 type ClientTab = 'overview' | 'appointments' | 'activity' | 'loyalty'
@@ -80,8 +78,6 @@ export function ClientsDemo() {
   const [view, setView] = useState<ClientView>('table')
   const [tab, setTab] = useState<ClientTab>('overview')
   const [bookingOpen, setBookingOpen] = useState(false)
-  const [booking, setBooking] = useState<BookingSelection | null>(null)
-  const [confirmationOpen, setConfirmationOpen] = useState(false)
   const [messageOpen, setMessageOpen] = useState(false)
   const [toastOpen, setToastOpen] = useState(false)
   const [savedStamps, setSavedStamps] = useState(initialStamps)
@@ -122,10 +118,6 @@ export function ClientsDemo() {
       setToastOpen(true)
     }, 400)
   }
-
-  const bookedServices = booking
-    ? services.filter((service) => booking.serviceIds.includes(service.id))
-    : []
 
   return (
     <>
@@ -351,29 +343,27 @@ export function ClientsDemo() {
         </DetailTabs>
       </section>
 
-      <BookingSheet
+      <BookingWizard
         open={bookingOpen}
         onClose={() => setBookingOpen(false)}
+        businessId="gallery-business"
+        businessName="Aurelia Luxe"
+        paymentsEnabled
         services={services.map(({ id, name, duration, price }) => ({
           id,
           name,
-          duration,
           price,
+          durationMinutes: duration,
         }))}
-        customers={clients.map((client) => ({
-          id: client.id,
-          name: client.name,
-          detail: client.phone,
-          tint: client.tint,
-        }))}
-        initialSelection={{
-          customerId: detailClient.id,
-          serviceIds: ['s1'],
-        }}
-        busyTimes={['11:00', '13:30', '15:00']}
-        onSubmit={(selection) => {
-          setBooking(selection)
-          setConfirmationOpen(true)
+        prefill={{
+          customer: {
+            userId: detailClient.id,
+            fullName: detailClient.name,
+            email: '',
+            phoneNumber: detailClient.phone ?? null,
+            avatarUrl: null,
+            enrollmentStatus: 'active',
+          },
         }}
       />
 
@@ -384,19 +374,6 @@ export function ClientsDemo() {
         templates={[...messageTemplates]}
         onSend={() => setToastOpen(true)}
       />
-
-      {booking ? (
-        <BookingConfirmation
-          open={confirmationOpen}
-          onClose={() => setConfirmationOpen(false)}
-          customerName={detailClient.name}
-          date={formatBookingDate(booking.date)}
-          time={booking.time}
-          services={bookedServices}
-          total={booking.total}
-          onConfirm={() => setTab('appointments')}
-        />
-      ) : null}
 
       <BulkActionBar
         selectedCount={selectedIds.size}
@@ -442,15 +419,5 @@ export function ClientsDemo() {
       </Toast>
     </>
   )
-}
-
-function formatBookingDate(value: string): string {
-  const date = new Date(`${value}T00:00:00`)
-  if (Number.isNaN(date.getTime())) return value
-  return date.toLocaleDateString('en-GB', {
-    weekday: 'short',
-    day: 'numeric',
-    month: 'short',
-  })
 }
 

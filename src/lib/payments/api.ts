@@ -13,6 +13,8 @@ export type Payment = {
   id: string
   businessId: string
   customerId: string | null
+  /** The customer's display name, when the server could resolve it. */
+  customerName?: string | null
   appointmentId: string | null
   type: string
   method: string
@@ -99,12 +101,21 @@ export type PaymentConfig = {
   mpesaPaybillNumber: string | null
   mpesaPaybillAccount: string | null
   mpesaTillNumber: string | null
+  /** The Send Money route's M-PESA number, normalised to `254XXXXXXXXX`. */
+  mpesaPhoneNumber: string | null
   mpesaPayeeName: string | null
   mpesaInstructions: string | null
   /** Percentage of the service total collected up front (0–100). */
   bookingFeePercentage: number
   /** Manual M-PESA is on AND has a payable PayBill or Till. */
   hasManualMpesaDetails: boolean
+  /**
+   * "Payment Included" — customers may pay during the booking. On by default, because
+   * that is what every storefront did before this switch existed.
+   */
+  payUpfrontEnabled: boolean
+  /** "Pay After Service" — customers may book now and settle after the service. */
+  payAfterServiceEnabled: boolean
 }
 
 /**
@@ -124,9 +135,17 @@ export type SavePaymentConfig = {
   mpesaPaybillNumber?: string | null
   mpesaPaybillAccount?: string | null
   mpesaTillNumber?: string | null
+  mpesaPhoneNumber?: string | null
   mpesaPayeeName?: string | null
   mpesaInstructions?: string | null
   bookingFeePercentage?: number | null
+  /**
+   * "Payment Included": customers may pay during booking. Omitted keeps the stored value,
+   * so a caller that does not know about the switch cannot turn the policy off.
+   */
+  payUpfrontEnabled?: boolean | null
+  /** "Pay After Service": customers may book now and settle later. Omitted keeps stored. */
+  payAfterServiceEnabled?: boolean | null
 }
 
 export type CreatePaymentRequest = {
@@ -153,18 +172,28 @@ export type PublicPaymentDetails = {
   businessName: string
   currency: string
   enabled: boolean
-  /** `paybill` | `till` | null. */
+  /** `paybill` | `till` | `send_money` | null — the one method the customer should use. */
   accountType: string | null
   paybillNumber: string | null
   paybillAccount: string | null
   tillNumber: string | null
+  /** Send Money only: the business's M-PESA number, normalised to `254XXXXXXXXX`. */
+  phoneNumber: string | null
   payeeName: string | null
   instructions: string | null
   bookingFeePercentage: number
   cashEnabled: boolean
+  /** "Payment Included": the customer may pay during the booking. */
+  payUpfrontEnabled: boolean
+  /** "Pay After Service": the customer may book now and settle later. */
+  payAfterServiceEnabled: boolean
+  /** False only when both options are off — the storefront then cannot take bookings. */
+  bookingAvailable: boolean
+  /** True when both options are on, so the customer must choose. */
+  offersPaymentChoice: boolean
 }
 
-/** One row of the owner's payment-verification queue. */
+/** One row of the owner's payment-verification queue (a customer-submitted M-PESA claim). */
 export type PaymentVerificationItem = {
   paymentId: string
   appointmentId: string | null
@@ -173,9 +202,19 @@ export type PaymentVerificationItem = {
   customerId: string | null
   customerName: string | null
   customerPhone: string | null
+  /** Present when the claim is tied to a registered customer; null for a guest. */
+  customerEmail: string | null
+  /** False for a guest checkout — a guest has no account to chase. */
+  isRegisteredCustomer: boolean
+  /** The professional the booking is assigned to, when there is one. */
+  assignedStaffName: string | null
   serviceNames: string[]
   /** What the business is owed for this payment. */
   expectedAmount: number
+  /** The appointment's total value, when the claim is tied to one. */
+  bookingAmount: number | null
+  /** What remains owed on the appointment after this claim settles. */
+  outstandingAmount: number | null
   /** What the pasted message says was paid. */
   submittedAmount: number | null
   currency: string
@@ -191,6 +230,18 @@ export type PaymentVerificationItem = {
   amountMismatch: boolean
   /** Set when this receipt has been used on another payment. */
   duplicateOfPaymentId: string | null
+  /** The internal note from the last flag, when the claim is flagged. */
+  flagNote: string | null
+  flaggedAt: string | null
+  verifiedAt: string | null
+  rejectedAt: string | null
+  /** Why the claim was rejected, when it was (shown to the customer too). */
+  rejectionReason: string | null
+  /**
+   * The ledger row this claim was recognised as, once verified. Null while the claim awaits a
+   * decision and after a rejection — the link exists only where the money really exists.
+   */
+  financialTransactionId?: string | null
   verificationEvents: PaymentVerificationEvent[]
 }
 
@@ -201,14 +252,71 @@ export type PaymentVerificationQueue = {
   totalCount: number
   awaitingCount: number
   awaitingAmount: number
+  submittedCount: number
+  flaggedCount: number
+  underReviewCount: number
   verifiedCount: number
   rejectedCount: number
 }
 
+/** A page of the business's payments, newest first. */
+export type PaymentList = {
+  items: Payment[]
+  page: number
+  pageSize: number
+  totalCount: number
+}
+
+/** Business-wide payment aggregates. Only real recorded payments; nothing is invented. */
+export type PaymentsDashboard = {
+  todayCollected: number
+  todayCount: number
+  monthCollected: number
+  monthCount: number
+  pendingCount: number
+  pendingAmount: number
+  failedCount: number
+  cashCollectedToday: number
+  mpesaCollectedToday: number
+  /** Manual M-PESA submissions still waiting on the owner's decision. */
+  awaitingVerificationCount: number
+  awaitingVerificationAmount: number
+  unmatchedCallbackCount: number
+}
+
+/** Filters for the payments register. Every one is applied server-side. */
+export type PaymentListFilters = {
+  appointmentId?: string
+  customerId?: string
+  /**
+   * Wire spelling is accepted (`under_review`, `awaiting_customer`), which is what this client
+   * reads off a payment — the server folds separators so the filter cannot silently widen.
+   */
+  status?: string
+  method?: string
+  type?: string
+  from?: string
+  to?: string
+  page?: number
+  pageSize?: number
+}
+
 export type PaymentVerificationFilters = {
-  /** `awaiting` (default) | `submitted` | `under_review` | `verified` | `rejected` | `all`. */
+  /**
+   * `awaiting` (default) | `submitted` | `under_review` | `flagged` | `attention` |
+   * `verified` | `rejected` | `all`.
+   */
   status?: string
   search?: string
+  /** Submission window. */
+  from?: string
+  to?: string
+  /** The transaction date the message itself stated. */
+  transactionFrom?: string
+  transactionTo?: string
+  /** What the message claims was paid. */
+  minAmount?: number
+  maxAmount?: number
   page?: number
   pageSize?: number
 }
@@ -232,21 +340,32 @@ export const paymentsApi = {
    * attempt in `pending`) or — when the business collects manually — records a
    * booking-fee payment awaiting a pasted confirmation. Either way, nothing in the
    * browser can mark a payment paid.
-   *
-   * `guestToken` is the short-lived customer token a verified guest holds. It is sent
-   * as the bearer for this call only, exactly as `bookingApi.create` does, because a
-   * guest has no session to hydrate.
    */
-  create(body: CreatePaymentRequest, guestToken?: string | null): Promise<Payment> {
+  create(body: CreatePaymentRequest): Promise<Payment> {
     return apiRequest<Payment>('/v1/payments', {
       method: 'POST',
       body,
-      headers: guestToken ? { Authorization: `Bearer ${guestToken}` } : undefined,
     })
   },
 
   get(paymentId: string): Promise<Payment> {
     return apiGet<Payment>(`/v1/payments/${paymentId}`)
+  },
+
+  /**
+   * The business's payments, filtered and paged server-side.
+   *
+   * This is the OPERATIONAL view: what is owed against appointments and where each payment has
+   * got to. It is deliberately not a ledger — a payment that has been verified appears here AND
+   * as exactly one recognised transaction in Finance, without either being a copy of the other.
+   */
+  list(filters: PaymentListFilters = {}): Promise<PaymentList> {
+    return apiGet<PaymentList>('/v1/payments', { ...filters })
+  },
+
+  /** Business-wide aggregates for the payments register header (real recorded payments only). */
+  dashboard(): Promise<PaymentsDashboard> {
+    return apiGet<PaymentsDashboard>('/v1/payments/dashboard')
   },
 
   /**
@@ -275,15 +394,16 @@ export const paymentsApi = {
   /**
    * Submit the M-PESA confirmation SMS the customer received.
    *
-   * There is no amount field: the server parses the amount out of the message and
-   * compares it against what is owed. A valid submission does NOT settle the
-   * payment — it queues it for the business to verify.
+   * The authenticated customer route. There is no amount field: the server parses the
+   * amount out of the message and compares it against what is owed. A valid submission
+   * does NOT settle the payment — it queues it for the business to verify. The
+   * account-free storefront equivalent is `publicBookingApi.submitPaymentProof`, which
+   * needs no session because the appointment in the route already identifies the booking.
    */
-  submitMpesaMessage(paymentId: string, message: string, guestToken?: string | null): Promise<Payment> {
+  submitMpesaMessage(paymentId: string, message: string): Promise<Payment> {
     return apiRequest<Payment>(`/v1/payments/${paymentId}/mpesa-message`, {
       method: 'POST',
       body: { message },
-      headers: guestToken ? { Authorization: `Bearer ${guestToken}` } : undefined,
     })
   },
 
@@ -349,13 +469,15 @@ export type CreateAppointmentPaymentInput = {
   /** `full_payment` | `booking_fee` | `balance_payment`. */
   type: string
   /**
-   * Optional cash amount (major units) for a cash `balance_payment` — the operator
-   * states how much cash they actually took, so a partial collection is possible.
-   * The server validates it against the balance it computed and rejects anything
-   * above it, so this is a statement of fact, never the source of truth.
+   * A figure the operator states, in major units. Two flows accept one, and only two:
+   * a cash `balance_payment` (how much cash was actually taken, so a part payment is
+   * possible) and a manual M-PESA payment (how much the customer says they sent, from
+   * the number they state). The server checks it against the balance it computed and
+   * refuses anything above it, so this is a statement of fact — never the source of
+   * truth, and never a way to mark a payment paid.
    */
   amount?: number | null
-  /** Required for `mpesa` STK. */
+  /** The number the M-PESA payment was made from. */
   phoneNumber?: string | null
   /** Client-generated, so a double-tap cannot open two STK prompts. */
   idempotencyKey?: string | null
@@ -419,64 +541,8 @@ export function usePublicPaymentDetails(businessId: string, enabled = true) {
   })
 }
 
-/** The owner's verification queue. */
-export function usePaymentVerificationQueue(
-  filters: PaymentVerificationFilters,
-  enabled = true,
-) {
-  return useQuery({
-    queryKey: [
-      'payments',
-      'verification',
-      filters.status ?? 'awaiting',
-      filters.search ?? '',
-      filters.page ?? 1,
-      filters.pageSize ?? 25,
-    ] as const,
-    queryFn: () => paymentsApi.verificationQueue(filters),
-    enabled,
-    placeholderData: (previous) => previous,
-  })
-}
-
 /**
- * Owner decisions on a submitted payment.
- *
- * Each mutation invalidates the queue and the payment itself, so the row the owner
- * just acted on can never keep showing the old decision while the counters move.
- */
-export function usePaymentVerificationActions() {
-  const queryClient = useQueryClient()
-
-  const refresh = (paymentId?: string) => {
-    void queryClient.invalidateQueries({ queryKey: ['payments'] })
-    if (paymentId) {
-      void queryClient.invalidateQueries({ queryKey: ['payments', 'payment', paymentId] })
-    }
-    void queryClient.invalidateQueries({ queryKey: ['appointments'] })
-  }
-
-  const markUnderReview = useMutation({
-    mutationFn: (paymentId: string) => paymentsApi.markUnderReview(paymentId),
-    onSuccess: (_data, paymentId) => refresh(paymentId),
-  })
-
-  const approve = useMutation({
-    mutationFn: (input: { paymentId: string; note?: string | null }) =>
-      paymentsApi.approve(input.paymentId, input.note),
-    onSuccess: (_data, input) => refresh(input.paymentId),
-  })
-
-  const reject = useMutation({
-    mutationFn: (input: { paymentId: string; reason: string }) =>
-      paymentsApi.reject(input.paymentId, input.reason),
-    onSuccess: (_data, input) => refresh(input.paymentId),
-  })
-
-  return { markUnderReview, approve, reject }
-}
-
-/** The business's payment configuration. Owner-only, so it is only fetched on demand. */
+ * The business's payment configuration. Owner-only, so it is only fetched on demand. */
 export function usePaymentConfig(enabled = true) {
   return useQuery({
     queryKey: ['payments', 'config'] as const,
@@ -507,18 +573,39 @@ export function useSavePaymentConfig() {
  * Deliberately does NOT treat the response as "paid": the server returns the
  * payment in `submitted`, and the UI reports that a person will review it.
  */
-export function useSubmitMpesaMessage(guestToken?: string | null) {
+export function useSubmitMpesaMessage() {
   const queryClient = useQueryClient()
 
   return useMutation({
     mutationFn: (input: { paymentId: string; message: string }) =>
-      paymentsApi.submitMpesaMessage(input.paymentId, input.message, guestToken),
+      paymentsApi.submitMpesaMessage(input.paymentId, input.message),
     onSuccess: (payment) => {
       queryClient.setQueryData(['payments', 'payment', payment.id], payment)
       void queryClient.invalidateQueries({
         queryKey: ['payments', 'appointment', payment.appointmentId ?? ''],
       })
     },
+  })
+}
+
+/** The business's payments register, filtered and paged server-side. */
+export function usePayments(filters: PaymentListFilters = {}, enabled = true) {
+  return useQuery({
+    queryKey: ['payments', 'list', filters] as const,
+    queryFn: () => paymentsApi.list(filters),
+    enabled,
+    placeholderData: (previous) => previous,
+  })
+}
+
+/** Business-wide payment aggregates (collected today/this month, awaiting verification, failed). */
+export function usePaymentsDashboard(enabled = true) {
+  return useQuery({
+    queryKey: ['payments', 'dashboard'] as const,
+    queryFn: () => paymentsApi.dashboard(),
+    enabled,
+    // Short-lived: a decision in Reconciliation must show up here promptly.
+    staleTime: 30_000,
   })
 }
 

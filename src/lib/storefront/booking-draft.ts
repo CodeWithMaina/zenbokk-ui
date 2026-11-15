@@ -7,7 +7,18 @@ export type BookingDraft = {
   startsAt: string | null
   notes: string
   /** Step the customer reached, so sign-in returns them to the right screen. */
-  step: 'services' | 'staff' | 'time' | 'details' | 'payment'
+  step: 'services' | 'staff' | 'time' | 'details' | 'payment' | 'identity'
+  /**
+   * The details the booking is made with.
+   *
+   * They live in the draft because the storefront books WITHOUT an account: the customer's name,
+   * number and email are what identify the booking, so losing them on a reload (or across the
+   * sign-in round trip) would mean re-typing them. They stay in `sessionStorage` on the customer's
+   * own device and are never used to look anything up — the server resolves the customer record.
+   */
+  customerName: string
+  customerPhone: string
+  customerEmail: string
 }
 
 export const emptyDraft: BookingDraft = {
@@ -16,9 +27,12 @@ export const emptyDraft: BookingDraft = {
   startsAt: null,
   notes: '',
   step: 'services',
+  customerName: '',
+  customerPhone: '',
+  customerEmail: '',
 }
 
-export const BOOKING_STEPS = ['services', 'staff', 'time', 'details', 'payment'] as const
+export const BOOKING_STEPS = ['services', 'staff', 'time', 'details', 'payment', 'identity'] as const
 
 function isBookingStep(value: unknown): value is BookingDraft['step'] {
   return typeof value === 'string' && (BOOKING_STEPS as readonly string[]).includes(value)
@@ -65,6 +79,9 @@ export function readBookingDraft(businessId: string): BookingDraft {
       startsAt: optionalString(parsed.startsAt),
       notes: typeof parsed.notes === 'string' ? parsed.notes : '',
       step: normaliseStep(parsed.step),
+      customerName: typeof parsed.customerName === 'string' ? parsed.customerName : '',
+      customerPhone: typeof parsed.customerPhone === 'string' ? parsed.customerPhone : '',
+      customerEmail: typeof parsed.customerEmail === 'string' ? parsed.customerEmail : '',
     }
   } catch {
     return emptyDraft

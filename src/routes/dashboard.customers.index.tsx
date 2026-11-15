@@ -89,6 +89,9 @@ function rosterStatus(filter: ClientStatusFilter): string | null {
 function ClientsPage() {
   const { hasModule, business } = useDashboardContext()
   const enabled = hasModule(MODULE.customers)
+  // Stamp progress is loyalty data: the roster only shows it when the business
+  // owns the loyalty module, so a disabled module never leaks a stamp column.
+  const loyaltyEnabled = hasModule(MODULE.loyalty)
 
   const search = Route.useSearch()
   const status = search.status ?? 'all'
@@ -173,7 +176,7 @@ function ClientsPage() {
     })
   }
 
-  const summaries = rows.map((row) => toClientSummary(row))
+  const summaries = rows.map((row) => toClientSummary(row, 8, loyaltyEnabled))
   const selectedRows = Array.from(selected.values())
 
   const emptyState = (
@@ -343,6 +346,7 @@ function ClientsPage() {
                   onSelectedChange={toggleRow}
                   onSelectAll={togglePage}
                   onOpen={(client) => openClient(client.id)}
+                  showStamps={loyaltyEnabled}
                   label="Clients"
                   empty={emptyState}
                 />

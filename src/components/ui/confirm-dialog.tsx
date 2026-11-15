@@ -15,6 +15,12 @@ export type ConfirmDialogProps = {
   confirmLabel?: string
   cancelLabel?: string
   tone?: 'default' | 'danger'
+  /**
+   * Holds the confirm button until the caller's own rules are satisfied — e.g. a refund amount that must
+   * not exceed what is left. The server enforces the same rules; this stops the dialog inviting a
+   * request that is certain to be refused.
+   */
+  confirmDisabled?: boolean
   onConfirm: () => void
   onCancel: () => void
 }
@@ -29,6 +35,7 @@ export function ConfirmDialog({
   confirmLabel = 'Confirm',
   cancelLabel = 'Cancel',
   tone = 'default',
+  confirmDisabled = false,
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
@@ -92,6 +99,7 @@ export function ConfirmDialog({
           </Button>
           <Button
             variant={danger ? 'dangerSolid' : 'primary'}
+            disabled={confirmDisabled}
             onClick={onConfirm}
             data-autofocus={!danger || undefined}
             className="max-sm:flex-1"

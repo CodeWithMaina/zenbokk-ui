@@ -1,7 +1,6 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { CalendarPlus, RefreshCw } from 'lucide-react'
 import { useState } from 'react'
-import { toast } from 'sonner'
 import {
   ClientActivityTab,
   ClientAppointmentsTab,
@@ -11,20 +10,17 @@ import {
 } from '../components/clients'
 import { Alert } from '../components/ui/alert'
 import { Button } from '../components/ui/button'
-import { BookingConfirmation } from '../components/ui/booking-confirmation'
-import { BookingSheet } from '../components/ui/booking-sheet'
-import type { BookingSelection } from '../components/ui/booking-sheet'
 import { DetailTabs } from '../components/ui/detail-tabs'
+import type { TabItem } from '../components/ui/tabs'
 import { EmptyState } from '../components/ui/empty-state'
 import { Skeleton } from '../components/ui/skeleton'
-import { errorMessage } from '../lib/api/client'
+import { BookingWizard } from '../components/booking'
 import { clientStatusLabel, clientStatusTone } from '../lib/clients/mappers'
 import { useClientDetails } from '../lib/clients/use-clients'
 import { useDashboardContext } from '../lib/dashboard/dashboard-context'
-import { ownerApi } from '../lib/dashboard/api'
-import { useOwnerAppointments, useOwnerServices } from '../lib/dashboard/use-owner-dashboard'
+import { useOwnerServices } from '../lib/dashboard/use-owner-dashboard'
 import { MODULE } from '../lib/entitlements'
-import { formatDate, formatTime } from '../lib/format'
+import { errorMessage } from '../lib/api/client'
 
 const CLIENT_TABS = ['overview', 'appointments', 'activity', 'loyalty'] as const
 type ClientTab = (typeof CLIENT_TABS)[number]
@@ -53,38 +49,38 @@ export const Route = createFileRoute('/dashboard/customers/$clientId')({
 function ClientDetailsPage() {
   const { clientId } = Route.useParams()
   const { tab: tabParam } = Route.useSearch()
-  const tab = tabParam ?? 'overview'
   const navigate = useNavigate({ from: Route.fullPath })
   const { hasModule, business } = useDashboardContext()
 
   const enabled = hasModule(MODULE.customers)
+  const loyaltyEnabled = hasModule(MODULE.loyalty)
+  // A direct link to `?tab=loyalty` while Loyalty is off falls back to Overview,
+  // so the address bar can never surface a disabled module's content.
+  const tab: ClientTab =
+    tabParam === 'loyalty' && !loyaltyEnabled ? 'overview' : (tabParam ?? 'overview')
   const details = useClientDetails(clientId, enabled)
 
-  const [bookingOpen, setBookingOpen] = useState(false)
-  const [booking, setBooking] = useState<BookingSelection | null>(null)
-  const [confirmOpen, setConfirmOpen] = useState(false)
-  const [savingBooking, setSavingBooking] = useState(false)
+  const [wizardOpen, setWizardOpen] = useState(false)
 
   const appointmentsEnabled = hasModule(MODULE.appointments)
   const services = useOwnerServices(appointmentsEnabled)
 
-  // Today's bookings for this client, so times already taken are greyed out.
-  const todaysAppointments = useOwnerAppointments(
-    {
-      customerId: clientId,
-      from: new Date(new Date().setHours(0, 0, 0, 0)).toISOString(),
-      to: new Date(new Date().setHours(23, 59, 59, 999)).toISOString(),
-      page: 1,
-      pageSize: 50,
-      sortBy: 'scheduledAt',
-      sortDirection: 'asc',
-    },
-    appointmentsEnabled && bookingOpen,
-  )
-
   const setTab = (next: ClientTab) => {
     void navigate({ search: { tab: next }, replace: true })
   }
+
+  // The Loyalty tab exists only when the business is entitled to the module that
+  // owns it; the overview, appointments and activity tabs are module-agnostic.
+  const tabs: TabItem<ClientTab>[] = [
+    { value: 'overview', label: 'Overview' },
+    {
+      value: 'appointments',
+      label: 'Appointments',
+      icon: <CalendarPlus className="size-4" aria-hidden="true" />,
+    },
+    { value: 'activity', label: 'Activity' },
+  ]
+  if (loyaltyEnabled) tabs.push({ value: 'loyalty', label: 'Loyalty' })
 
   if (!enabled) {
     return (
@@ -135,40 +131,6 @@ function ClientDetailsPage() {
   const data = details.data
   const customer = data.customer
 
-  const busyTimes = Array.from(
-    new Set(
-      (todaysAppointments.data?.appointments ?? []).map((appointment) =>
-        formatTime(appointment.scheduledAt),
-      ),
-    ),
-  )
-
-  const bookAppointment = async (selection: BookingSelection) => {
-    setSavingBooking(true)
-    try {
-      const scheduledAt = new Date(`${selection.date}T${selection.time}:00`)
-      await ownerApi.createAppointmentOnBehalf({
-        businessId: business.id,
-        customerId: clientId,
-        serviceIds: [...selection.serviceIds],
-        scheduledAt: scheduledAt.toISOString(),
-        note: null,
-      })
-      setBooking(selection)
-      setBookingOpen(false)
-      setConfirmOpen(true)
-      toast.success('Appointment booked', {
-        description: `${customer.fullName} · ${formatDate(scheduledAt.toISOString())} ${selection.time}`,
-      })
-    } catch (error) {
-      toast.error('The appointment was not booked', {
-        description: errorMessage(error),
-      })
-    } finally {
-      setSavingBooking(false)
-    }
-  }
-
   return (
     <div>
       <ClientDetailsHeader
@@ -179,7 +141,8 @@ function ClientDetailsPage() {
         status={data.status.enrollmentStatus}
         statusLabel={clientStatusLabel(data.status.enrollmentStatus)}
         tone={clientStatusTone(data.status.enrollmentStatus)}
-        onBookAppointment={() => setBookingOpen(true)}
+        customerType={data.status.customerType}
+        onBookAppointment={() => setWizardOpen(true)}
         bookingDisabled={!appointmentsEnabled}
         bookingHint={
           appointmentsEnabled ? undefined : 'The appointments module is not in this plan'
@@ -187,16 +150,7 @@ function ClientDetailsPage() {
       />
 
       <DetailTabs
-        items={[
-          { value: 'overview', label: 'Overview' },
-          {
-            value: 'appointments',
-            label: 'Appointments',
-            icon: <CalendarPlus className="size-4" aria-hidden="true" />,
-          },
-          { value: 'activity', label: 'Activity' },
-          { value: 'loyalty', label: 'Loyalty' },
-        ]}
+        items={tabs}
         value={tab}
         onValueChange={setTab}
         label="Client sections"
@@ -222,7 +176,7 @@ function ClientDetailsPage() {
 
         {tab === 'activity' ? <ClientActivityTab customerId={clientId} enabled /> : null}
 
-        {tab === 'loyalty' ? (
+        {tab === 'loyalty' && loyaltyEnabled ? (
           <ClientLoyaltyTab
             customerId={clientId}
             customerName={customer.fullName}
@@ -231,52 +185,32 @@ function ClientDetailsPage() {
         ) : null}
       </DetailTabs>
 
-      <BookingSheet
-        open={bookingOpen}
-        onClose={() => setBookingOpen(false)}
-        services={(services.data ?? [])
-          .filter((service) => service.isActive)
-          .map((service) => ({
-            id: service.id,
-            name: service.name,
-            duration: service.durationMinutes,
-            price: service.price,
-          }))}
-        customers={[
-          {
-            id: customer.userId,
-            name: customer.fullName,
-            detail: customer.phoneNumber ?? customer.email,
+      <BookingWizard
+        open={wizardOpen}
+        onClose={() => setWizardOpen(false)}
+        businessId={business.id}
+        businessName={business.name}
+        businessLogoUrl={business.logoUrl}
+        paymentsEnabled={hasModule(MODULE.payments)}
+        services={services.data ?? []}
+        prefill={{
+          customer: {
+            userId: customer.userId,
+            fullName: customer.fullName,
+            email: customer.email,
+            phoneNumber: customer.phoneNumber,
+            avatarUrl: customer.avatarUrl,
+            enrollmentStatus: data.status.enrollmentStatus,
           },
-        ]}
-        initialSelection={{ customerId: customer.userId }}
-        busyTimes={busyTimes}
-        closeOnSubmit={false}
-        submitLabel={savingBooking ? 'Booking…' : 'Confirm booking'}
-        onSubmit={(selection) => void bookAppointment(selection)}
+        }}
+        onViewAppointment={(appointmentId) => {
+          setWizardOpen(false)
+          void navigate({
+            to: '/dashboard/appointments/$appointmentId',
+            params: { appointmentId },
+          })
+        }}
       />
-
-      {booking ? (
-        <BookingConfirmation
-          open={confirmOpen}
-          onClose={() => setConfirmOpen(false)}
-          customerName={customer.fullName}
-          date={formatDate(new Date(`${booking.date}T${booking.time}:00`).toISOString())}
-          time={booking.time}
-          services={booking.serviceIds.map((id) => {
-            const service = (services.data ?? []).find((item) => item.id === id)
-            return {
-              id,
-              name: service?.name ?? 'Service',
-              duration: service?.durationMinutes,
-              price: service?.price,
-            }
-          })}
-          total={booking.total}
-          confirmLabel="View appointments"
-          onConfirm={() => setTab('appointments')}
-        />
-      ) : null}
     </div>
   )
 }

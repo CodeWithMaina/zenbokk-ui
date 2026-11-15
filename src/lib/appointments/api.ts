@@ -4,10 +4,11 @@ import type {
   AppointmentDashboard,
   AvailabilitySlot,
   CreateAppointmentOnBehalfRequest,
+  PublicOpeningHours,
   RescheduleAppointmentRequest,
 } from '../api/types'
-import type { AppointmentFilters, AppointmentSort } from './types'
-import { isClientSort, resolveDateWindow } from './types'
+import type { AppointmentFilters } from './types'
+import { appointmentSortQuery, resolveDateWindow } from './types'
 
 /**
  * Appointments module client.
@@ -28,8 +29,23 @@ const APPOINTMENTS_PATH = '/v1/businesses/me/appointments'
 export type AppointmentQuery = {
   search?: string | null
   status?: string | null
+  /**
+   * Payment-verification state (`verified` | `partial` | `awaiting` | `unpaid` |
+   * `failed` | `refunded`). Aggregated from the payment ledger server-side; `all`
+   * or null means "no payment filter".
+   */
+  paymentStatus?: string | null
   from?: string | null
   to?: string | null
+  /** Repeated keys: `?staffIds=…&staffIds=…`. Inert while the Staff module is off. */
+  staffIds?: string[]
+  customerIds?: string[]
+  serviceIds?: string[]
+  /**
+   * Single-value shorthands the endpoint still binds (one staff member's day, one
+   * customer's history). They are merged with the arrays above, never replacing them,
+   * so an older caller keeps working without the fan-out the arrays exist to avoid.
+   */
   staffId?: string | null
   customerId?: string | null
   serviceId?: string | null
@@ -52,29 +68,32 @@ export type AppointmentActivityEntry = {
 /**
  * Turn the screens' filter set into the endpoint's query.
  *
- * The date preset is resolved here so every caller sends the same window, and
- * the sort maps onto the two orderings the database actually performs; a
- * non-date sort leaves the API on `scheduledAt` and is applied to the page by
- * `sortAppointments`.
+ * The date preset is resolved here so every caller sends the same window, and the
+ * chosen order is translated into the two orderings the database performs; a
+ * client-side sort (a name or a price) leaves the API on `scheduledAt` and is
+ * applied to the page by `sortAppointments`.
  */
 export function toAppointmentQuery(
   filters: AppointmentFilters,
   page: number,
   pageSize: number,
   now: Date = new Date(),
+  timeZone?: string,
 ): AppointmentQuery {
-  const window = resolveDateWindow(filters, now)
-  const serverSort: AppointmentSort = isClientSort(filters.sort) ? 'when-asc' : filters.sort
+  const window = resolveDateWindow(filters, now, timeZone)
+  const order = appointmentSortQuery(filters.sort)
 
   return {
     search: filters.search.trim() || null,
     status: filters.status,
-    staffId: filters.staffId,
-    serviceId: filters.serviceId,
+    paymentStatus: filters.payment === 'all' ? null : filters.payment,
+    staffIds: filters.staffIds,
+    customerIds: filters.customerIds,
+    serviceIds: filters.serviceIds,
     from: window.from,
     to: window.to,
-    sortBy: 'scheduledAt',
-    sortDirection: serverSort === 'when-desc' ? 'desc' : 'asc',
+    sortBy: order.sortBy,
+    sortDirection: order.sortDirection,
     page,
     pageSize,
   }
@@ -84,18 +103,31 @@ export function toAppointmentQuery(
 export type AppointmentRangeQuery = {
   search?: string | null
   status?: string | null
+  /** Payment-verification state, aggregated from the payment ledger server-side. */
+  paymentStatus?: string | null
+  staffIds?: string[]
   staffId?: string | null
+  customerIds?: string[]
+  customerId?: string | null
+  serviceIds?: string[]
   serviceId?: string | null
   from: string
   to: string
+  sortBy?: string
   sortDirection?: 'asc' | 'desc'
 }
 
 
 export const appointmentsApi = {
-  /** DB-first filtered, sorted and paginated page, plus the reference buckets. */
-  list(query: AppointmentQuery): Promise<AppointmentDashboard> {
-    return apiGet<AppointmentDashboard>(APPOINTMENTS_PATH, query)
+  /**
+   * DB-first filtered, sorted and paginated page, plus the reference buckets.
+   *
+   * `signal` is the request's own abort signal, so a query React Query has already
+   * superseded is cancelled at the network layer instead of being left to finish and
+   * be discarded.
+   */
+  list(query: AppointmentQuery, signal?: AbortSignal): Promise<AppointmentDashboard> {
+    return apiGet<AppointmentDashboard>(APPOINTMENTS_PATH, query, { signal })
   },
 
   /**
@@ -103,35 +135,39 @@ export const appointmentsApi = {
    * is done (or the cap is reached). Used by the calendar, which must render the
    * whole pane — a page of 20 would leave holes in a day column.
    */
-  async listRange(query: AppointmentRangeQuery): Promise<AppointmentDashboard> {
-    const first = await appointmentsApi.list({
-      ...query,
-      sortBy: 'scheduledAt',
-      sortDirection: query.sortDirection ?? 'asc',
-      page: 1,
-      pageSize: CALENDAR_PAGE_SIZE,
-    })
+  async listRange(query: AppointmentRangeQuery, signal?: AbortSignal): Promise<AppointmentDashboard> {
+    const first = await appointmentsApi.list(
+      {
+        ...query,
+        sortBy: 'scheduledAt',
+        sortDirection: query.sortDirection ?? 'asc',
+        page: 1,
+        pageSize: CALENDAR_PAGE_SIZE,
+      },
+      signal,
+    )
 
     const pages = Math.min(first.meta.totalPages, CALENDAR_MAX_PAGES)
     if (pages <= 1) return first
 
     const rest = await Promise.all(
       Array.from({ length: pages - 1 }, (_, index) =>
-        appointmentsApi.list({
-          ...query,
-          sortBy: 'scheduledAt',
-          sortDirection: query.sortDirection ?? 'asc',
-          page: index + 2,
-          pageSize: CALENDAR_PAGE_SIZE,
-        }),
+        appointmentsApi.list(
+          {
+            ...query,
+            sortBy: 'scheduledAt',
+            sortDirection: query.sortDirection ?? 'asc',
+            page: index + 2,
+            pageSize: CALENDAR_PAGE_SIZE,
+          },
+          signal,
+        ),
       ),
     )
-
     return {
       meta: first.meta,
       appointments: [first, ...rest].flatMap((page) => page.appointments),
       // Reference buckets are identical on every page; take the first response's.
-      customers: first.customers,
       staff: first.staff,
       services: first.services,
     }
@@ -213,6 +249,16 @@ export const appointmentsApi = {
       startDate: input.startDate,
       endDate: input.endDate,
     })
+  },
+
+  /**
+   * The business's opening hours — the schedule the dashboard calendar and
+   * timeline draw. This is a read of the SAME scheduling domain the availability
+   * engine uses, so the band the calendar draws cannot advertise a schedule the
+   * booking engine would refuse. Public read, so it needs the business id.
+   */
+  openingHours(businessId: string): Promise<PublicOpeningHours> {
+    return apiGet<PublicOpeningHours>(`/v1/businesses/${businessId}/opening-hours`)
   },
 }
 

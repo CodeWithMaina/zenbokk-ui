@@ -50,7 +50,17 @@ export function StorefrontBookingSummary({
           <ul className="mt-[0.5rem] list-none p-0">
             {services.map((service) => (
               <li key={service.id} className="sf-summary-row">
-                <span className="min-w-0 truncate text-premium-ink">{service.name}</span>
+                <span className="flex min-w-0 items-center gap-[0.5rem]">
+                  {service.imageVariants[0]?.url ? (
+                    <img
+                      src={service.imageVariants[0].url}
+                      alt=""
+                      loading="lazy"
+                      className="size-[1.9rem] shrink-0 rounded-sm object-cover"
+                    />
+                  ) : null}
+                  <span className="min-w-0 truncate text-premium-ink">{service.name}</span>
+                </span>
                 <span className="shrink-0 tabular">{money(service.price)}</span>
               </li>
             ))}

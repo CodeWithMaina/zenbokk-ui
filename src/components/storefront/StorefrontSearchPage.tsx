@@ -1,13 +1,22 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ArrowRight } from 'lucide-react'
-import { formatDuration, money } from '../../lib/format'
+import { isModuleUnavailable } from '../../lib/api/client'
 import type { StorefrontSearchResult } from '../../lib/api/types'
+import { formatDuration, money } from '../../lib/format'
 import { useStorefront } from '../../lib/storefront'
+import { resolveServiceNames } from '../../lib/storefront/search'
+import {
+  useStorefrontServices,
+  useStorefrontTeam,
+} from '../../lib/storefront/use-storefront-catalog'
 import { useStorefrontSearch } from '../../lib/storefront/use-storefront-public'
+import { useStartBooking } from '../../lib/storefront/use-start-booking'
 import { storefrontHref } from '../../lib/tenant'
 import { Button } from '../ui/button'
 import { ResponsiveImage } from '../ui/responsive-image'
 import { SearchField } from '../ui/search-field'
+import { StorefrontServiceCard } from './StorefrontServiceCard'
+import { StorefrontTeamCard } from './StorefrontTeamCard'
 import {
   StorefrontEmptyState,
   StorefrontErrorState,
@@ -31,27 +40,51 @@ function useDebouncedValue<T>(value: T, delayMs = 300): T {
 /**
  * One search across everything the business publishes.
  *
- * The matching happens on the server (`GET /v1/businesses/{id}/search`), scoped
- * to this business: published services and publicly visible staff only. The page
- * no longer downloads the whole catalogue and roster to filter them in the
- * browser, so a large business costs the same as a small one.
+ * The page is useful before a single keystroke: it opens on the business's own
+ * catalogue (and its roster, when the business has staff) so a visitor can see
+ * what is offered and start filtering immediately. Typing switches to the
+ * server-side search (`GET /v1/businesses/{id}/search`), debounced, paged and
+ * cached per (business, query, scope, page); an empty query never issues one.
  *
- * The query is debounced, results are cached per (business, query, scope, page),
- * and paging keeps the previous page on screen while the next loads.
+ * Staff is a business-internal module with no customer capability, so the roster
+ * endpoint is the authoritative source of whether teams exist here. When it
+ * answers `MODULE_DISABLED` the page behaves as though the team does not exist:
+ * no roster request is repeated, no team chip, no team section and no `team`
+ * search scope — and until the answer arrives, no team UI is shown at all.
  */
 export function StorefrontSearchPage() {
-  const { businessId, canonicalSlug } = useStorefront()
+  const { businessId, canonicalSlug, can } = useStorefront()
   const [query, setQuery] = useState('')
   const [scope, setScope] = useState<Scope>('all')
   const [page, setPage] = useState(1)
+  const startBooking = useStartBooking()
 
   const debouncedQuery = useDebouncedValue(query)
   const hasQuery = debouncedQuery.trim().length > 0
 
+  // Initial discovery sources. Both are cached under the business id, so the
+  // services grid and the team board re-use exactly what those pages fetched.
+  const services = useStorefrontServices(businessId, can('services'))
+  const team = useStorefrontTeam(businessId, [])
+
+  // Staff availability, from the canonical entitlement source (the roster
+  // endpoint). Pending is treated as "not yet known": team UI is withheld so it
+  // can never flash in and then disappear.
+  const staffState: 'loading' | 'enabled' | 'disabled' =
+    team.isError && isModuleUnavailable(team.error)
+      ? 'disabled'
+      : team.isSuccess
+        ? 'enabled'
+        : 'loading'
+  const staffEnabled = staffState === 'enabled'
+
+  const scopeOptions: Scope[] = staffEnabled ? ['all', 'services', 'team'] : ['all', 'services']
+  const effectiveScope: Scope = scope === 'team' && !staffEnabled ? 'all' : scope
+
   // A new search always starts at page one. Adjusted during render rather than
   // in an effect (React's documented "reset state when an input changes"
   // pattern), so there is no extra render pass and no cascading effect.
-  const searchKey = `${debouncedQuery}\u0000${scope}`
+  const searchKey = `${debouncedQuery}\u0000${effectiveScope}`
   const [lastSearchKey, setLastSearchKey] = useState(searchKey)
   if (lastSearchKey !== searchKey) {
     setLastSearchKey(searchKey)
@@ -60,10 +93,19 @@ export function StorefrontSearchPage() {
 
   const results = useStorefrontSearch(businessId, {
     query: debouncedQuery,
-    type: scope,
+    type: effectiveScope,
     page,
     pageSize: PAGE_SIZE,
   })
+
+  const catalogue = services.services
+  const members = staffEnabled ? (team.data ?? []) : []
+
+  const serviceNameById = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const service of catalogue) map.set(service.id, service.name)
+    return map
+  }, [catalogue])
 
   const items = results.data?.items ?? []
   const categories = results.data?.categories ?? []
@@ -78,6 +120,17 @@ export function StorefrontSearchPage() {
     [canonicalSlug],
   )
 
+  const showInitialServices = effectiveScope !== 'team' && can('services')
+  const showInitialTeam = effectiveScope !== 'services' && staffEnabled
+  const servicesHasContent =
+    showInitialServices && (services.isPending || services.isError || catalogue.length > 0)
+  const teamHasContent = showInitialTeam && (team.isPending || members.length > 0)
+  const showNothing = !servicesHasContent && !teamHasContent
+
+  function book(serviceId: string) {
+    startBooking({ serviceIds: [serviceId] })
+  }
+
   return (
     <div className="sf-container py-[clamp(1.5rem,4vw,3rem)]">
       <div className="sf-head">
@@ -85,8 +138,8 @@ export function StorefrontSearchPage() {
           <p className="sf-eyebrow">Find</p>
           <h1 className="sf-heading">Search</h1>
           <p className="sf-lead">
-            Look through everything this business publishes — services and the people who offer
-            them.
+            Browse what this business offers
+            {staffEnabled ? ' — services, and the people who offer them' : ''}, ready to explore.
           </p>
         </div>
       </div>
@@ -100,12 +153,12 @@ export function StorefrontSearchPage() {
           onChange={(event) => setQuery(event.target.value)}
         />
         <div className="sf-chips" role="group" aria-label="Search scope">
-          {(['all', 'services', 'team'] as Scope[]).map((option) => (
+          {scopeOptions.map((option) => (
             <button
               key={option}
               type="button"
               className="sf-chip"
-              aria-pressed={scope === option}
+              aria-pressed={effectiveScope === option}
               onClick={() => setScope(option)}
             >
               {option === 'all' ? 'All' : option === 'services' ? 'Services' : 'Team'}
@@ -114,10 +167,15 @@ export function StorefrontSearchPage() {
         </div>
       </div>
 
-      {hasQuery && categories.length > 0 ? (
+      {hasQuery && effectiveScope !== 'team' && categories.length > 0 ? (
         <div className="sf-chips mt-[0.6rem]" role="group" aria-label="Browse a category">
           {categories.slice(0, 8).map((category) => (
-            <button key={category} type="button" className="sf-chip" onClick={() => setQuery(category)}>
+            <button
+              key={category}
+              type="button"
+              className="sf-chip"
+              onClick={() => setQuery(category)}
+            >
               {category}
             </button>
           ))}
@@ -126,12 +184,80 @@ export function StorefrontSearchPage() {
 
       <div className="mt-[1.2rem]" aria-live="polite">
         {!hasQuery ? (
-          <StorefrontEmptyState
-            title="Start typing to search"
-            description="Search by service name, category, specialist or what they do."
-          />
+          showNothing ? (
+            <StorefrontEmptyState
+              title="Nothing to browse yet"
+              description="This business hasn’t published its services or team here yet. Please check back soon."
+            />
+          ) : (
+            <>
+
+              {showInitialServices ? (
+                <section className="mb-[1.8rem]">
+                  <div className="sf-head">
+                    <p className="sf-eyebrow">Services</p>
+                    {!services.isPending && !services.isError && catalogue.length > 0 ? (
+                      <a href={storefrontHref(canonicalSlug, '/services')} className="link">
+                        See all
+                      </a>
+                    ) : null}
+                  </div>
+                  {services.isPending ? (
+                    <StorefrontSkeletonGrid variant="services" count={4} />
+                  ) : services.isError ? (
+                    <StorefrontErrorState
+                      title="The service menu didn’t load"
+                      description="Refresh the page to try again."
+                      onRetry={() => void services.refetch()}
+                    />
+                  ) : (
+                    <div className="sf-grid-services">
+                      {catalogue.slice(0, 8).map((service, index) => (
+                        <StorefrontServiceCard
+                          key={service.id}
+                          service={service}
+                          index={index}
+                          detailHref={storefrontHref(canonicalSlug, `/services/${service.id}`)}
+                          onBook={() => book(service.id)}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </section>
+              ) : null}
+
+              {showInitialTeam ? (
+                <section>
+                  <div className="sf-head">
+                    <p className="sf-eyebrow">Team</p>
+                    {!team.isPending && members.length > 0 ? (
+                      <a href={storefrontHref(canonicalSlug, '/team')} className="link">
+                        See all
+                      </a>
+                    ) : null}
+                  </div>
+                  {team.isPending ? (
+                    <StorefrontSkeletonGrid variant="team" count={4} />
+                  ) : (
+                    <div className="sf-board">
+                      {members.slice(0, 8).map((member, index) => (
+                        <StorefrontTeamCard
+                          key={member.userId}
+                          member={member}
+                          index={index}
+                          serviceNames={resolveServiceNames(member.serviceIds, serviceNameById)}
+                          detailHref={storefrontHref(canonicalSlug, `/team/${member.userId}`)}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </section>
+              ) : null}
+            </>
+          )
         ) : results.isPending || isTyping ? (
           <StorefrontSkeletonGrid variant="list" count={4} />
+
         ) : results.isError ? (
           <StorefrontErrorState
             title="Search didn’t work"
@@ -161,6 +287,7 @@ export function StorefrontSearchPage() {
               {items.map((item) => (
                 <li key={`${item.type}:${item.id}`}>
                   <a href={hrefFor(item)} className="sf-option no-underline">
+
                     {item.type === 'service' && item.imageVariants.length > 0 ? (
                       <ResponsiveImage
                         variants={item.imageVariants}

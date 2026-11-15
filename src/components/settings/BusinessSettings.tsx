@@ -20,6 +20,7 @@ import {
   useUpdateSlug,
 } from '../../lib/settings'
 import { getRootDomain } from '../../lib/tenant'
+import { FinanceModuleToggle } from './FinanceModuleToggle'
 import { Alert } from '../ui/alert'
 import { StatusPill } from '../ui/badge'
 import { Button } from '../ui/button'
@@ -540,6 +541,8 @@ function BusinessSettingsForm({
             loading={modulesLoading}
             onUpgrade={onOpenSupport}
           />
+
+          <FinanceModuleToggle />
 
           <SectionCard
             title="Appointment reminders"

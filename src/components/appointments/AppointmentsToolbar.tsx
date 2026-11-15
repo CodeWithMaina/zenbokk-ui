@@ -17,12 +17,14 @@ export type AppointmentsToolbarProps = {
   onSearchChange: (value: string) => void
   filterCount: number
   onOpenFilters: () => void
-  /** Calendar pane navigation. Hidden in the table and cards views. */
+  /** Period navigation. Shown in every view, so the dates move the same way in all of them. */
   navigation?: {
     label: string
     onPrevious: () => void
     onNext: () => void
     onToday: () => void
+    /** An unbounded period ("all dates") has nothing to step to. */
+    disabled?: boolean
   }
   /** The line above the status pills: how many rows, and what is being shown. */
   summary: ReactNode
@@ -98,7 +100,7 @@ export function AppointmentsToolbar({
               size="icon"
               aria-label="Previous period"
               onClick={navigation.onPrevious}
-              disabled={busy}
+              disabled={busy || navigation.disabled}
             >
               <ChevronLeft className="size-4" aria-hidden="true" />
             </Button>
@@ -106,7 +108,7 @@ export function AppointmentsToolbar({
               size="icon"
               aria-label="Next period"
               onClick={navigation.onNext}
-              disabled={busy}
+              disabled={busy || navigation.disabled}
             >
               <ChevronRight className="size-4" aria-hidden="true" />
             </Button>

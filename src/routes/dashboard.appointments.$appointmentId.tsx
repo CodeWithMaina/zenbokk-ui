@@ -246,7 +246,6 @@ function AppointmentDetailsPage() {
           onClose={() => setBooking(null)}
           mode={booking.mode}
           businessId={business.id}
-          customers={reference.data?.customers ?? []}
           services={reference.data?.services ?? []}
           staff={reference.data?.staff ?? []}
           staffModuleEnabled={staffModuleEnabled}

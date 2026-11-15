@@ -9,6 +9,8 @@
 export type ApiErrorPayload = {
   code: string
   message: string
+  /** Per-field validation messages, keyed by the request's JSON field name. */
+  fields?: Record<string, string> | null
 }
 
 /** `{ success, data, error }` — the single shape every endpoint returns. */
@@ -458,6 +460,8 @@ export type Appointment = {
   customerEmail: string | null
   customerPhone: string | null
   customerAvatarUrl: string | null
+  /** `guest` (booked without an account) | `registered` (a real account). */
+  customerType: string
   staffUserId: string | null
   /** The staff member assigned to this appointment (null when unassigned). */
   staffName: string | null
@@ -488,6 +492,50 @@ export type CreateAppointmentRequest = {
   staffUserId?: string | null
   scheduledAt: string
   note?: string | null
+  /**
+   * How the customer chose to pay: `pay_upfront` (pay during booking) or
+   * `pay_after_service` (book now, settle after). The server checks the choice against
+   * the business's own configuration; when only one option is enabled the storefront
+   * sends it without asking, and when the business takes no bookings at all the request
+   * is refused.
+   */
+  paymentOption?: StorefrontPaymentOption | null
+}
+
+/** The two storefront payment options a business can offer. */
+export type StorefrontPaymentOption = 'pay_upfront' | 'pay_after_service'
+
+/**
+ * A booking made from the public storefront.
+ *
+ * The customer is identified by the details in the request, never by an id: the server resolves the
+ * business-specific customer record, so a caller cannot book in somebody else's name. There is no
+ * token here either — a storefront visitor is not required to hold an account.
+ */
+export type PublicBookingRequest = {
+  businessId: string
+  serviceIds: string[]
+  staffUserId?: string | null
+  scheduledAt: string
+  note?: string | null
+  paymentOption?: StorefrontPaymentOption | null
+  fullName: string
+  phoneNumber: string
+  email: string
+  /**
+   * The M-PESA confirmation the customer pasted, when they are paying during booking. Optional —
+   * the appointment is booked with or without it, and a message the server cannot read is reported
+   * back as a warning rather than failing the booking.
+   */
+  mpesaMessage?: string | null
+  /** Makes a retried submit idempotent, so a double tap cannot open a second payment. */
+  idempotencyKey?: string | null
+}
+
+/** A late M-PESA confirmation for an appointment already booked. */
+export type SubmitPublicPaymentProofRequest = {
+  message: string
+  idempotencyKey?: string | null
 }
 
 /** POST /v1/appointments/{id}/cancel and the owner/staff cancel routes. */
@@ -538,6 +586,12 @@ export type CreateAppointmentOnBehalfRequest = {
   scheduledAt: string
   customerId: string
   note?: string | null
+  /**
+   * "Pay after service": nothing is taken now, and the appointment's full value is
+   * recorded as an outstanding payment in the same transaction as the booking — so a
+   * booking that owes money can never exist without a record of what it owes.
+   */
+  payAfterService?: boolean
 }
 
 /** Customer and owner reschedule routes. Only `scheduledAt` is required. */
@@ -565,12 +619,24 @@ export type AppointmentDashboardItem = {
   customerEmail: string | null
   customerPhone: string | null
   customerAvatarUrl: string | null
+  /** `guest` (booked without an account) | `registered` (a real account). */
+  customerType: string
   staffUserId: string | null
   staffName: string | null
   staffEmail: string | null
   staffAvatarUrl: string | null
   createdAt: string
   updatedAt: string
+  /**
+   * Derived payment state, aggregated from the payment ledger on the server:
+   * `paid` | `partially_paid` | `awaiting_verification` | `unpaid` | `failed` |
+   * `refunded`. Optional so older responses (and fixtures) remain valid.
+   */
+  paymentStatus?: string
+  /** Genuinely settled amount (provider `Success` + owner `Verified` only). */
+  amountPaid?: number
+  /** Still owed: the booked total minus what settled. */
+  balance?: number
 }
 
 export type CustomerDashboardItem = {
@@ -606,7 +672,11 @@ export type ServiceDashboardItem = {
 export type AppointmentDashboard = {
   meta: PaginationMeta
   appointments: AppointmentDashboardItem[]
-  customers: CustomerDashboardItem[]
+  /**
+   * No customer bucket: the roster is unbounded, so the customer pickers search it
+   * server-side (the paginated customers route) rather than shipping every customer with
+   * every page of appointments.
+   */
   staff: StaffDashboardItem[]
   /**
    * Whether the optional Staff module is entitled for this business. When
@@ -953,6 +1023,8 @@ export type BusinessCustomer = {
   cardId: string | null
   /** Persisted enrollment status: `active` | `left` | `blocked`. */
   enrollmentStatus: string
+  /** `guest` (booked without an account) | `registered` (a real account). */
+  customerType: string
   totalStamps: number
   lifetimeStamps: number
   totalRedemptions: number
@@ -995,6 +1067,8 @@ export type CustomerDetailsCustomerBlock = {
 export type CustomerDetailsStatusBlock = {
   /** `active` | `left` | `blocked`. */
   enrollmentStatus: string
+  /** `guest` (booked without an account) | `registered` (a real account). */
+  customerType: string
   hasLoyaltyCard: boolean
 }
 
@@ -1568,52 +1642,14 @@ export type AdminGrowth = {
 // ─────────────────────────────────────────────────────────────
 
 // ─────────────────────────────────────────────────────────────
-//  Guest booking (account-free)
-//  Mirrors Application/DTOs/GuestBookingDTOs.cs. The visitor proves
-//  control of an inbox with a one-time code and receives a short-lived
-//  CUSTOMER token, which is then used against the ordinary customer
-//  appointment API — so no booking rule is bypassed for guests.
+//  Public storefront booking (account-free)
+//
+//  Mirrors Application/DTOs/PublicBookingDTOs.cs. The customer's name,
+//  number and address travel with the request; the server resolves the
+//  business-specific customer record from them, books the appointment
+//  immediately, and records any pasted M-PESA confirmation as evidence
+//  awaiting the business's own verification.
 // ─────────────────────────────────────────────────────────────
-
-export type GuestBookingStartRequest = {
-  fullName: string
-  /** Kenyan mobile number, in any of the shapes people type. */
-  phoneNumber: string
-  /** The inbox the one-time code is sent to. */
-  email: string
-}
-
-export type GuestBookingStartResponse = {
-  /** Masked (`p•••@example.com`); the full address is never echoed back. */
-  email: string
-  phoneNumber: string
-  expiresAt: string
-  resendAvailableAt: string
-  codeLength: number
-  /** `email` — the only channel the platform verifies by today. */
-  deliveryChannel: string
-}
-
-export type GuestBookingVerifyRequest = {
-  phoneNumber: string
-  code: string
-}
-
-export type GuestBookingCustomer = {
-  fullName: string
-  phoneNumber: string
-  /** Masked. */
-  email: string
-}
-
-export type GuestBookingVerifyResponse = {
-  /** A short-lived customer access token scoped to the business. No refresh token. */
-  accessToken: string
-  expiresIn: number
-  tokenType: string
-  businessId: string
-  customer: GuestBookingCustomer
-}
 
 /** One published image in a business's public gallery. */
 export type PublicGalleryImage = {

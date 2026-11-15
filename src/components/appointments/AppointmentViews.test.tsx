@@ -2,9 +2,10 @@ import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { toAppointmentRows } from '../../lib/appointments'
+import { formatTime } from '../../lib/format'
 import { makeAppointmentDashboard, makeDashboardItem } from '../../test/appointments'
-import { AppointmentCards } from './AppointmentCards'
 import { AppointmentTable } from './AppointmentTable'
+import { AppointmentTimeline } from './AppointmentTimeline'
 
 /**
  * The list views.
@@ -141,75 +142,107 @@ describe('AppointmentTable', () => {
   })
 })
 
-describe('AppointmentCards', () => {
-  it('groups by day and reports how many appointments each day holds', () => {
-    render(<AppointmentCards rows={rows()} groupByDate onOpen={vi.fn()} onAction={vi.fn()} />)
+describe('AppointmentTimeline', () => {
+  /** Two bookings on one day, an hour apart, so a gap exists between them. */
+  const timelineRows = () =>
+    toAppointmentRows(
+      makeAppointmentDashboard({
+        appointments: [
+          makeDashboardItem({
+            id: BOOKED_ID,
+            scheduledAt: '2026-05-12T09:00:00.000Z',
+            endAt: '2026-05-12T10:00:00.000Z',
+          }),
+          makeDashboardItem({
+            id: COMPLETED_ID,
+            status: 'completed',
+            customerName: 'Peter Njoroge',
+            scheduledAt: '2026-05-12T11:00:00.000Z',
+            endAt: '2026-05-12T12:00:00.000Z',
+          }),
+        ],
+      }),
+    )
+
+  function renderTimeline(overrides: Partial<Parameters<typeof AppointmentTimeline>[0]> = {}) {
+    const handlers = { onOpen: vi.fn(), onAction: vi.fn() }
+    render(
+      <AppointmentTimeline
+        rows={timelineRows()}
+        scope="day"
+        anchor="2026-05-12"
+        {...handlers}
+        {...overrides}
+      />,
+    )
+    return handlers
+  }
+
+  it('reads chronologically and names the free stretch between bookings', () => {
+    renderTimeline()
+
+    // Rendered in the viewer's timezone, so the expectation is computed the same way
+    // the row is rather than assumed to be UTC.
+    const times = screen.getAllByText(/^\d{2}:\d{2}$/).map((node) => node.textContent)
+    expect(times.slice(0, 2)).toEqual([
+      formatTime('2026-05-12T09:00:00.000Z'),
+      formatTime('2026-05-12T11:00:00.000Z'),
+    ])
+    // 10:00 → 11:00 is an hour nobody is booked for, in any timezone.
+    expect(screen.getByText('1h free')).toBeInTheDocument()
+  })
+
+  it('keeps every fact of an appointment on its row, and its actions with it', () => {
+    const { onAction } = renderTimeline()
 
     expect(screen.getByText('Wanjiru Kariuki')).toBeInTheDocument()
     expect(screen.getByText('Peter Njoroge')).toBeInTheDocument()
-    expect(screen.getAllByText('1 appointment')).toHaveLength(2)
+    expect(screen.getAllByText('Signature treatment')).toHaveLength(2)
+    expect(screen.getAllByText('Amara Okafor')).toHaveLength(2)
+    expect(screen.getByText('Booked')).toBeInTheDocument()
+    expect(screen.getByText('Completed')).toBeInTheDocument()
+    // The inline quick actions are the same ones the table offers.
+    expect(screen.getByRole('button', { name: 'Confirm' })).toBeInTheDocument()
+    expect(onAction).not.toHaveBeenCalled()
   })
 
-  it('shows a dash rather than a price when the catalogue has none', () => {
-    const [row] = rows()
-    render(
-      <AppointmentCards
-        rows={[{ ...row, price: null }]}
-        groupByDate={false}
-        onOpen={vi.fn()}
-        onAction={vi.fn()}
-      />,
-    )
-
-    expect(screen.getByText('—')).toBeInTheDocument()
-  })
-
-  it('offers the next legal step as an inline action', async () => {
+  it('opens an appointment from its row', async () => {
     const user = userEvent.setup()
-    const onAction = vi.fn()
-    render(
-      <AppointmentCards
-        rows={[rows()[0]]}
-        groupByDate={false}
-        onOpen={vi.fn()}
-        onAction={onAction}
-      />,
-    )
+    const { onOpen } = renderTimeline()
 
-    await user.click(screen.getByRole('button', { name: 'Confirm' }))
-    expect(onAction).toHaveBeenCalledWith('confirm', expect.objectContaining({ id: BOOKED_ID }))
+    await user.click(screen.getByRole('button', { name: /Open Wanjiru Kariuki/ }))
+    expect(onOpen).toHaveBeenCalledWith(BOOKED_ID)
   })
 
-  it('offers “Show more” when the server holds more than the page', async () => {
+  it('counts the appointments in each day heading', () => {
+    renderTimeline({ scope: 'month' })
+    expect(screen.getByText('2')).toBeInTheDocument()
+  })
+
+  it('collapses days it is not focused on, so a busy month stays light', async () => {
+    const user = userEvent.setup()
+    renderTimeline({ scope: 'month', anchor: '2026-06-01' })
+
+    // Not today and not the focused day: collapsed, with its count still shown.
+    const toggle = screen.getByRole('button', { name: /May/ })
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+
+    await user.click(toggle)
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByText('Wanjiru Kariuki')).toBeInTheDocument()
+  })
+
+  it('loads the next block instead of rendering every appointment at once', async () => {
     const user = userEvent.setup()
     const onShowMore = vi.fn()
-    render(
-      <AppointmentCards
-        rows={rows()}
-        groupByDate={false}
-        totalCount={50}
-        onShowMore={onShowMore}
-        onOpen={vi.fn()}
-        onAction={vi.fn()}
-      />,
-    )
+    renderTimeline({ totalCount: 50, onShowMore })
 
-    await user.click(screen.getByRole('button', { name: 'Show 24 more' }))
+    await user.click(screen.getByRole('button', { name: 'Load 24 more' }))
     expect(onShowMore).toHaveBeenCalledTimes(1)
   })
 
-  it('hides “Show more” once every appointment is on screen', () => {
-    render(
-      <AppointmentCards
-        rows={rows()}
-        groupByDate={false}
-        totalCount={2}
-        onShowMore={vi.fn()}
-        onOpen={vi.fn()}
-        onAction={vi.fn()}
-      />,
-    )
-
-    expect(screen.queryByRole('button', { name: /Show .* more/ })).toBeNull()
+  it('offers nothing to load once every appointment is on screen', () => {
+    renderTimeline({ totalCount: 2, onShowMore: vi.fn() })
+    expect(screen.queryByRole('button', { name: /Load .* more/ })).toBeNull()
   })
 })

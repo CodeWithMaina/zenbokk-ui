@@ -2,6 +2,7 @@ import type { MouseEvent, ReactNode } from 'react'
 import { cn } from '../../lib/cn'
 import { Avatar } from './avatar'
 import { StatusPill } from './badge'
+import { CustomerTypeBadge } from './customer-type-badge'
 import { Checkbox } from './checkbox'
 import { EmptyState } from './empty-state'
 import { StampDots } from './stamp-dots'
@@ -15,6 +16,12 @@ export type ClientTableProps = {
   onSelectAll?: (selected: boolean) => void
   onOpen?: (client: ClientSummary) => void
   stampGoal?: number
+  /**
+   * Whether to render the Stamps column. The Customers list turns this off when
+   * the workspace is not entitled to the loyalty module, so the table cannot
+   * expose loyalty progress it does not own.
+   */
+  showStamps?: boolean
   /** Accessible table name. */
   label?: string
   empty?: ReactNode
@@ -32,6 +39,7 @@ export function ClientTable({
   onSelectAll,
   onOpen,
   stampGoal = 8,
+  showStamps = true,
   label = 'Clients',
   empty,
   className,
@@ -43,7 +51,7 @@ export function ClientTable({
   const allSelected = rows.length > 0 && selectedCount === rows.length
   const someSelected = selectedCount > 0 && !allSelected
   const goal = Math.max(1, stampGoal)
-  const columnCount = selectable ? 6 : 5
+  const columnCount = (selectable ? 6 : 5) - (showStamps ? 0 : 1)
 
   return (
     <table className={cn('table', className)} aria-label={label}>
@@ -71,9 +79,11 @@ export function ClientTable({
           <th scope="col" className="hidden sm:table-cell">
             Status
           </th>
-          <th scope="col" className="hidden sm:table-cell">
-            Stamps
-          </th>
+          {showStamps ? (
+            <th scope="col" className="hidden sm:table-cell">
+              Stamps
+            </th>
+          ) : null}
           <th scope="col" className="hidden lg:table-cell">
             Last visit
           </th>
@@ -169,23 +179,28 @@ export function ClientTable({
                 </td>
 
                 <td className="hidden sm:table-cell">
-                  <StatusPill status={client.status} tone={client.tone}>
-                    {client.statusLabel ?? client.status}
-                  </StatusPill>
+                  <span className="flex flex-wrap items-center gap-[0.4rem]">
+                    <StatusPill status={client.status} tone={client.tone}>
+                      {client.statusLabel ?? client.status}
+                    </StatusPill>
+                    <CustomerTypeBadge type={client.customerType} />
+                  </span>
                 </td>
 
-                <td className="hidden sm:table-cell">
-                  {client.stamps === undefined ? (
-                    <span className="text-muted">—</span>
-                  ) : (
-                    <span className="flex items-center gap-[0.5rem]">
-                      <StampDots stamps={stamps} goal={goal} />
-                      <span className="text-meta text-muted tabular">
-                        {stamps}/{goal}
+                {showStamps ? (
+                  <td className="hidden sm:table-cell">
+                    {client.stamps === undefined ? (
+                      <span className="text-muted">—</span>
+                    ) : (
+                      <span className="flex items-center gap-[0.5rem]">
+                        <StampDots stamps={stamps} goal={goal} />
+                        <span className="text-meta text-muted tabular">
+                          {stamps}/{goal}
+                        </span>
                       </span>
-                    </span>
-                  )}
-                </td>
+                    )}
+                  </td>
+                ) : null}
 
                 <td className="hidden text-meta text-muted lg:table-cell">
                   {client.lastVisit ?? '—'}

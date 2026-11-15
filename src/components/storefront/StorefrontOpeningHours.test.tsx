@@ -64,25 +64,6 @@ describe('StorefrontOpeningHours', () => {
     ).toBeInTheDocument()
   })
 
-  it('lists dated exceptions, labelled as closures', async () => {
-    server.use(
-      http.get('*/api/v1/businesses/:businessId/opening-hours', () =>
-        ok(
-          makeOpeningHours({
-            specialHours: [
-              { date: '2026-12-25', isClosed: true, label: 'Christmas Day', periods: [] },
-            ],
-          }),
-        ),
-      ),
-    )
-
-    renderStorefront(<StorefrontOpeningHours />)
-
-    expect(await screen.findByText(/upcoming changes/i)).toBeInTheDocument()
-    expect(screen.getByText('Christmas Day')).toBeInTheDocument()
-  })
-
   it('says the hours are the booking window when no roster is recorded', async () => {
     server.use(
       http.get('*/api/v1/businesses/:businessId/opening-hours', () =>

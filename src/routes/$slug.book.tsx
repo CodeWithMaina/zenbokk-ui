@@ -1,35 +1,32 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { ArrowLeft, ArrowRight, Loader2 } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Alert } from '../components/ui/alert'
 import { Button } from '../components/ui/button'
+import { Field, Input } from '../components/ui/field'
 import { Skeleton } from '../components/ui/skeleton'
 import { StorefrontBookingDone } from '../components/storefront/booking/StorefrontBookingDone'
-import { GuestVerifyPanel } from '../components/storefront/booking/GuestVerifyPanel'
 import {
   StorefrontBookingActionBar,
   StorefrontBookingSummary,
 } from '../components/storefront/booking/StorefrontBookingSummary'
 import { MpesaInstructions } from '../components/storefront/booking/MpesaInstructions'
+import { MpesaConfirmationField } from '../components/storefront/booking/MpesaConfirmationField'
 import {
   StepOption,
   StorefrontBookingStepper,
 } from '../components/storefront/booking/StorefrontBookingStepper'
 import { ApiError, errorMessage, isModuleUnavailable } from '../lib/api/client'
 import { queryClient, queryKeys } from '../lib/api/query-client'
-import type { Appointment, AvailabilitySlot, DayAvailability, EligibleStaff } from '../lib/api/types'
+import type { AvailabilitySlot, DayAvailability, EligibleStaff, StorefrontPaymentOption } from '../lib/api/types'
 import { useAuth } from '../lib/auth'
 import { CAPABILITY } from '../lib/entitlements'
 import { formatDay, formatDuration, money } from '../lib/format'
 import {
-  bookingApi,
   clearBookingDraft,
-  clearGuestSession,
   emptyDraft,
-  guestTokenFor,
   readBookingDraft,
-  readGuestSession,
   useStorefront,
   writeBookingDraft,
 } from '../lib/storefront'
@@ -39,30 +36,51 @@ import {
   useStorefrontTeam,
 } from '../lib/storefront/use-storefront-catalog'
 import { usePublicPaymentDetails } from '../lib/payments/api'
-import { storefrontApi } from '../lib/storefront/api'
+import { scanMpesaMessage } from '../lib/payments/mpesa-message'
+import { paymentOptionPolicy, resolvePaymentOption } from '../lib/storefront/payment-option'
+import { publicBookingApi, storefrontApi } from '../lib/storefront/api'
+import type { PublicBookingResponse } from '../lib/storefront/api'
 import { storefrontHref } from '../lib/tenant'
 
 export const Route = createFileRoute('/$slug/book')({
   component: BookingWizardPage,
 })
 
+/** The same shapes the server accepts, checked here so the visitor is told before a round trip. */
+const KENYAN_PHONE = /^(?:\+?254|0)?[17]\d{8}$/
+const EMAIL = /^[^@\s]+@[^@\s]+\.[^@\s]+$/
+
 const STEPS = [
   { key: 'services', label: 'Services' },
   { key: 'staff', label: 'Specialist' },
   { key: 'time', label: 'Date & time' },
   { key: 'details', label: 'Details' },
+  /**
+   * The customer's own details come before payment, in the order the booking actually happens:
+   * who it is for, then how they want to pay, then the confirmation. The storefront API validates
+   * all of it in one request, so the page asks in the order that keeps each answer obvious.
+   */
+  { key: 'identity', label: 'Your details' },
   { key: 'payment', label: 'Payment' },
 ] as const
 
 type StepKey = (typeof STEPS)[number]['key']
 
 /**
- * Get visible steps based on whether staff exists.
- * If there's no staff, skip the staff selection step entirely.
+ * Get visible steps. The staff step is skipped when nobody is selectable, and the
+ * payment step is skipped entirely when the business cannot take a payment (no
+ * enabled, complete method) — so a wizard never lands on an empty payment screen.
  */
-function getVisibleSteps(hasStaff: boolean) {
-  if (hasStaff) return STEPS
-  return STEPS.filter((step) => step.key !== 'staff')
+function getVisibleSteps(hasStaff: boolean, hasPayments: boolean, needsIdentity: boolean) {
+  return STEPS.filter((step) => {
+    if (!hasStaff && step.key === 'staff') return false
+    if (!hasPayments && step.key === 'payment') return false
+    // The identity step collects the visitor's name, number and email for an
+    // account-free booking. It exists only when there is no bookable session — a
+    // signed-in customer is already identified, so there is nothing to collect.
+    if (!needsIdentity && step.key === 'identity') return false
+    return true
+  })
 }
 
 /** `2026-05-12` → `Tue 12 May`, without a UTC/DST shift. */
@@ -110,36 +128,25 @@ export function BookingWizardPage() {
   const [draft, setDraft] = useState<BookingDraft>(() => readBookingDraft(businessId))
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [failure, setFailure] = useState<string | null>(null)
-  const [confirmed, setConfirmed] = useState<Appointment | null>(null)
+  /**
+   * What the server said about the booking that was just made.
+   *
+   * The whole response is kept, not just the appointment: the confirmation has to report the money's
+   * own state — waiting for the business, part paid, or paid — and that state comes from the server
+   * rather than from anything the page could infer.
+   */
+  const [confirmed, setConfirmed] = useState<PublicBookingResponse | null>(null)
   const [summaryOpen, setSummaryOpen] = useState(false)
-  const [paymentChoice, setPaymentChoice] = useState<'mpesa' | 'studio' | null>(null)
+  const [paymentOption, setPaymentOption] = useState<StorefrontPaymentOption | null>(null)
   /**
    * The M-PESA confirmation the customer pastes while booking.
    *
-   * It is carried to the confirmation screen, which creates the booking-fee payment
-   * and submits it — the appointment has to exist before a payment can be attached to
-   * it, so the paste is collected here and sent the moment the booking lands. Empty is
-   * a perfectly good value: the customer can pay later and paste on the confirmation
-   * screen instead.
+   * It travels with the booking request itself: the appointment, the fee and the pasted evidence are
+   * recorded together, so the customer never has to come back and finish a step. Empty is a
+   * perfectly good value — they can pay at the studio, or paste later on the confirmation screen.
    */
   const [mpesaMessage, setMpesaMessage] = useState('')
-
-  // A guest who has already verified in this session (or in a previous step of
-  // the same session) is not asked again. The token itself lives in
-  // `sessionStorage`, not in the app's session store — a guest has no profile.
-  const [guestVerified, setGuestVerified] = useState(() => Boolean(guestTokenFor(businessId)))
-  const [guestName, setGuestName] = useState(() => readGuestSession(businessId)?.fullName ?? '')
-  /**
-   * The signed-in identity cannot book as a customer here.
-   *
-   * A business or staff account browsing a storefront gets a flat 403 from
-   * `POST /v1/appointments` — and the API answers a failed policy with no response
-   * body, so without this the visitor would read a bare "you do not have access" and
-   * have no way forward. Falling back to the guest flow gives them a real path: the
-   * booking is made under the number they verify, independent of the session they
-   * arrived with.
-   */
-  const [asGuest, setAsGuest] = useState(false)
+  const [idempotencyKey] = useState(() => crypto.randomUUID())
 
   const appointmentsEnabled = can(CAPABILITY.appointments)
   const paymentsEnabled = can(CAPABILITY.payments)
@@ -150,6 +157,37 @@ export function BookingWizardPage() {
   // step. Gated on the module because every payment endpoint needs it.
   const publicPayment = usePublicPaymentDetails(businessId, paymentsEnabled)
   const manualMpesa = paymentsEnabled && publicPayment.data?.enabled === true
+
+  /**
+   * What this business offers on its booking page.
+   *
+   * The server's own flags are used verbatim — the page never invents an option, and it
+   * never hides one the business enabled. A business that has never opened its payment
+   * settings has no row yet, which is the server's default too: Payment Included on, Pay
+   * After Service off.
+   */
+  const payDetails = publicPayment.data
+  const payUpfrontEnabled = payDetails?.payUpfrontEnabled ?? true
+  const payAfterServiceEnabled = payDetails?.payAfterServiceEnabled ?? false
+  /**
+   * The rule itself lives in `lib/storefront/payment-option` so it is stated once and tested
+   * exhaustively: one option is applied without asking, both means the customer chooses, and
+   * neither means there is nothing to book with.
+   */
+  const paymentPolicy = paymentOptionPolicy(payUpfrontEnabled, payAfterServiceEnabled)
+  const bookingAvailable = !paymentPolicy.bookingUnavailable
+  const offersPaymentChoice = paymentPolicy.needsChoice
+
+  /**
+   * The option this booking will be created with: the customer's answer when the business offers
+   * both, and the single enabled option — without asking — when it offers one.
+   *
+   * It travels with the booking request, because the server decides whether the terms are
+   * allowed: hiding a control here is a convenience, not a rule.
+   */
+  const chosenPaymentOption = resolvePaymentOption(paymentPolicy, paymentOption)
+  /** True while the customer still has to answer the question. */
+  const paymentChoiceRequired = offersPaymentChoice && paymentOption === null
 
   function update(changes: Partial<BookingDraft>) {
     setDraft((current) => {
@@ -163,6 +201,34 @@ export function BookingWizardPage() {
     setFailure(null)
     update({ step })
   }
+
+  /**
+   * A signed-in customer's own details are the natural starting point for the booking.
+   *
+   * They are only ever *filled in*, never locked: a booking may legitimately be made for somebody
+   * else, and a storefront visitor who is not signed in simply types them. Blank fields only, so a
+   * value the customer has already corrected is never overwritten by the profile.
+   */
+  useEffect(() => {
+    if (!user) return
+    setDraft((current) => {
+      const next: BookingDraft = {
+        ...current,
+        customerName: current.customerName || user.fullName || '',
+        customerPhone: current.customerPhone || user.phone || '',
+        customerEmail: current.customerEmail || user.email || '',
+      }
+      if (
+        next.customerName === current.customerName &&
+        next.customerPhone === current.customerPhone &&
+        next.customerEmail === current.customerEmail
+      ) {
+        return current
+      }
+      writeBookingDraft(businessId, next)
+      return next
+    })
+  }, [businessId, user])
 
   const servicesQuery = useStorefrontServices(businessId, appointmentsEnabled)
 
@@ -182,7 +248,15 @@ export function BookingWizardPage() {
    * made with a short-lived customer token the visitor obtained by proving their own
    * number — which is why the verification panel is offered in both.
    */
-  const needsGuestVerification = !isAuthenticated || asGuest
+  /**
+   * The details are the booking's identity, so they are required — and nothing else about the
+   * visitor is. A signed-in customer's own name, number and address pre-fill the step (see
+   * `update` below), which is why a signed-in visitor usually just confirms them.
+   */
+  const detailsComplete =
+    draft.customerName.trim().length >= 2 &&
+    KENYAN_PHONE.test(draft.customerPhone.replace(/\s/g, '')) &&
+    EMAIL.test(draft.customerEmail.trim())
 
   /**
    * The fee the customer is about to send.
@@ -207,12 +281,19 @@ export function BookingWizardPage() {
   const staffResolved = staffQuery.isSuccess || isModuleUnavailable(staffQuery.error)
   const hasEligibleStaff = !staffResolved || (staffQuery.data ?? []).length > 0
   const staffId = hasEligibleStaff ? draft.staffId : null
-  const visibleSteps = getVisibleSteps(hasEligibleStaff)
+  /**
+   * The details step is always part of the flow: the booking is made with the customer's own name,
+   * number and email, whether or not they happen to be signed in. A signed-in visitor's details are
+   * pre-filled on it, and nothing about their session decides whether the booking is allowed.
+   */
+  const visibleSteps = getVisibleSteps(hasEligibleStaff, paymentsEnabled, true)
 
   // Normalize the active step if it's no longer visible
   let normalizedStep: StepKey = draft.step
   if (!hasEligibleStaff && draft.step === 'staff') {
     normalizedStep = 'time'
+  } else if (!paymentsEnabled && draft.step === 'payment') {
+    normalizedStep = 'details'
   }
 
   // A restored draft may point at services that no longer exist. Fall back to
@@ -237,7 +318,10 @@ export function BookingWizardPage() {
       appointmentsEnabled &&
       selectedServiceIds.length > 0 &&
       staffResolved &&
-      (activeStep === 'time' || activeStep === 'details' || activeStep === 'payment'),
+      (activeStep === 'time' ||
+        activeStep === 'details' ||
+        activeStep === 'payment' ||
+        activeStep === 'identity'),
   })
 
   const calendar = availabilityQuery.data
@@ -261,94 +345,114 @@ export function BookingWizardPage() {
 
   const createBooking = useMutation({
     mutationFn: () =>
-      bookingApi.create(
-        {
-          businessId,
-          serviceIds: selectedServiceIds,
-          staffUserId: staffId,
-          scheduledAt: draft.startsAt ?? '',
-          note: draft.notes.trim() || null,
-        },
-        // A verified guest books with their own short-lived token; a signed-in
-        // customer books with their session. The API derives the customer from
-        // whichever token arrives — it is never taken from the request body.
-        needsGuestVerification ? guestTokenFor(businessId) : null,
-      ),
-    onSuccess: (appointment) => {
+      publicBookingApi.create({
+        businessId,
+        serviceIds: selectedServiceIds,
+        staffUserId: staffId,
+        scheduledAt: draft.startsAt ?? '',
+        note: draft.notes.trim() || null,
+        // The customer's choice, or the business's single option. The server checks it against the
+        // business's configuration and refuses terms it has switched off.
+        paymentOption: chosenPaymentOption,
+        // The details the booking is made with — and the only thing that identifies the customer.
+        // The server resolves the business-specific customer record from them, so a visitor needs no
+        // account, no token, and no relationship with this business beforehand.
+        fullName: draft.customerName.trim(),
+        phoneNumber: draft.customerPhone.trim(),
+        email: draft.customerEmail.trim(),
+        // Sent with the booking, so the appointment, the fee and the pasted evidence are recorded
+        // together and the confirmation can report the money's state straight away.
+        mpesaMessage: paysNow && mpesaMessage.trim() ? mpesaMessage.trim() : null,
+        idempotencyKey,
+      }),
+    onSuccess: (booking) => {
       clearBookingDraft(businessId)
       setDraft({ ...emptyDraft })
-      setConfirmed(appointment)
+      setConfirmed(booking)
       void queryClient.invalidateQueries({ queryKey: ['appointments'] })
     },
     onError: (error) => {
-      if (error instanceof ApiError && error.status === 401) {
-        // A guest token can expire mid-flow; send them back to verification
-        // rather than to a sign-in page they do not have an account for.
-        if (!isAuthenticated) {
-          clearGuestSession(businessId)
-          setGuestVerified(false)
-          setFailure('Your verification expired. Confirm your number again to finish.')
-          return
-        }
-        setFailure('Sign in again to finish this booking. Your choices are saved.')
-        return
-      }
       if (error instanceof ApiError && error.status === 409) {
         setFailure('That time was taken while you were booking. Pick another time.')
         update({ step: 'time', startsAt: null })
         void availabilityQuery.refetch()
         return
       }
-      if (error instanceof ApiError && (error.status === 403 || error.code === 'OVERBOOKING')) {
-        if (error.status === 403 && isAuthenticated) {
-          // The API refuses `POST /v1/appointments` for any identity that is not a
-          // Customer — a business owner browsing their own storefront, for instance —
-          // and it does so with an empty 403, which reads as a dead end. Offer the one
-          // route that works: verify a number and book as that customer.
-          setAsGuest(true)
-          setFailure(
-            'Your account can’t book as a customer here. Verify your own number below to finish.',
-          )
-          void queryClient.invalidateQueries({ queryKey: ['appointments'] })
-          return
-        }
+      if (error instanceof ApiError && error.code === 'OVERBOOKING') {
         setFailure('That time was taken while you were booking. Pick another time.')
         update({ step: 'time', startsAt: null })
         void availabilityQuery.refetch()
         return
       }
+      // Anything else the server refuses — a payment option the business switched off, a booking
+      // page with no options left on, details it could not accept — carries its own explanation, and
+      // the visitor stays on the step with their choices intact.
       setFailure(errorMessage(error, 'We could not confirm this booking. Please try again.'))
     },
   })
 
 
-  function continueFromServices() {
-    if (selectedServices.length === 0) {
-      setFailure('Choose at least one service to continue.')
+  /** Move to the next visible step, or confirm the booking when none is left. */
+  function goNextOrSubmit() {
+    const next = visibleSteps[activeIndex + 1]
+    if (next) {
+      setFailure(null)
+      update({ step: next.key })
       return
     }
-    if (!staffResolved) return
-    setFailure(null)
-    update({ step: hasEligibleStaff ? 'staff' : 'time', staffId })
+    submitBooking()
   }
 
-  function continueFromTime() {
-    if (!selectedSlotAvailable) {
-      setFailure('Choose an open time to continue.')
+  /** The primary button: validate the current step, then advance — or confirm. */
+  function advance() {
+    if (activeStep === 'services') {
+      if (selectedServices.length === 0) {
+        setFailure('Choose at least one service to continue.')
+        return
+      }
+      if (!staffResolved) return
+      // Keep the (possibly auto-assigned) specialist in the draft before advancing.
+      update({ staffId })
+      goNextOrSubmit()
       return
     }
-    goTo('details')
+    if (activeStep === 'time') {
+      if (!selectedSlotAvailable) {
+        setFailure('Choose an open time to continue.')
+        return
+      }
+      goNextOrSubmit()
+      return
+    }
+    // A pasted M-PESA message must scan as a genuine confirmation before the flow
+    // carries it forward, so a fabricated or truncated paste never reaches the server.
+    const mpesaProblem = mpesaScanError()
+    if (mpesaProblem) {
+      setFailure(mpesaProblem)
+      return
+    }
+    goNextOrSubmit()
   }
 
-  function continueFromDetails() {
-    goTo('payment')
+  /**
+   * Reason a supplied M-PESA confirmation is not acceptable, or null when there is
+   * none / it scans as genuine. An empty field is fine — the message is optional.
+   */
+  function mpesaScanError(): string | null {
+    if (!mpesaMessage.trim()) return null
+    const scan = scanMpesaMessage(mpesaMessage)
+    return scan.ok ? null : scan.error
   }
 
   function submitBooking() {
-    if (needsGuestVerification && !guestTokenFor(businessId)) {
-      // The draft is already in sessionStorage, and the verification panel is on
-      // this step — nothing is lost by asking the visitor to finish it first.
-      setFailure('Verify your number to confirm this booking. Your choices are saved.')
+    if (!detailsComplete) {
+      update({ step: 'identity' })
+      setFailure('Add the name, mobile number and email this booking is for.')
+      return
+    }
+    const mpesaProblem = mpesaScanError()
+    if (mpesaProblem) {
+      setFailure(mpesaProblem)
       return
     }
     if (selectedServiceIds.length === 0) {
@@ -396,16 +500,18 @@ export function BookingWizardPage() {
 
   if (confirmed) {
     return (
+      // The whole server response goes to the confirmation, which reports the booking and the
+      // money's own state from it — booked with the fee waiting for the business, part paid, or
+      // paid. Nothing on that screen is inferred by the page.
       <StorefrontBookingDone
-        appointment={confirmed}
+        appointment={confirmed.appointment}
+        booking={confirmed}
         services={selectedServices}
         staffName={staffName}
         canonicalSlug={canonicalSlug}
         businessId={businessId}
         defaultPhone={user?.phone ?? null}
         canPay={paymentsEnabled}
-        guestToken={guestTokenFor(businessId)}
-        autoSubmitMessage={mpesaMessage.trim() || null}
       />
     )
   }
@@ -435,14 +541,52 @@ export function BookingWizardPage() {
     )
   }
 
+  // Both payment options switched off: the business is not taking online bookings at all,
+  // and the server refuses such a booking even if this screen were bypassed. Saying so here
+  // is the difference between a dead form and a customer who knows what to do next.
+  if (!bookingAvailable) {
+    return (
+      <div className="sf-container py-[clamp(2rem,5vw,3.5rem)]">
+        <div className="mx-auto max-w-[32rem] rounded-panel border border-line bg-surface p-[1.5rem] text-center">
+          <p className="sf-eyebrow">Bookings paused</p>
+          <h1 className="sf-heading">{business.name} isn’t taking online bookings at the moment</h1>
+          <p className="sf-lead mx-auto">
+            Their page is still live, but their booking page has no payment option switched on, so
+            appointments can’t be booked here. Contact them directly and they’ll arrange your visit.
+          </p>
+          <div className="mt-[1.2rem] flex flex-wrap justify-center gap-[0.5rem]">
+            {business.phoneNumber ? (
+              <a href={`tel:${business.phoneNumber}`} className="btn btn-primary no-underline">
+                Call {business.phoneNumber}
+              </a>
+            ) : null}
+            <a href={storefrontHref(canonicalSlug)} className="btn btn-ghost no-underline">
+              Back to the page
+            </a>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   const when =
     selectedSlot && selectedDay ? `${dateLabel(selectedDay)}, ${timeLabel(selectedSlot.localTime)}` : null
-
   const headline = selectedServices.length > 0 ? money(totalPrice, currency) : 'No services yet'
   const detail =
     selectedServices.length > 0
       ? `${selectedServices.length} service${selectedServices.length === 1 ? '' : 's'} · ${formatDuration(totalDuration)}`
       : null
+
+  const isLastStep = activeIndex === visibleSteps.length - 1
+
+  // A supplied M-PESA confirmation that does not scan as genuine blocks the flow: the
+  // field shows the reason, the primary action is disabled, and it is never carried
+  // forward. An empty field is fine — the message is optional.
+  const mpesaProvided = mpesaMessage.trim().length > 0
+  const mpesaValid = !mpesaScanError()
+  // The paste field is only meaningful when the customer is paying during booking. A
+  // pay-after-service booking is not paying now, so a stale paste must not travel with it.
+  const paysNow = chosenPaymentOption !== 'pay_after_service'
 
   const primaryAction = (
     <>
@@ -458,22 +602,16 @@ export function BookingWizardPage() {
       ) : null}
       <Button
         variant="primary"
-        onClick={
-          activeStep === 'services'
-            ? continueFromServices
-            : activeStep === 'staff'
-              ? () => goTo('time')
-              : activeStep === 'time'
-                ? continueFromTime
-                : activeStep === 'details'
-                  ? continueFromDetails
-                  : submitBooking
-        }
+        onClick={advance}
         disabled={
           !staffResolved ||
+          !bookingAvailable ||
           (activeStep === 'services' && selectedServices.length === 0) ||
           (activeStep === 'time' && (availabilityQuery.isPending || !selectedSlotAvailable)) ||
-          (activeStep === 'payment' && createBooking.isPending)
+          (activeStep === 'identity' && !detailsComplete) ||
+          (activeStep === 'payment' && paymentChoiceRequired) ||
+          (mpesaProvided && !mpesaValid) ||
+          (isLastStep && createBooking.isPending)
         }
       >
         {createBooking.isPending ? (
@@ -481,9 +619,9 @@ export function BookingWizardPage() {
             <Loader2 className="size-4 animate-spin" aria-hidden="true" />
             Confirming…
           </>
-        ) : activeStep === 'payment' ? (
+        ) : isLastStep ? (
           <>
-            {manualMpesa && mpesaMessage.trim() ? 'Confirm and send payment' : 'Confirm booking'}
+            {paysNow && manualMpesa && mpesaProvided && mpesaValid ? 'Confirm and send payment' : 'Confirm booking'}
             <ArrowRight className="size-4" aria-hidden="true" />
           </>
         ) : (
@@ -736,7 +874,7 @@ export function BookingWizardPage() {
               <p className="mt-[0.6rem] text-caption text-subtle">
                 {isAuthenticated
                   ? `Booking as ${user?.fullName ?? 'you'}. The studio will use the contact details on your account.`
-                  : 'You’ll sign in on the next step so the studio knows who is coming. Your choices are kept.'}
+                  : 'We’ll collect your contact details before the booking is confirmed. Your choices are kept.'}
               </p>
             </section>
           ) : null}
@@ -764,112 +902,154 @@ export function BookingWizardPage() {
                 </li>
               </ul>
 
-              {manualMpesa ? (
-                <div className="mt-[1.2rem]">
-                  <h2 className="text-label font-semibold">Pay your booking fee by M-PESA</h2>
-                  <div className="mt-[0.6rem] rounded-card border border-line bg-surface p-[1rem]">
-                    <MpesaInstructions
-                      details={publicPayment.data!}
-                      amount={bookingFeePreview}
-                      serviceTotal={totalPrice}
-                    />
-                  </div>
-
-                  <div className="mt-[0.9rem]">
-                    <label className="label" htmlFor="sf-book-mpesa-message">
-                      Paste your M-PESA confirmation message{' '}
-                      <span className="text-subtle">(you can also do this after booking)</span>
-                    </label>
-                    <textarea
-                      id="sf-book-mpesa-message"
-                      className="textarea"
-                      rows={3}
-                      value={mpesaMessage}
-                      placeholder="QJK42NUM01 Confirmed. Ksh500.00 sent to …"
-                      onChange={(event) => setMpesaMessage(event.target.value)}
-                    />
-                    <p className="mt-[0.4rem] text-caption text-subtle">
-                      {mpesaMessage.trim()
-                        ? 'We will send this for the studio to check as soon as your booking is in.'
-                        : `Send ${money(bookingFeePreview, currency)} to the details above, then paste the SMS here. Your booking is held either way.`}
-                    </p>
-                  </div>
-                </div>
-              ) : paymentsEnabled ? (
-                <div className="mt-[1.2rem]">
-                  <h2 className="text-label font-semibold">How would you like to pay?</h2>
-                  <div className="mt-[0.6rem]">
-                    <StepOption
-                      role="radio"
-                      title="M-Pesa now"
-                      description="We’ll send a payment request to your phone after the booking is confirmed."
-                      selected={paymentChoice === 'mpesa'}
-                      onSelect={() => setPaymentChoice('mpesa')}
-                      monogram="M"
-                    />
-                    <StepOption
-                      role="radio"
-                      title="Pay at the studio"
-                      description="The studio records the payment when you arrive."
-                      selected={paymentChoice === 'studio'}
-                      onSelect={() => setPaymentChoice('studio')}
-                      monogram="K"
-                    />
-                  </div>
-                  <p className="mt-[0.6rem] text-caption text-subtle">
-                    Nothing is charged until you approve the request on your handset. The amount is
-                    calculated by the studio’s system, not by this page.
-                  </p>
-                </div>
-              ) : (
-                <Alert tone="info" className="mt-[1.2rem]">
-                  {business.name} does not collect payment through Punched. Settle it directly at
-                  the studio — nothing is charged here.
+              {!bookingAvailable ? (
+                <Alert tone="warning" className="mt-[1.2rem]">
+                  {business.name} is not taking online bookings at the moment. Please contact them
+                  directly and they will arrange your appointment.
                 </Alert>
+              ) : (
+                <>
+                  {offersPaymentChoice ? (
+                    <div className="mt-[1.2rem]">
+                      <h2 className="text-label font-semibold">How would you like to pay?</h2>
+                      <div className="mt-[0.6rem]">
+                        <StepOption
+                          role="radio"
+                          title="Pay during booking"
+                          description="Settle now, using the studio's own payment details."
+                          selected={paymentOption === 'pay_upfront'}
+                          onSelect={() => setPaymentOption('pay_upfront')}
+                          monogram="P"
+                        />
+                        <StepOption
+                          role="radio"
+                          title="Pay after the service"
+                          description="Book now and settle when you come in."
+                          selected={paymentOption === 'pay_after_service'}
+                          onSelect={() => setPaymentOption('pay_after_service')}
+                          monogram="A"
+                        />
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {/* What the chosen option actually means, shown as soon as it applies. */}
+                  {paysNow && manualMpesa ? (
+                    <div className="mt-[1.2rem]">
+                      <h2 className="text-label font-semibold">Pay your booking fee by M-PESA</h2>
+                      <div className="mt-[0.6rem]">
+                        <MpesaInstructions
+                          details={publicPayment.data!}
+                          amount={bookingFeePreview}
+                          serviceTotal={totalPrice}
+                        />
+                      </div>
+
+                      <div className="mt-[0.9rem]">
+                        <MpesaConfirmationField
+                          id="sf-book-mpesa-message"
+                          label="Paste your M-PESA confirmation message"
+                          labelHint={<span className="text-subtle">(you can also do this after booking)</span>}
+                          value={mpesaMessage}
+                          onChange={setMpesaMessage}
+                          rows={3}
+                          emptyHint={`Send ${money(bookingFeePreview, currency)} to the details above, then paste the SMS here. Your booking is held either way.`}
+                        />
+                      </div>
+                    </div>
+                  ) : paysNow ? (
+                    <Alert tone="info" className="mt-[1.2rem]">
+                      {business.name} takes payment during booking but has not published an online
+                      channel, so nothing is charged on this page — settle it with the studio, who will
+                      have the amount on your booking.
+                    </Alert>
+                  ) : (
+                    <Alert tone="info" className="mt-[1.2rem]">
+                      Nothing is charged now. <b>{money(totalPrice, currency)}</b> stays outstanding on
+                      this booking and you settle it with the studio.
+                    </Alert>
+                  )}
+
+                  {offersPaymentChoice ? (
+                    <p className="mt-[0.6rem] text-caption text-subtle">
+                      The amount is calculated by the studio’s system, not by this page.
+                    </p>
+                  ) : null}
+                </>
               )}
 
-              {needsGuestVerification ? (
-                guestVerified ? (
-                  <Alert tone="success" className="mt-[1rem]">
-                    Verified{guestName ? ` as ${guestName}` : ''}. Confirm below to book.
-                  </Alert>
-                ) : (
-                  <div className="mt-[1.2rem]">
-                    {asGuest ? (
-                      <Alert tone="warning" className="mb-[0.9rem]">
-                        You’re signed in to a business account, so you can’t book as a customer on
-                        this page. Verify your own number below and the booking will be made under
-                        it.
-                      </Alert>
-                    ) : null}
-                    <GuestVerifyPanel
-                      businessId={businessId}
-                      onVerified={(session) => {
-                        setGuestVerified(true)
-                        setGuestName(session.fullName)
-                        setFailure(null)
-                      }}
-                    />
-                    <p className="mt-[0.7rem] text-caption text-subtle">
-                      {asGuest ? (
-                        'Your choices are saved.'
-                      ) : (
-                        <>
-                          Already have an account?{' '}
-                          <Link
-                            to="/auth/sign-in"
-                            search={{ redirect: storefrontHref(canonicalSlug, '/book') }}
-                            className="link font-semibold"
-                          >
-                            Sign in
-                          </Link>{' '}
-                          instead. Your choices are saved either way.
-                        </>
-                      )}
-                    </p>
-                  </div>
-                )
-              ) : null}
+            </section>
+          ) : null}
+
+          {activeStep === 'identity' ? (
+            <section className="mt-[1.2rem]">
+              <ul className="list-none border-t border-line p-0">
+                <li className="flex items-baseline justify-between gap-[1rem] border-b border-line py-[0.6rem] text-meta">
+                  <span>When</span>
+                  <b>{when ?? '—'}</b>
+                </li>
+                <li className="flex items-baseline justify-between gap-[1rem] border-b border-line py-[0.6rem] text-meta">
+                  <span>With</span>
+                  <b>
+                    {staffName ?? (hasEligibleStaff ? 'First available specialist' : business.name)}
+                  </b>
+                </li>
+                <li className="flex items-baseline justify-between gap-[1rem] border-b border-line py-[0.6rem] text-label">
+                  <span>Total</span>
+                  <b>{money(totalPrice, currency)}</b>
+                </li>
+              </ul>
+
+              <div className="mt-[1.2rem] space-y-[0.9rem]">
+                <p className="text-meta text-muted">
+                  We’ll use these to confirm your appointment. No account needed — you can book as a
+                  guest.
+                </p>
+                <Field label="Full name" htmlFor="sf-name">
+                  <Input
+                    id="sf-name"
+                    autoComplete="name"
+                    value={draft.customerName}
+                    onChange={(event) => update({ customerName: event.target.value })}
+                  />
+                </Field>
+                <Field
+                  label="Mobile number"
+                  htmlFor="sf-phone"
+                  hint="Kenyan mobile, for example 0712 345 678."
+                >
+                  <Input
+                    id="sf-phone"
+                    inputMode="tel"
+                    autoComplete="tel"
+                    value={draft.customerPhone}
+                    onChange={(event) => update({ customerPhone: event.target.value })}
+                  />
+                </Field>
+                <Field label="Email" htmlFor="sf-email">
+                  <Input
+                    id="sf-email"
+                    type="email"
+                    autoComplete="email"
+                    value={draft.customerEmail}
+                    onChange={(event) => update({ customerEmail: event.target.value })}
+                  />
+                </Field>
+                <p className="text-caption text-subtle">
+                  {isAuthenticated
+                    ? 'These are your account details, and you can change them for this booking.'
+                    : 'Already have an account? '}
+                  {isAuthenticated ? null : (
+                    <Link
+                      to="/auth/sign-in"
+                      search={{ redirect: storefrontHref(canonicalSlug, '/book') }}
+                      className="link font-semibold"
+                    >
+                      Sign in
+                    </Link>
+                  )}
+                </p>
+              </div>
             </section>
           ) : null}
         </div>
@@ -927,7 +1107,12 @@ const STEP_TITLES: Record<StepKey, { title: string; description: string }> = {
     description: 'Add a note for the team — allergies, parking, a preferred chair.',
   },
   payment: {
-    title: 'Confirm your booking',
-    description: 'Check the details, then confirm. Nothing is charged without your approval.',
+    title: 'Payment',
+    description:
+      'Pay your booking fee, or settle it at the studio. Nothing is charged without your approval.',
+  },
+  identity: {
+    title: 'Your details',
+    description: 'Tell us who this booking is for. We’ll email a code to confirm it’s you.',
   },
 }

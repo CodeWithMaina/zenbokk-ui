@@ -6,8 +6,6 @@ import {
   SlidersHorizontal,
 } from 'lucide-react'
 import {
-  BookingConfirmation,
-  BookingSheet,
   BottomBar,
   Button,
   Chip,
@@ -30,14 +28,14 @@ import {
   StatusPill,
   Toast,
 } from '../components/ui'
+import { BookingWizard } from '../components/booking'
 import type {
   AppliedFilter,
-  BookingSelection,
   ServiceEditorResult,
   ServiceSummary,
 } from '../components/ui'
 import { formatDuration, money } from '../lib/format'
-import { clients, galleryByService, services } from './data'
+import { galleryByService, services } from './data'
 
 type ServiceFilter = 'all' | 'active' | 'paused'
 type SortOption = 'new' | 'az' | 'price-low' | 'price-high' | 'shortest'
@@ -87,8 +85,6 @@ export function ServicesDemo() {
   const [editorService, setEditorService] = useState<ServiceSummary | null>(null)
   const [editorSaving, setEditorSaving] = useState(false)
   const [bookingOpen, setBookingOpen] = useState(false)
-  const [booking, setBooking] = useState<BookingSelection | null>(null)
-  const [confirmationOpen, setConfirmationOpen] = useState(false)
   const [toastOpen, setToastOpen] = useState(false)
 
   const matches = catalog.filter((service) => {
@@ -241,10 +237,6 @@ export function ServicesDemo() {
       ),
     )
   }
-
-  const bookedServices = booking
-    ? catalog.filter((service) => booking.serviceIds.includes(service.id))
-    : []
 
   return (
     <>
@@ -403,39 +395,17 @@ export function ServicesDemo() {
         </div>
       </div>
 
-      <BookingSheet
+      <BookingWizard
         open={bookingOpen}
         onClose={() => setBookingOpen(false)}
+        businessId="gallery-business"
+        businessName="Aurelia Luxe"
+        paymentsEnabled
         services={catalog
           .filter((service) => service.status === 'active')
-          .map(({ id, name, duration, price }) => ({ id, name, duration, price }))}
-        customers={clients.map(({ id, name, phone, tint }) => ({
-          id,
-          name,
-          detail: phone,
-          tint,
-        }))}
-        initialSelection={
-          bookable ? { serviceIds: [selected.id] } : undefined
-        }
-        title="Book appointment"
-        description={`For ${selected.name}`}
-        onSubmit={(selection) => {
-          setBooking(selection)
-          setConfirmationOpen(true)
-        }}
+          .map(({ id, name, duration, price }) => ({ id, name, price, durationMinutes: duration }))}
+        prefill={{ services: [{ id: selected.id, name: selected.name, price: selected.price, durationMinutes: selected.duration }] }}
       />
-
-      {booking ? (
-        <BookingConfirmation
-          open={confirmationOpen}
-          onClose={() => setConfirmationOpen(false)}
-          date={formatBookingDate(booking.date)}
-          time={booking.time}
-          services={bookedServices}
-          total={booking.total}
-        />
-      ) : null}
 
       <FilterDrawer
         open={filtersOpen}
@@ -613,12 +583,3 @@ function nextClass(active: boolean): string {
   return active ? 'ring-2 ring-accent ring-offset-2 ring-offset-bg' : ''
 }
 
-function formatBookingDate(value: string): string {
-  const date = new Date(`${value}T00:00:00`)
-  if (Number.isNaN(date.getTime())) return value
-  return date.toLocaleDateString('en-GB', {
-    weekday: 'short',
-    day: 'numeric',
-    month: 'short',
-  })
-}
