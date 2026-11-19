@@ -297,6 +297,8 @@ export type PaymentListFilters = {
   type?: string
   from?: string
   to?: string
+  /** Free-text matched server-side across reference, phone, M-Pesa code and customer. */
+  search?: string
   page?: number
   pageSize?: number
 }

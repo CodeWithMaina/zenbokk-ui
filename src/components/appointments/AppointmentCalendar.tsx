@@ -1,5 +1,5 @@
 import { CalendarX2 } from 'lucide-react'
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 import type { PublicOpeningHours, StaffDashboardItem } from '../../lib/api/types'
 import {
@@ -18,9 +18,11 @@ import {
   zonedMinuteOfDay,
 } from '../../lib/appointments'
 import type { AppointmentRow, CalendarMode } from '../../lib/appointments'
+import { appointmentStatusLabel } from '../../lib/dashboard/appointment-status'
 import { cn } from '../../lib/cn'
 import { formatDay, formatTime } from '../../lib/format'
 import { Avatar } from '../ui/avatar'
+import { StatusPill } from '../ui/badge'
 import { EmptyState } from '../ui/empty-state'
 
 /**
@@ -161,6 +163,111 @@ const STATUS_DOT: Record<string, string> = {
 
 export function statusDotColor(status: string): string {
   return STATUS_DOT[status] ?? 'var(--fg-muted)'
+}
+
+/**
+ * The day view on a phone.
+ *
+ * A staff-column grid is the right shape for a wide screen and the wrong one for a
+ * 375px one: shrinking it hides most of the day behind horizontal scrolling inside a
+ * card. Phones therefore get a compact agenda — one row per booking, in clock order,
+ * with the time as the rail — built from the same rows, the same status vocabulary
+ * and the same business hours as the grid. The grid itself is not removed; it is
+ * simply not the phone's layout.
+ */
+function DayAgenda({
+  date,
+  rows,
+  hours,
+  onSelect,
+}: {
+  date: Date
+  rows: readonly AppointmentRow[]
+  hours: PublicOpeningHours | null
+  onSelect: (appointmentId: string) => void
+}) {
+  const schedule = resolveDaySchedule(hours, date)
+  const closed = Boolean(hours) && schedule.isClosed
+  const hoursLabel = schedule.periods
+    .map((period) => `${minuteToClock(period.openMinute)}–${minuteToClock(period.closeMinute)}`)
+    .join(', ')
+
+  const ordered = [...rows].sort(
+    (a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime(),
+  )
+
+  return (
+    <div className="p-[0.85rem]">
+      <div className="mb-[0.7rem] flex items-baseline justify-between gap-[0.6rem]">
+        <div className="min-w-0">
+          <p className="text-label font-semibold">{formatDay(date)}</p>
+          <p className="text-caption text-muted">
+            {closed
+              ? 'Closed — no opening hours'
+              : hoursLabel
+                ? `Open ${hoursLabel}`
+                : 'Opening hours not set'}
+          </p>
+        </div>
+        <span className="shrink-0 text-caption text-muted tabular">
+          {ordered.length} appointment{ordered.length === 1 ? '' : 's'}
+        </span>
+      </div>
+
+      {ordered.length === 0 ? (
+        <p className="rounded-card bg-sunken px-[0.85rem] py-[0.9rem] text-meta text-muted">
+          {closed
+            ? 'The business is closed on this day. Bookings cannot be taken outside the opening schedule.'
+            : 'Nothing is booked for this day. Tap an empty slot on a larger screen, or use New booking.'}
+        </p>
+      ) : (
+        <ol className="m-0 flex list-none flex-col gap-[0.45rem] p-0">
+          {ordered.map((row) => {
+            const dimmed = row.status === 'cancelled'
+            return (
+              <li key={row.id}>
+                <button
+                  type="button"
+                  onClick={() => onSelect(row.id)}
+                  className="flex w-full items-start gap-[0.6rem] rounded-card border border-line bg-surface px-[0.65rem] py-[0.6rem] text-left transition-colors hover:bg-hover focus-visible:shadow-ring focus-visible:outline-none"
+                >
+                  <span
+                    aria-hidden="true"
+                    className="mt-[0.35rem] h-[2.1rem] w-[3px] shrink-0 rounded-pill"
+                    style={{ backgroundColor: statusDotColor(row.status) }}
+                  />
+                  <span className="w-[2.55rem] shrink-0 pt-[0.1rem] text-caption font-semibold text-muted tabular">
+                    {formatTime(row.scheduledAt)}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="flex items-start justify-between gap-[0.5rem]">
+                      <b
+                        className={cn(
+                          'min-w-0 truncate text-label font-semibold',
+                          dimmed && 'line-through opacity-60',
+                        )}
+                      >
+                        {row.customerName}
+                      </b>
+                      <StatusPill status={row.status} className="shrink-0">
+                        {appointmentStatusLabel(row.status)}
+                      </StatusPill>
+                    </span>
+                    <span className="mt-[0.15rem] block truncate text-caption text-muted">
+                      {row.serviceName} · {formatTime(row.scheduledAt)}–{formatTime(row.endAt)}
+                    </span>
+                    <span className="mt-[0.1rem] block truncate text-caption text-subtle">
+                      {row.staffName ?? 'Unassigned'}
+                    </span>
+                  </span>
+                </button>
+              </li>
+            )
+          })}
+        </ol>
+      )}
+    </div>
+  )
 }
 
 
@@ -312,23 +419,37 @@ export function AppointmentCalendar({
           onSelectDate={onOpenWeek ?? onSelectDate}
         />
       ) : (
-        <TimeGrid
-          mode={mode}
-          anchor={anchor}
-          byDay={byDay}
-          staff={staff}
-          now={now}
-          hours={hours}
-          band={band}
-          zone={zone}
-          todayKey={todayKey}
-          scrollRef={scrollRef}
-          onSelect={onSelect}
-          onCreateAt={onCreateAt}
-          onReschedule={onReschedule}
-          onOpenDay={onOpenDay}
-          drag={drag}
-        />
+        <>
+          {mode === 'day' ? (
+            <div className="sm:hidden">
+              <DayAgenda
+                date={startOfDay(anchor)}
+                rows={byDay.get(toDateValue(startOfDay(anchor))) ?? []}
+                hours={hours}
+                onSelect={onSelect}
+              />
+            </div>
+          ) : null}
+          <div className={mode === 'day' ? 'hidden sm:block' : undefined}>
+            <TimeGrid
+              mode={mode}
+              anchor={anchor}
+              byDay={byDay}
+              staff={staff}
+              now={now}
+              hours={hours}
+              band={band}
+              zone={zone}
+              todayKey={todayKey}
+              scrollRef={scrollRef}
+              onSelect={onSelect}
+              onCreateAt={onCreateAt}
+              onReschedule={onReschedule}
+              onOpenDay={onOpenDay}
+              drag={drag}
+            />
+          </div>
+        </>
       )}
     </div>
   )
@@ -579,6 +700,10 @@ type GridColumn = {
   title: string
   subtitle: string
   date: Date
+  /** True for the single solo-mode column, which owns the whole day. */
+  all?: boolean
+  /** True for the column that collects rows with no (or an unknown) staff member. */
+  unassigned?: boolean
 }
 
 /** The drag payload a completed move produces. */
@@ -616,24 +741,52 @@ function TimeGrid({
 
   const columns = useMemo<GridColumn[]>(() => {
     if (mode === 'day') {
+      const date = startOfDay(anchor)
+      const dayRows = byDay.get(toDateValue(date)) ?? []
+
+      // Solo mode: no staff bucket to split by (the Staff module is off, or nobody is
+      // listed), so the day is ONE column. It owns every booking for that day — a
+      // staff-column filter here would hide appointments the header is counting.
       if (staff.length === 0) {
         return [
           {
-            key: 'unassigned',
+            key: 'all',
             staffUserId: undefined,
-            title: 'Unassigned',
-            subtitle: 'No staff column',
-            date: startOfDay(anchor),
+            title: 'All appointments',
+            subtitle: 'Solo view',
+            date,
+            all: true,
           },
         ]
       }
-      return staff.map((member) => ({
+
+      const known = new Set(staff.map((member) => member.userId))
+      const columns: GridColumn[] = staff.map((member) => ({
         key: member.userId,
         staffUserId: member.userId,
         title: member.fullName,
         subtitle: member.email,
-        date: startOfDay(anchor),
+        date,
       }))
+
+      // A booking can be unassigned, or still point at a staff member who is no longer
+      // in the bucket. Those rows must stay visible somewhere, so they get their own
+      // column instead of disappearing.
+      const hasOrphans = dayRows.some(
+        (row) => !row.staffUserId || !known.has(row.staffUserId),
+      )
+      if (hasOrphans) {
+        columns.push({
+          key: 'unassigned',
+          staffUserId: undefined,
+          title: 'Unassigned',
+          subtitle: 'No staff on the booking',
+          date,
+          unassigned: true,
+        })
+      }
+
+      return columns
     }
 
     const weekStart = startOfWeek(anchor)
@@ -651,6 +804,20 @@ function TimeGrid({
   }, [mode, anchor, staff, byDay])
 
   const { state, setState } = drag
+
+  /** The rows a column owns: the whole day in solo mode, one staff member otherwise. */
+  const knownStaff = useMemo(() => new Set(staff.map((member) => member.userId)), [staff])
+  const rowsForColumn = useCallback(
+    (column: GridColumn) => {
+      const dayRows = byDay.get(toDateValue(column.date)) ?? []
+      if (mode === 'week' || column.all) return dayRows
+      if (column.unassigned) {
+        return dayRows.filter((row) => !row.staffUserId || !knownStaff.has(row.staffUserId))
+      }
+      return dayRows.filter((row) => row.staffUserId === column.staffUserId)
+    },
+    [byDay, knownStaff, mode],
+  )
 
   // The band, in pixels. Derived from the business's hours (via `band`), not from a
   // fixed working day, so the drop target and the grid lines agree at any opening time.
@@ -736,7 +903,7 @@ function TimeGrid({
 
         {columns.map((column) => {
           const isToday = mode === 'week' && toDateValue(column.date) === todayKey
-          const rows = byDay.get(toDateValue(column.date)) ?? []
+          const rows = rowsForColumn(column)
           const count = rows.filter((row) => row.status !== 'cancelled').length
           const member = staff.find((entry) => entry.userId === column.key)
           // The business's real hours for this column's day. "Closed" is only ever
@@ -816,9 +983,7 @@ function TimeGrid({
         </div>
 
         {columns.map((column) => {
-          const rows = (byDay.get(toDateValue(column.date)) ?? []).filter(
-            (row) => mode === 'week' || row.staffUserId === column.staffUserId,
-          )
+          const rows = rowsForColumn(column)
           const positioned = positionEvents(rows)
           const closed = Boolean(hours) && resolveDaySchedule(hours, column.date).isClosed
 

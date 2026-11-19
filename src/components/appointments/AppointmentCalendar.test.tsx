@@ -137,9 +137,11 @@ describe('AppointmentCalendar', () => {
   it('uses a column per staff member in the day view', () => {
     renderCalendar({ mode: 'day', anchor: new Date(2026, 4, 12) })
 
-    expect(screen.getByText('Amara Okafor')).toBeInTheDocument()
+    // The staff member's name appears on her column header; the phone agenda (also in the
+    // DOM under jsdom, where media queries do not hide it) names her on each row too.
+    expect(screen.getAllByText('Amara Okafor').length).toBeGreaterThan(0)
     // All three fixtures belong to this staff member, so the column says so.
-    expect(screen.getByText(/3 appts$/)).toBeInTheDocument()
+    expect(screen.getAllByText(/3 appts$/).length).toBeGreaterThan(0)
   })
 
   it('offers an empty state for a month with nothing in it', () => {

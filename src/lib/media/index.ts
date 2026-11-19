@@ -49,3 +49,13 @@ export { useMediaUpload } from './use-media-upload'
 export type { MediaUploadState, MediaUploads } from './use-media-upload'
 export { useResolvedImage } from './use-resolved-image'
 export type { ResolvedImage } from './use-resolved-image'
+export {
+  CameraError,
+  captureFrame,
+  describeCameraError,
+  isCameraSupported,
+  isSecureCameraContext,
+  startCamera,
+  stopStream,
+} from './camera'
+export type { CameraErrorCode } from './camera'

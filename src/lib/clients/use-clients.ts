@@ -1,5 +1,6 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from '../api/query-client'
+import { appointmentsApi } from '../appointments'
 import type {
   ManualStampRequest,
   ManualStampResponse,
@@ -42,6 +43,44 @@ export function useClientDetails(customerId: string, enabled: boolean) {
   return useQuery({
     queryKey: queryKeys.clientDetails(customerId),
     queryFn: () => clientsApi.details(customerId),
+    enabled: enabled && customerId.length > 0,
+    staleTime: 30_000,
+  })
+}
+
+/**
+ * One client's appointment history, newest first, loaded a page at a time.
+ *
+ * The customer scope is a server-side filter on the appointments endpoint (never a
+ * client-side scan of every booking), so the timeline cannot see another customer's
+ * appointments or another business's rows. `hasNextPage` drives the "load earlier"
+ * step, which appends the next page rather than replacing the list.
+ */
+export function useClientAppointmentTimeline(
+  customerId: string,
+  options: { status?: string | null; pageSize?: number } = {},
+  enabled = true,
+) {
+  const status = options.status ?? null
+  const pageSize = options.pageSize ?? 12
+
+  return useInfiniteQuery({
+    queryKey: queryKeys.appointmentCustomerHistory(customerId, { status, pageSize }),
+    queryFn: ({ pageParam, signal }) =>
+      appointmentsApi.list(
+        {
+          customerId,
+          status,
+          page: pageParam,
+          pageSize,
+          sortBy: 'scheduledAt',
+          sortDirection: 'desc',
+        },
+        signal,
+      ),
+    initialPageParam: 1,
+    getNextPageParam: (last) =>
+      last.meta.page < last.meta.totalPages ? last.meta.page + 1 : undefined,
     enabled: enabled && customerId.length > 0,
     staleTime: 30_000,
   })

@@ -5541,3 +5541,65 @@ html {
 
 
 
+
+/* ---------- theme toggle (sun / moon) --------------------------------- */
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  border-radius: 999px;
+}
+.theme-toggle-track {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 2.7rem;
+  height: 1.5rem;
+  padding: 0 0.28rem;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--sunken);
+  color: var(--fg-subtle);
+}
+.theme-toggle-hint {
+  width: 0.8rem;
+  height: 0.8rem;
+  opacity: 0.45;
+}
+.theme-toggle-thumb {
+  position: absolute;
+  top: 50%;
+  left: 0.14rem;
+  display: grid;
+  place-items: center;
+  width: 1.18rem;
+  height: 1.18rem;
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--fg);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.2);
+  transform: translateY(-50%);
+  transition: left 0.32s cubic-bezier(0.2, 0.7, 0.2, 1), background-color 0.32s, color 0.32s;
+}
+.theme-toggle-thumb.is-dark {
+  left: calc(100% - 1.18rem - 0.14rem);
+  background: var(--fg);
+  color: var(--surface);
+}
+.theme-toggle-thumb svg {
+  transition: transform 0.32s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.theme-toggle-thumb.is-dark svg {
+  transform: rotate(-25deg);
+}
+@media (prefers-reduced-motion: reduce) {
+  .theme-toggle-thumb,
+  .theme-toggle-thumb svg {
+    transition: none;
+  }
+}

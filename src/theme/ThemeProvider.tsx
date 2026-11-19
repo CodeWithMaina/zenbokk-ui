@@ -27,7 +27,7 @@ export type ThemeProviderProps = {
  */
 export function ThemeProvider({
   children,
-  defaultPreference = 'system',
+  defaultPreference = 'dark',
 }: ThemeProviderProps) {
   const [preference, setPreferenceState] = useState<ThemePreference>(() => {
     return readStoredPreference() ?? defaultPreference

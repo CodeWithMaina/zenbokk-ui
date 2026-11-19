@@ -1,4 +1,4 @@
-import { Bell, Building2, LifeBuoy, Settings2, ShieldCheck, UserRound, Wallet } from 'lucide-react'
+import { Bell, Building2, Clock, LifeBuoy, Settings2, ShieldCheck, Smartphone, UserRound, Wallet } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
 /**
@@ -16,6 +16,8 @@ export type SettingsSectionId =
   | 'notifications'
   | 'security'
   | 'support'
+  | 'permissions'
+  | 'schedule'
 
 export const SETTINGS_SECTIONS: readonly {
   id: SettingsSectionId
@@ -32,6 +34,8 @@ export const SETTINGS_SECTIONS: readonly {
   { id: 'notifications', label: 'Notifications', icon: Bell },
   { id: 'security', label: 'Security', icon: ShieldCheck },
   { id: 'support', label: 'Support', icon: LifeBuoy },
+  { id: 'permissions', label: 'Permissions', icon: Smartphone },
+  { id: 'schedule', label: 'Schedule', icon: Clock },
 ]
 
 export const SETTINGS_SECTION_IDS: readonly SettingsSectionId[] = SETTINGS_SECTIONS.map(

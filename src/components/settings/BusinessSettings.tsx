@@ -479,6 +479,7 @@ function BusinessSettingsForm({
               fallbackName={business.name}
               maxBytes={MEDIA_LIMITS.businessLogoMaxBytes}
               hint="PNG, JPG or WebP, up to 5 MB. At least 400 × 400 px reads best."
+              cameraSubject="logo"
               onUploaded={assignLogo}
               onRemoved={clearLogo}
             />
@@ -491,6 +492,7 @@ function BusinessSettingsForm({
                 inputLabel="Upload a cover image"
                 maxBytes={MEDIA_LIMITS.businessCoverMaxBytes}
                 hint="A wide image shown at the top of your storefront, up to 10 MB."
+                cameraSubject="cover image"
                 onUploaded={assignCover}
                 onRemoved={clearCover}
               />

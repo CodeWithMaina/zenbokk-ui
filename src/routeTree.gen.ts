@@ -99,6 +99,7 @@ import { Route as DashboardFinancesIndexRouteImport } from './routes/dashboard.f
 import { Route as DashboardFinancesAnalyticsRouteImport } from './routes/dashboard.finances.analytics'
 import { Route as DashboardFinancesCashbookRouteImport } from './routes/dashboard.finances.cashbook'
 import { Route as DashboardFinancesExpensesRouteImport } from './routes/dashboard.finances.expenses'
+import { Route as DashboardFinancesPaymentsRouteImport } from './routes/dashboard.finances.payments'
 import { Route as DashboardFinancesReconciliationRouteImport } from './routes/dashboard.finances.reconciliation'
 import { Route as DashboardFinancesTransactionsRouteImport } from './routes/dashboard.finances.transactions'
 import { Route as DashboardProgramsIndexRouteImport } from './routes/dashboard.programs.index'
@@ -112,6 +113,8 @@ import { Route as DashboardStorefrontIndexRouteImport } from './routes/dashboard
 import { Route as DashboardStorefrontBuilderRouteImport } from './routes/dashboard.storefront.builder'
 import { Route as DashboardStorefrontTemplatesRouteImport } from './routes/dashboard.storefront.templates'
 import { Route as DashboardFinancesExpensesExpenseIdRouteImport } from './routes/dashboard.finances.expenses.$expenseId'
+import { Route as DashboardFinancesPaymentsIndexRouteImport } from './routes/dashboard.finances.payments.index'
+import { Route as DashboardFinancesPaymentsPaymentIdRouteImport } from './routes/dashboard.finances.payments.$paymentId'
 import { Route as DashboardFinancesReconciliationClaimIdRouteImport } from './routes/dashboard.finances.reconciliation.$claimId'
 import { Route as DashboardFinancesTransactionsTransactionIdRouteImport } from './routes/dashboard.finances.transactions.$transactionId'
 import { Route as DashboardServicesServiceIdIndexRouteImport } from './routes/dashboard.services.$serviceId.index'
@@ -581,6 +584,12 @@ const DashboardFinancesExpensesRoute =
     path: '/expenses',
     getParentRoute: () => DashboardFinancesRoute,
   } as any)
+const DashboardFinancesPaymentsRoute =
+  DashboardFinancesPaymentsRouteImport.update({
+    id: '/payments',
+    path: '/payments',
+    getParentRoute: () => DashboardFinancesRoute,
+  } as any)
 const DashboardFinancesReconciliationRoute =
   DashboardFinancesReconciliationRouteImport.update({
     id: '/reconciliation',
@@ -653,6 +662,18 @@ const DashboardFinancesExpensesExpenseIdRoute =
     id: '/$expenseId',
     path: '/$expenseId',
     getParentRoute: () => DashboardFinancesExpensesRoute,
+  } as any)
+const DashboardFinancesPaymentsIndexRoute =
+  DashboardFinancesPaymentsIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => DashboardFinancesPaymentsRoute,
+  } as any)
+const DashboardFinancesPaymentsPaymentIdRoute =
+  DashboardFinancesPaymentsPaymentIdRouteImport.update({
+    id: '/$paymentId',
+    path: '/$paymentId',
+    getParentRoute: () => DashboardFinancesPaymentsRoute,
   } as any)
 const DashboardFinancesReconciliationClaimIdRoute =
   DashboardFinancesReconciliationClaimIdRouteImport.update({
@@ -764,6 +785,7 @@ export interface FileRoutesByFullPath {
   '/dashboard/finances/analytics': typeof DashboardFinancesAnalyticsRoute
   '/dashboard/finances/cashbook': typeof DashboardFinancesCashbookRoute
   '/dashboard/finances/expenses': typeof DashboardFinancesExpensesRouteWithChildren
+  '/dashboard/finances/payments': typeof DashboardFinancesPaymentsRouteWithChildren
   '/dashboard/finances/reconciliation': typeof DashboardFinancesReconciliationRouteWithChildren
   '/dashboard/finances/transactions': typeof DashboardFinancesTransactionsRouteWithChildren
   '/dashboard/programs/$programId': typeof DashboardProgramsProgramIdRoute
@@ -783,9 +805,11 @@ export interface FileRoutesByFullPath {
   '/dashboard/staff/': typeof DashboardStaffIndexRoute
   '/dashboard/storefront/': typeof DashboardStorefrontIndexRoute
   '/dashboard/finances/expenses/$expenseId': typeof DashboardFinancesExpensesExpenseIdRoute
+  '/dashboard/finances/payments/$paymentId': typeof DashboardFinancesPaymentsPaymentIdRoute
   '/dashboard/finances/reconciliation/$claimId': typeof DashboardFinancesReconciliationClaimIdRoute
   '/dashboard/finances/transactions/$transactionId': typeof DashboardFinancesTransactionsTransactionIdRoute
   '/dashboard/services/$serviceId/edit': typeof DashboardServicesServiceIdEditRoute
+  '/dashboard/finances/payments/': typeof DashboardFinancesPaymentsIndexRoute
   '/dashboard/services/$serviceId/': typeof DashboardServicesServiceIdIndexRoute
 }
 export interface FileRoutesByTo {
@@ -879,9 +903,11 @@ export interface FileRoutesByTo {
   '/dashboard/staff': typeof DashboardStaffIndexRoute
   '/dashboard/storefront': typeof DashboardStorefrontIndexRoute
   '/dashboard/finances/expenses/$expenseId': typeof DashboardFinancesExpensesExpenseIdRoute
+  '/dashboard/finances/payments/$paymentId': typeof DashboardFinancesPaymentsPaymentIdRoute
   '/dashboard/finances/reconciliation/$claimId': typeof DashboardFinancesReconciliationClaimIdRoute
   '/dashboard/finances/transactions/$transactionId': typeof DashboardFinancesTransactionsTransactionIdRoute
   '/dashboard/services/$serviceId/edit': typeof DashboardServicesServiceIdEditRoute
+  '/dashboard/finances/payments': typeof DashboardFinancesPaymentsIndexRoute
   '/dashboard/services/$serviceId': typeof DashboardServicesServiceIdIndexRoute
 }
 export interface FileRoutesById {
@@ -970,6 +996,7 @@ export interface FileRoutesById {
   '/dashboard/finances/analytics': typeof DashboardFinancesAnalyticsRoute
   '/dashboard/finances/cashbook': typeof DashboardFinancesCashbookRoute
   '/dashboard/finances/expenses': typeof DashboardFinancesExpensesRouteWithChildren
+  '/dashboard/finances/payments': typeof DashboardFinancesPaymentsRouteWithChildren
   '/dashboard/finances/reconciliation': typeof DashboardFinancesReconciliationRouteWithChildren
   '/dashboard/finances/transactions': typeof DashboardFinancesTransactionsRouteWithChildren
   '/dashboard/programs/$programId': typeof DashboardProgramsProgramIdRoute
@@ -989,9 +1016,11 @@ export interface FileRoutesById {
   '/dashboard/staff/': typeof DashboardStaffIndexRoute
   '/dashboard/storefront/': typeof DashboardStorefrontIndexRoute
   '/dashboard/finances/expenses/$expenseId': typeof DashboardFinancesExpensesExpenseIdRoute
+  '/dashboard/finances/payments/$paymentId': typeof DashboardFinancesPaymentsPaymentIdRoute
   '/dashboard/finances/reconciliation/$claimId': typeof DashboardFinancesReconciliationClaimIdRoute
   '/dashboard/finances/transactions/$transactionId': typeof DashboardFinancesTransactionsTransactionIdRoute
   '/dashboard/services/$serviceId/edit': typeof DashboardServicesServiceIdEditRoute
+  '/dashboard/finances/payments/': typeof DashboardFinancesPaymentsIndexRoute
   '/dashboard/services/$serviceId/': typeof DashboardServicesServiceIdIndexRoute
 }
 export interface FileRouteTypes {
@@ -1081,6 +1110,7 @@ export interface FileRouteTypes {
     | '/dashboard/finances/analytics'
     | '/dashboard/finances/cashbook'
     | '/dashboard/finances/expenses'
+    | '/dashboard/finances/payments'
     | '/dashboard/finances/reconciliation'
     | '/dashboard/finances/transactions'
     | '/dashboard/programs/$programId'
@@ -1100,9 +1130,11 @@ export interface FileRouteTypes {
     | '/dashboard/staff/'
     | '/dashboard/storefront/'
     | '/dashboard/finances/expenses/$expenseId'
+    | '/dashboard/finances/payments/$paymentId'
     | '/dashboard/finances/reconciliation/$claimId'
     | '/dashboard/finances/transactions/$transactionId'
     | '/dashboard/services/$serviceId/edit'
+    | '/dashboard/finances/payments/'
     | '/dashboard/services/$serviceId/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -1196,9 +1228,11 @@ export interface FileRouteTypes {
     | '/dashboard/staff'
     | '/dashboard/storefront'
     | '/dashboard/finances/expenses/$expenseId'
+    | '/dashboard/finances/payments/$paymentId'
     | '/dashboard/finances/reconciliation/$claimId'
     | '/dashboard/finances/transactions/$transactionId'
     | '/dashboard/services/$serviceId/edit'
+    | '/dashboard/finances/payments'
     | '/dashboard/services/$serviceId'
   id:
     | '__root__'
@@ -1286,6 +1320,7 @@ export interface FileRouteTypes {
     | '/dashboard/finances/analytics'
     | '/dashboard/finances/cashbook'
     | '/dashboard/finances/expenses'
+    | '/dashboard/finances/payments'
     | '/dashboard/finances/reconciliation'
     | '/dashboard/finances/transactions'
     | '/dashboard/programs/$programId'
@@ -1305,9 +1340,11 @@ export interface FileRouteTypes {
     | '/dashboard/staff/'
     | '/dashboard/storefront/'
     | '/dashboard/finances/expenses/$expenseId'
+    | '/dashboard/finances/payments/$paymentId'
     | '/dashboard/finances/reconciliation/$claimId'
     | '/dashboard/finances/transactions/$transactionId'
     | '/dashboard/services/$serviceId/edit'
+    | '/dashboard/finances/payments/'
     | '/dashboard/services/$serviceId/'
   fileRoutesById: FileRoutesById
 }
@@ -1970,6 +2007,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardFinancesExpensesRouteImport
       parentRoute: typeof DashboardFinancesRoute
     }
+    '/dashboard/finances/payments': {
+      id: '/dashboard/finances/payments'
+      path: '/payments'
+      fullPath: '/dashboard/finances/payments'
+      preLoaderRoute: typeof DashboardFinancesPaymentsRouteImport
+      parentRoute: typeof DashboardFinancesRoute
+    }
     '/dashboard/finances/reconciliation': {
       id: '/dashboard/finances/reconciliation'
       path: '/reconciliation'
@@ -2060,6 +2104,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/dashboard/finances/expenses/$expenseId'
       preLoaderRoute: typeof DashboardFinancesExpensesExpenseIdRouteImport
       parentRoute: typeof DashboardFinancesExpensesRoute
+    }
+    '/dashboard/finances/payments/': {
+      id: '/dashboard/finances/payments/'
+      path: '/'
+      fullPath: '/dashboard/finances/payments/'
+      preLoaderRoute: typeof DashboardFinancesPaymentsIndexRouteImport
+      parentRoute: typeof DashboardFinancesPaymentsRoute
+    }
+    '/dashboard/finances/payments/$paymentId': {
+      id: '/dashboard/finances/payments/$paymentId'
+      path: '/$paymentId'
+      fullPath: '/dashboard/finances/payments/$paymentId'
+      preLoaderRoute: typeof DashboardFinancesPaymentsPaymentIdRouteImport
+      parentRoute: typeof DashboardFinancesPaymentsRoute
     }
     '/dashboard/finances/reconciliation/$claimId': {
       id: '/dashboard/finances/reconciliation/$claimId'
@@ -2270,6 +2328,23 @@ const DashboardFinancesExpensesRouteWithChildren =
     DashboardFinancesExpensesRouteChildren,
   )
 
+interface DashboardFinancesPaymentsRouteChildren {
+  DashboardFinancesPaymentsPaymentIdRoute: typeof DashboardFinancesPaymentsPaymentIdRoute
+  DashboardFinancesPaymentsIndexRoute: typeof DashboardFinancesPaymentsIndexRoute
+}
+
+const DashboardFinancesPaymentsRouteChildren: DashboardFinancesPaymentsRouteChildren =
+  {
+    DashboardFinancesPaymentsPaymentIdRoute:
+      DashboardFinancesPaymentsPaymentIdRoute,
+    DashboardFinancesPaymentsIndexRoute: DashboardFinancesPaymentsIndexRoute,
+  }
+
+const DashboardFinancesPaymentsRouteWithChildren =
+  DashboardFinancesPaymentsRoute._addFileChildren(
+    DashboardFinancesPaymentsRouteChildren,
+  )
+
 interface DashboardFinancesReconciliationRouteChildren {
   DashboardFinancesReconciliationClaimIdRoute: typeof DashboardFinancesReconciliationClaimIdRoute
 }
@@ -2304,6 +2379,7 @@ interface DashboardFinancesRouteChildren {
   DashboardFinancesAnalyticsRoute: typeof DashboardFinancesAnalyticsRoute
   DashboardFinancesCashbookRoute: typeof DashboardFinancesCashbookRoute
   DashboardFinancesExpensesRoute: typeof DashboardFinancesExpensesRouteWithChildren
+  DashboardFinancesPaymentsRoute: typeof DashboardFinancesPaymentsRouteWithChildren
   DashboardFinancesReconciliationRoute: typeof DashboardFinancesReconciliationRouteWithChildren
   DashboardFinancesTransactionsRoute: typeof DashboardFinancesTransactionsRouteWithChildren
   DashboardFinancesIndexRoute: typeof DashboardFinancesIndexRoute
@@ -2313,6 +2389,7 @@ const DashboardFinancesRouteChildren: DashboardFinancesRouteChildren = {
   DashboardFinancesAnalyticsRoute: DashboardFinancesAnalyticsRoute,
   DashboardFinancesCashbookRoute: DashboardFinancesCashbookRoute,
   DashboardFinancesExpensesRoute: DashboardFinancesExpensesRouteWithChildren,
+  DashboardFinancesPaymentsRoute: DashboardFinancesPaymentsRouteWithChildren,
   DashboardFinancesReconciliationRoute:
     DashboardFinancesReconciliationRouteWithChildren,
   DashboardFinancesTransactionsRoute:

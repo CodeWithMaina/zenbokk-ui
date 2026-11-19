@@ -80,8 +80,8 @@ New canonical routes:
 
 | Flow | Endpoint |
 | --- | --- |
-| Verify claim | `POST /v1/finances/reconciliation/claims/{paymentId}/verify` (also `POST /v1/payments/{id}/verification/approve`) |
-| Reject claim | `POST /v1/finances/reconciliation/claims/{paymentId}/reject` (body `{ reason }`) |
+| Verify claim | `POST /v1/finances/transactions/{id}/verify` (body `{ note, amount }`) — the frontend uses this; the claims alias `POST /v1/finances/reconciliation/claims/{paymentId}/verify` also exists |
+| Reject claim | `POST /v1/finances/transactions/{id}/reject` (body `{ reason }`) |
 | Void entry | `POST /v1/finances/expenses/{id}/void` (body `{ reason }`) - expenses only; no void endpoint exists for other cashbook entries (gap, section 6) |
 | Create expense | `POST /v1/finances/expenses` (perm `finances.manage_expenses`) |
 | Record income | `POST /v1/finances/income` (perm `finances.record_income`) |
@@ -100,7 +100,7 @@ Read endpoints: `GET /v1/payments`, `GET /v1/payments/{id}`, `GET /v1/payments/d
 
 ## 6. Backend gaps (not faked; listed in the final report)
 
-1. **Payments search** - the design searches name, M-Pesa code, phone and reference; the list endpoint has no `search` param. The search box is not rendered on Payments until the backend supports it.
+1. **Payments search** - the design searches name, M-Pesa code, phone and reference; the list endpoint has no `search` param. The Payments page filters the loaded page client-side (name, reference, M-Pesa code, phone) and mirrors the term into the URL; a true cross-page search still needs backend support.
 2. **Payments sorting** - no `sort` param; the register is server-ordered newest-first. The sort group is omitted on Payments.
 3. **Cashbook sorting** - no `sort`/`sortDirection` params; same treatment.
 4. **Void cashbook entry** - only expenses can be voided. The Void row action appears on expense-typed rows only.

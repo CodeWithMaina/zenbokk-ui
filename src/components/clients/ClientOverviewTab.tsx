@@ -5,6 +5,7 @@ import { CustomerTypeBadge } from '../ui/customer-type-badge'
 import { DescriptionList, DescriptionRow } from '../ui/description-list'
 import { MetricGrid } from '../ui/metric-tile'
 import { LoyaltyCardPreview } from './LoyaltyCardPreview'
+import { ClientFinanceInsights } from './ClientFinanceInsights'
 import { clientStatusLabel } from '../../lib/clients/mappers'
 import type { CustomerDetailsResponse } from '../../lib/api/types'
 import { useDashboardContext } from '../../lib/dashboard/dashboard-context'
@@ -66,6 +67,8 @@ export function ClientOverviewTab({ details, customerId }: ClientOverviewTabProp
         ) : null}
 
         <MetricGrid items={metricItems} />
+
+        <ClientFinanceInsights finance={details.finance} />
       </div>
 
       <SectionCard title="Details">

@@ -32,20 +32,22 @@ describe('ThemeControl', () => {
       </>,
     )
 
-    // Defaults to following the OS.
-    expect(screen.getByText(/preference system/i)).toBeInTheDocument()
+    // Dark is the product default — a new visitor starts in it, not on "system".
+    expect(screen.getByText(/preference dark · resolved dark/i)).toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: /dark/i }))
-
-    expect(await screen.findByText(/preference dark · resolved dark/i)).toBeInTheDocument()
-    expect(document.documentElement.dataset.theme).toBe('dark')
-    expect(window.localStorage.getItem(THEME_STORAGE_KEY)).toBe('dark')
-
-    await user.click(screen.getByRole('button', { name: /light/i }))
+    // The sun/moon switch is a single toggle: it moves from dark to light…
+    await user.click(screen.getByRole('switch', { name: /switch to light mode/i }))
 
     expect(await screen.findByText(/preference light · resolved light/i)).toBeInTheDocument()
     expect(document.documentElement.dataset.theme).toBe('light')
     expect(window.localStorage.getItem(THEME_STORAGE_KEY)).toBe('light')
+
+    // …and back again.
+    await user.click(screen.getByRole('switch', { name: /switch to dark mode/i }))
+
+    expect(await screen.findByText(/preference dark · resolved dark/i)).toBeInTheDocument()
+    expect(document.documentElement.dataset.theme).toBe('dark')
+    expect(window.localStorage.getItem(THEME_STORAGE_KEY)).toBe('dark')
   })
 
   it('honours a stored preference on mount', () => {

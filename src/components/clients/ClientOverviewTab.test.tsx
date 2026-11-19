@@ -38,6 +38,17 @@ function makeDetails(overrides: Partial<CustomerDetailsResponse> = {}): Customer
       totalVisits: 15,
       lastVisitAt: '2026-11-01T09:00:00.000Z',
     },
+    finance: {
+      currency: 'KES',
+      totalSpent: 18500,
+      paidTransactions: 4,
+      refundedAmount: 0,
+      completedAppointments: 6,
+      averageSpend: 4625,
+      lastPaymentAt: '2026-11-01T09:00:00.000Z',
+      topService: { serviceId: 'svc-1', serviceName: 'Braids', timesServed: 3 },
+      hasHistory: true,
+    },
     loyalty: {
       cardId: 'card-1',
       programId: 'prog-1',

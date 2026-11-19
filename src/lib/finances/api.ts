@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiGet, apiRequest } from '../api/client'
+import type { Payment } from '../payments/api'
 
 /**
  * Financial management API — the business's own books.
@@ -149,6 +150,8 @@ export type CashbookEntry = {
   paymentMethod: FinancialPaymentMethod
   source: TransactionSource
   customerName: string | null
+  /** The payment behind this row, when it came from one (null for a manual entry). */
+  sourcePaymentId: string | null
   category: string | null
   verificationStatus: FinancialVerificationStatus
   isVoided: boolean
@@ -331,6 +334,14 @@ export type RecordIncomeInput = {
   currency?: string
 }
 
+/** Input for verifying a payment claim. */
+export type VerifyClaimInput = {
+  paymentId: string
+  note?: string | null
+  /** What the owner actually saw credited, when it differs from the claim. */
+  receivedAmount?: number | null
+}
+
 export type ExpenseInput = {
   amount: number
   category: string
@@ -414,6 +425,25 @@ export const financesApi = {
     apiRequest<FinancialTransaction>(`/v1/finances/transactions/${id}/verify`, {
       method: 'POST',
       body: { note: note ?? null, amount: amount ?? null },
+    }),
+
+  /**
+   * A customer's payment claim is a Payment, not a ledger row, so deciding it must go
+   * through the payments verification endpoints — the same service the claim board
+   * and the payments register use. Sending a payment id to
+   * `/finances/transactions/{id}/verify` would look for a ledger row that does not
+   * exist and fail with NOT_FOUND.
+   */
+  verifyClaim: (paymentId: string, note?: string | null, receivedAmount?: number | null) =>
+    apiRequest<Payment>(`/v1/payments/${paymentId}/verification/approve`, {
+      method: 'POST',
+      body: { note: note ?? null, receivedAmount: receivedAmount ?? null },
+    }),
+
+  rejectClaim: (paymentId: string, reason: string) =>
+    apiRequest<Payment>(`/v1/payments/${paymentId}/verification/reject`, {
+      method: 'POST',
+      body: { reason },
     }),
 
   reject: (id: string, reason: string) =>
@@ -601,6 +631,56 @@ export function useTransactionDecisions() {
   })
 
   return { verify, reject, reconcile }
+}
+
+/** Wrapper around useTransactionDecisions with the naming the finance module expects. */
+export function useClaimDecisions() {
+  const queryClient = useQueryClient()
+
+  // A decision changes what the payments register, the cashbook, the reconciliation
+  // queues and the appointment's payment state all read, so every one of them is
+  // refreshed from the server rather than patched locally.
+  return {
+    verify: useMutation({
+      mutationFn: (input: VerifyClaimInput) =>
+        financesApi.verifyClaim(input.paymentId, input.note, input.receivedAmount),
+      onSuccess: () => refreshFinances(queryClient),
+    }),
+    reject: useMutation({
+      mutationFn: (input: { paymentId: string; reason: string }) =>
+        financesApi.rejectClaim(input.paymentId, input.reason),
+      onSuccess: () => refreshFinances(queryClient),
+    }),
+  }
+}
+
+/**
+ * Verify a batch of payment claims.
+ *
+ * One mutation for the whole batch: it settles each claim through the same endpoint the
+ * single-claim action uses, keeps going when one is refused, and reports exactly what
+ * happened. Refreshing once at the end (instead of per claim) is also what keeps the
+ * register from re-fetching itself mid-batch.
+ */
+export function useBulkVerifyClaims() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (paymentIds: string[]) => {
+      const results = await Promise.allSettled(
+        paymentIds.map((paymentId) => financesApi.verifyClaim(paymentId)),
+      )
+      const failures = results
+        .filter((result): result is PromiseRejectedResult => result.status === 'rejected')
+        .map((result) => result.reason)
+      return {
+        total: paymentIds.length,
+        verified: results.length - failures.length,
+        failures,
+      }
+    },
+    onSuccess: () => refreshFinances(queryClient),
+  })
 }
 
 /** Records a full or partial refund against an income row. */

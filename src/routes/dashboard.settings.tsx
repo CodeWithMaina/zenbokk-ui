@@ -2,6 +2,8 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useCallback, useEffect, useState } from 'react'
 import {
   BusinessSettings,
+  BusinessScheduleSettings,
+  DevicePermissionsSettings,
   NotificationSettings,
   PaymentsSettings,
   PreferencesSettings,
@@ -124,6 +126,8 @@ function SettingsPage() {
         ) : null}
         {section === 'security' ? <SecuritySettings /> : null}
         {section === 'support' ? <SupportSettings /> : null}
+        {section === 'permissions' ? <DevicePermissionsSettings /> : null}
+        {section === 'schedule' ? <BusinessScheduleSettings /> : null}
       </div>
 
       <ConfirmDialog

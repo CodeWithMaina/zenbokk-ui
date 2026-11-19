@@ -4,6 +4,7 @@ import type { ReactNode } from 'react'
 import { cn } from '../../lib/cn'
 import { CountBadge, StatusPill } from '../ui/badge'
 import { Button } from '../ui/button'
+import { Input } from '../ui/field'
 import { Toolbar, ToolbarSpacer } from '../ui/toolbar'
 
 export type AppointmentStatusCount = {
@@ -23,6 +24,14 @@ export type AppointmentsToolbarProps = {
     onPrevious: () => void
     onNext: () => void
     onToday: () => void
+    /**
+     * Jump straight to a date (`yyyy-MM-dd`), the third way to move the period after
+     * the step arrows and Today. The caller decides whether that lands on a day, the
+     * week containing it or the month containing it.
+     */
+    onPickDate?: (value: string) => void
+    /** The date shown in the picker — the first day of the period on screen. */
+    dateValue?: string
     /** An unbounded period ("all dates") has nothing to step to. */
     disabled?: boolean
   }
@@ -95,7 +104,7 @@ export function AppointmentsToolbar({
         <ToolbarSpacer />
 
         {navigation ? (
-          <div className="flex items-center gap-[0.4rem]">
+          <div className="flex flex-wrap items-center gap-[0.4rem]">
             <Button
               size="icon"
               aria-label="Previous period"
@@ -115,6 +124,22 @@ export function AppointmentsToolbar({
             <Button onClick={navigation.onToday} disabled={busy}>
               Today
             </Button>
+            {navigation.onPickDate ? (
+              <label className="sr-only" htmlFor="appointments-jump-date">
+                Jump to date
+              </label>
+            ) : null}
+            {navigation.onPickDate ? (
+              <Input
+                id="appointments-jump-date"
+                type="date"
+                className="w-[9.4rem] py-[0.35rem]"
+                value={navigation.dateValue ?? ''}
+                onChange={(event) => {
+                  if (event.target.value) navigation.onPickDate?.(event.target.value)
+                }}
+              />
+            ) : null}
             <p className="ml-[0.3rem] text-label font-semibold tabular">{navigation.label}</p>
           </div>
         ) : null}

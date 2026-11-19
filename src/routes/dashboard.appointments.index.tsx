@@ -548,6 +548,25 @@ function AppointmentsPage() {
   }, [applyPeriod, mode, view])
 
   /**
+   * Jump to an exact date from the picker.
+   *
+   * The calendar lands on that day (its own granularity still applies when the user
+   * is in week/month), while the list views open that single day — the same rule the
+   * filters drawer's "go to date" input follows, so both entry points agree.
+   */
+  const goToDate = useCallback(
+    (value: string) => {
+      const [year, month, day] = value.split('-').map(Number)
+      if (!year || !month || !day) return
+      const date = new Date(year, month - 1, day)
+      setAnchor(date)
+      const next = view === 'calendar' ? calendarPeriod(mode, date) : calendarPeriod('day', date)
+      applyPeriod(next)
+    },
+    [applyPeriod, mode, view],
+  )
+
+  /**
    * Switch pane without losing the dates.
    *
    * The calendar describes its period through its granularity and its focus date; the
@@ -651,6 +670,10 @@ function AppointmentsPage() {
           onPrevious: () => stepPeriod(-1),
           onNext: () => stepPeriod(1),
           onToday: goToToday,
+          onPickDate: goToDate,
+          // The picker shows the period's first day, so it always names a date the
+          // screen is actually showing.
+          dateValue: period ? toDateValue(period.from) : '',
           // "All dates" has no previous or next, so the arrows say so instead of
           // pretending to move somewhere.
           disabled: period === null,

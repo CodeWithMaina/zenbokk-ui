@@ -141,6 +141,7 @@ export function ProfileSettings({
             uploadLabel="Change photo"
             inputLabel="Upload a profile photo"
             fallbackName={displayName}
+            cameraSubject="profile photo"
             onUploaded={assignAvatar}
             onRemoved={clearAvatar}
           />

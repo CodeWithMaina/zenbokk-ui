@@ -4,13 +4,15 @@ import { DASHBOARD_NAV } from './config'
 /**
  * The shape of the Finance restructure, pinned.
  *
- * Finance is four sections in the order an owner works them — Reconciliation (verify what
- * customers claim) → Transactions (money recognised as received) → Expenses (money spent) →
- * Cashbook (the consolidated book) — and Payments stays a SEPARATE operational module.
+ * Finance is one expandable entry with three sections — Cashbook (the consolidated book,
+ * and where /dashboard/finances lands), Payments (the operational register for appointment
+ * money) and Expenses. The old standalone Payments module now lives here, and its old URL
+ * redirects to the section. Overview and Analytics are deliberately absent: the Cashbook is
+ * the overview, and the analytics live on their own route rather than competing here.
  *
- * These are configuration assertions rather than screen assertions on purpose: the navigation is
- * data, so if someone re-adds an Overview entry, drops Expenses, or folds Payments back under
- * Finance, the failure points at the cause rather than at a widget.
+ * These are configuration assertions rather than screen assertions on purpose: the
+ * navigation is data, so if someone re-adds an Overview entry, drops Expenses, or points a
+ * section at a route that does not exist, the failure names the cause.
  */
 
 /** Every route file, read as text, so a nav entry can be checked against a real route. */
@@ -30,14 +32,11 @@ function routeSourceFor(path: string): string | undefined {
 const finance = DASHBOARD_NAV.find((entry) => entry.key === 'finances')
 
 describe('Finance navigation', () => {
-  it('exposes exactly the four sections, Cashbook first', () => {
+  it('exposes the three sections, Cashbook first', () => {
     expect(finance).toBeDefined()
-    // Cashbook leads: it is where /dashboard/finances lands and the answer to "how is the
-    // business doing?" — the rest of Finance is how you get to the numbers in it.
     expect(finance?.children?.map((child) => child.key)).toEqual([
       'finances-cashbook',
-      'finances-reconciliation',
-      'finances-transactions',
+      'finances-payments',
       'finances-expenses',
     ])
   })
@@ -45,16 +44,13 @@ describe('Finance navigation', () => {
   it('points each section at its own route', () => {
     expect(finance?.children?.map((child) => child.to)).toEqual([
       '/dashboard/finances/cashbook',
-      '/dashboard/finances/reconciliation',
-      '/dashboard/finances/transactions',
+      '/dashboard/finances/payments',
       '/dashboard/finances/expenses',
     ])
   })
 
   it('lands on the Cashbook when Finance is opened', () => {
-    // The group has no `to` of its own (it is a disclosure), and the index route redirects the
-    // bare /dashboard/finances URL to the canonical Cashbook route.
-    expect(finance?.to).toBeUndefined()
+    expect(finance?.to).toBe('/dashboard/finances/cashbook')
 
     const indexKey = Object.keys(routeSources).find((candidate) =>
       candidate.replace(/\\/g, '/').endsWith('routes/dashboard.finances.index.tsx'),
@@ -63,7 +59,7 @@ describe('Finance navigation', () => {
     expect(routeSources[indexKey!]).toContain('/dashboard/finances/cashbook')
   })
 
-  it('has no overview or analytics entry left to compete with the four sections', () => {
+  it('has no overview or analytics entry left to compete with the sections', () => {
     const paths = (finance?.children ?? []).map((child) => String(child.to))
     const labels = (finance?.children ?? []).map((child) => child.label)
 
@@ -85,27 +81,35 @@ describe('Finance navigation', () => {
       const path = String(child.to)
       const source = routeSourceFor(path)
       expect(source, `no route file found for ${path}`).toBeDefined()
-      // The file must declare the route at the path the menu points at, so a rename cannot leave
-      // a menu item pointing at a 404.
       expect(source).toContain(`createFileRoute('${path}')`)
     }
   })
 })
 
-describe('Payments navigation', () => {
-  it('stays a separate top-level module rather than a child of Finance', () => {
-    const payments = DASHBOARD_NAV.find((entry) => entry.key === 'payments')
+describe('Payments under Finance', () => {
+  it('is Finance’s second section, not a competing top-level entry', () => {
+    expect(DASHBOARD_NAV.some((entry) => entry.key === 'payments')).toBe(false)
 
+    const payments = finance?.children?.find((child) => child.key === 'finances-payments')
     expect(payments).toBeDefined()
-    expect(payments?.to).toBe('/dashboard/payments')
-    expect(payments?.module).toBe('payments')
-    expect(payments?.permission).toBe('payments.view')
-    expect(finance?.children?.some((child) => child.key === 'payments')).toBe(false)
+    expect(payments?.to).toBe('/dashboard/finances/payments')
+    expect(payments?.permission).toBe('finances.view')
   })
 
-  it('has a real route file', () => {
+  it('keeps the old /dashboard/payments URL working as a redirect', () => {
     const source = routeSourceFor('/dashboard/payments')
     expect(source).toBeDefined()
-    expect(source).toContain("createFileRoute('/dashboard/payments')")
+    expect(source).toContain('/dashboard/finances/payments')
+    expect(source).toContain('redirect')
+  })
+
+  it('has its own register route and a per-payment detail route', () => {
+    const register = routeSourceFor('/dashboard/finances/payments')
+    expect(register).toContain("createFileRoute('/dashboard/finances/payments')")
+
+    const detailKey = Object.keys(routeSources).find((candidate) =>
+      candidate.replace(/\\/g, '/').endsWith('routes/dashboard.finances.payments.$paymentId.tsx'),
+    )
+    expect(detailKey, 'no payment detail route file').toBeDefined()
   })
 })

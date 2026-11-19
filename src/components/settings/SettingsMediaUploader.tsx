@@ -1,12 +1,19 @@
 import { useRef, useState } from 'react'
 import type { ChangeEvent, ReactNode } from 'react'
-import { ImagePlus, LoaderCircle, Trash2 } from 'lucide-react'
+import { Camera, ImagePlus, LoaderCircle, Trash2 } from 'lucide-react'
 import { errorMessage } from '../../lib/api/client'
 import { cn } from '../../lib/cn'
-import { MEDIA_LIMITS, useMediaUpload, useResolvedImage, validateImageFile } from '../../lib/media'
+import {
+  MEDIA_LIMITS,
+  isCameraSupported,
+  useMediaUpload,
+  useResolvedImage,
+  validateImageFile,
+} from '../../lib/media'
 import type { MediaPurpose } from '../../lib/media'
 import { Avatar } from '../ui/avatar'
 import { Button } from '../ui/button'
+import { CameraCaptureDialog } from '../ui/camera-capture-dialog'
 import { FieldError, FieldHint } from '../ui/field'
 import { Progress } from '../ui/progress'
 
@@ -35,6 +42,8 @@ export type SettingsMediaUploaderProps = {
   onUploaded: (mediaId: string) => Promise<void> | void
   /** When provided, renders a Remove action for the current image. */
   onRemoved?: () => Promise<void> | void
+  /** Wording for the camera dialog's explanation ("profile photo", "logo"). */
+  cameraSubject?: string
   className?: string
 }
 
@@ -65,22 +74,28 @@ export function SettingsMediaUploader({
   disabled = false,
   onUploaded,
   onRemoved,
+  cameraSubject = 'photo',
   className,
 }: SettingsMediaUploaderProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const uploads = useMediaUpload(purpose)
   const resolved = useResolvedImage({ mediaId, url })
   const [localError, setLocalError] = useState<string | null>(null)
+  const [cameraOpen, setCameraOpen] = useState(false)
+  const cameraAvailable = isCameraSupported()
 
   const state = uploads.states[SLOT]
   const busy = state?.status === 'uploading' || state?.status === 'processing'
   const hasImage = Boolean(resolved.src)
 
-  const handleFile = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    event.target.value = ''
-    if (!file) return
-
+  /**
+   * One upload path for both sources.
+   *
+   * A file picked from disk and a still from the camera are the same thing by the
+   * time they get here: validated against the server's limits, then sent through the
+   * shared media pipeline, and only assigned once the server reports it ready.
+   */
+  const uploadFile = async (file: File) => {
     setLocalError(null)
 
     const validation = validateImageFile(file, maxBytes)
@@ -104,6 +119,13 @@ export function SettingsMediaUploader({
         errorMessage(error, 'The image uploaded but could not be saved. Try again.'),
       )
     }
+  }
+
+  const handleFile = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+    await uploadFile(file)
   }
 
   const handleRemove = async () => {
@@ -171,6 +193,17 @@ export function SettingsMediaUploader({
               {busy ? 'Uploading…' : uploadLabel}
             </Button>
 
+            {cameraAvailable ? (
+              <Button
+                variant="ghost"
+                onClick={() => setCameraOpen(true)}
+                disabled={disabled || busy}
+              >
+                <Camera className="size-[0.95rem]" aria-hidden="true" />
+                Take photo
+              </Button>
+            ) : null}
+
             {onRemoved && hasImage ? (
               <Button
                 variant="ghost"
@@ -197,6 +230,13 @@ export function SettingsMediaUploader({
       ) : null}
 
       {errorText ? <FieldError>{errorText}</FieldError> : null}
+
+      <CameraCaptureDialog
+        open={cameraOpen}
+        onClose={() => setCameraOpen(false)}
+        onCapture={(file) => void uploadFile(file)}
+        subject={cameraSubject}
+      />
     </div>
   )
 }

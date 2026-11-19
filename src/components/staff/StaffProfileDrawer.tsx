@@ -174,6 +174,7 @@ export function StaffProfileDrawer({ open, onClose, detail }: StaffProfileDrawer
           fallbackName={detail.fullName}
           disabled={saving}
           hint="A square photo works best. It appears on their profile and in the roster."
+          cameraSubject="profile photo"
           onUploaded={assignPhoto}
         />
 

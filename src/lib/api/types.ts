@@ -1099,11 +1099,40 @@ export type CustomerDetailsLoyaltySummary = {
   rewardExpirationHours: number
 }
 
+/** The service this customer has completed most often. */
+export type CustomerDetailsTopService = {
+  serviceId: string
+  serviceName: string
+  timesServed: number
+}
+
+/**
+ * Spend and payment recency for one customer, aggregated server-side from the
+ * business's own ledger (verified income minus verified refunds) and its
+ * completed appointments. `hasHistory` is false for a customer who has never
+ * paid and has no completed visit, so the UI can show an honest empty state
+ * instead of zeros dressed up as insight.
+ */
+export type CustomerDetailsFinanceBlock = {
+  currency: string
+  totalSpent: number
+  /** Verified income rows behind the total — one per settled payment. */
+  paidTransactions: number
+  refundedAmount: number
+  /** Completed appointments (cancelled and no-show excluded). */
+  completedAppointments: number
+  averageSpend: number
+  lastPaymentAt: string | null
+  topService: CustomerDetailsTopService | null
+  hasHistory: boolean
+}
+
 export type CustomerDetailsResponse = {
   customer: CustomerDetailsCustomerBlock
   status: CustomerDetailsStatusBlock
   metrics: CustomerDetailsMetricsBlock
   loyalty: CustomerDetailsLoyaltySummary | null
+  finance: CustomerDetailsFinanceBlock
   serverMs: number
 }
 

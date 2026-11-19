@@ -113,3 +113,27 @@ export function toDateInputValue(date: Date = new Date()): string {
 export function firstName(fullName: string | null | undefined): string {
   return fullName?.trim().split(/\s+/)[0] ?? 'there'
 }
+
+/** `25471130012` → `+254 711 300 12`. */
+export function displayPhone(phone: string | null | undefined): string {
+  if (!phone) return ''
+  const digits = phone.replace(/\D/g, '')
+  if (digits.startsWith('254')) return `+254 ${digits.slice(3, 6)} ${digits.slice(6)}`
+  if (digits.startsWith('0')) return `+254 ${digits.slice(1, 4)} ${digits.slice(4)}`
+  return phone ?? ''
+}
+
+/** Format a date-time in Nairobi time: `12 May 2026, 09:30`. */
+export function financeDateTime(iso: string | Date): string {
+  const date = typeof iso === 'string' ? new Date(iso) : iso
+  const nairobiOptions: Intl.DateTimeFormatOptions = {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+    timeZone: 'Africa/Nairobi',
+  }
+  return date.toLocaleString('en-GB', nairobiOptions)
+}

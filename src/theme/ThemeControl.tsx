@@ -1,50 +1,35 @@
-import type { ReactNode } from 'react'
-import { Monitor, Moon, Sun } from 'lucide-react'
+import { Moon, Sun } from 'lucide-react'
 import { cn } from '../lib/cn'
-import type { ThemePreference } from './theme'
 import { useTheme } from './useTheme'
-import { SegmentedControl } from '../components/ui/segmented-control'
-
-const options = [
-  {
-    value: 'light',
-    label: 'Light',
-    icon: <Sun className="size-[0.9rem]" aria-hidden="true" />,
-  },
-  {
-    value: 'dark',
-    label: 'Dark',
-    icon: <Moon className="size-[0.9rem]" aria-hidden="true" />,
-  },
-  {
-    value: 'system',
-    label: 'System',
-    icon: <Monitor className="size-[0.9rem]" aria-hidden="true" />,
-  },
-] satisfies readonly {
-  value: ThemePreference
-  label: string
-  icon: ReactNode
-}[]
 
 export type ThemeControlProps = {
   className?: string
 }
 
 /**
- * Three-way Light / Dark / System switch. Must be rendered under
- * `<ThemeProvider>`.
+ * Sun/moon switch. Dark is the product default; the control flips between the two
+ * explicit themes (never "system") and the thumb slides with the active icon.
  */
 export function ThemeControl({ className }: ThemeControlProps) {
-  const { preference, setPreference } = useTheme()
+  const { resolvedTheme, setPreference } = useTheme()
+  const isDark = resolvedTheme === 'dark'
 
   return (
-    <SegmentedControl
-      options={options}
-      value={preference}
-      onValueChange={setPreference}
-      label="Theme"
-      className={cn('[&>button]:flex-1', className)}
-    />
+    <button
+      type="button"
+      role="switch"
+      aria-checked={isDark}
+      aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+      onClick={() => setPreference(isDark ? 'light' : 'dark')}
+      className={cn('theme-toggle focus-visible:outline-none focus-visible:shadow-ring', className)}
+    >
+      <span className="theme-toggle-track" aria-hidden="true">
+        <Sun className="theme-toggle-hint theme-toggle-hint-sun" />
+        <Moon className="theme-toggle-hint theme-toggle-hint-moon" />
+        <span className={cn('theme-toggle-thumb', isDark && 'is-dark')}>
+          {isDark ? <Moon className="size-[0.8rem]" /> : <Sun className="size-[0.8rem]" />}
+        </span>
+      </span>
+    </button>
   )
 }

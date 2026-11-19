@@ -1,22 +1,23 @@
 import { useState } from 'react'
 import { CalendarDays, RefreshCw } from 'lucide-react'
 import { Alert } from '../ui/alert'
-import { AppointmentCard } from '../ui/appointment-card'
 import { Button } from '../ui/button'
 import { Chip, ChipGroup } from '../ui/chip'
 import { EmptyState } from '../ui/empty-state'
-import { PaginationBar } from '../ui/pagination-bar'
 import { Skeleton } from '../ui/skeleton'
-import { ClientAppointmentPayment } from './ClientAppointmentPayment'
+import { ClientAppointmentTimeline } from './ClientAppointmentTimeline'
 import { errorMessage } from '../../lib/api/client'
-import type { AppointmentDashboardItem, ServiceDashboardItem } from '../../lib/api/types'
+import type {
+  AppointmentDashboard,
+  ServiceCatalogItem,
+  ServiceDashboardItem,
+} from '../../lib/api/types'
 import {
   APPOINTMENT_STATUSES,
   appointmentStatusLabel,
-  appointmentStatusTone,
 } from '../../lib/dashboard/appointment-status'
-import { useOwnerAppointments } from '../../lib/dashboard/use-owner-dashboard'
-import { formatTimeRange } from '../../lib/format'
+import { useClientAppointmentTimeline } from '../../lib/clients/use-clients'
+import { useOwnerServices } from '../../lib/dashboard/use-owner-dashboard'
 
 export type ClientAppointmentsTabProps = {
   customerId: string
@@ -29,56 +30,17 @@ export type ClientAppointmentsTabProps = {
 
 type StatusFilter = 'all' | (typeof APPOINTMENT_STATUSES)[number]
 
-const DAY_FORMAT = new Intl.DateTimeFormat('en-GB', {
-  weekday: 'long',
-  day: 'numeric',
-  month: 'long',
-  year: 'numeric',
-})
-
-function longDay(iso: string): string {
-  return DAY_FORMAT.format(new Date(iso))
-}
-
-function dayNumber(iso: string): string {
-  return String(new Date(iso).getDate())
-}
-
-function monthShort(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-GB', { month: 'short' })
-}
-
-function toAppointmentCard(
-  appointment: AppointmentDashboardItem,
-  services: Map<string, ServiceDashboardItem>,
-) {
-  const service = services.get(appointment.serviceId)
-
-  return {
-    id: appointment.id,
-    day: dayNumber(appointment.scheduledAt),
-    month: monthShort(appointment.scheduledAt),
-    weekday: longDay(appointment.scheduledAt),
-    time: formatTimeRange(appointment.scheduledAt, appointment.endAt),
-    status: appointment.status,
-    statusLabel: appointmentStatusLabel(appointment.status),
-    statusTone: appointmentStatusTone(appointment.status),
-    staff: appointment.staffName ? `With ${appointment.staffName}` : 'No staff assigned',
-    services: [
-      {
-        name: appointment.serviceName,
-        duration: service?.durationMinutes,
-        price: service?.price,
-      },
-    ],
-  }
-}
+/** How many appointments arrive per page; "load earlier" appends the next block. */
+const TIMELINE_PAGE_SIZE = 12
 
 /**
  * Appointment history for one client, read from
- * `GET /v1/businesses/me/appointments?customerId=…` so status filtering and
- * pagination stay server-side. The same payload carries the business's service
- * bucket, which supplies each row's duration and price.
+ * `GET /v1/businesses/me/appointments?customerId=…`.
+ *
+ * The history is a date-grouped timeline (newest first, newest day at the top) that
+ * grows a page at a time, so a long-standing client does not download their whole
+ * record to look at the last visit. Status filtering is server-side, and every row
+ * opens the real appointment details page by its own id.
  */
 export function ClientAppointmentsTab({
   customerId,
@@ -87,26 +49,25 @@ export function ClientAppointmentsTab({
   onOpenAppointment,
 }: ClientAppointmentsTabProps) {
   const [status, setStatus] = useState<StatusFilter>('all')
-  const [page, setPage] = useState(1)
-  const [pageSize, setPageSize] = useState(10)
 
-  const query = useOwnerAppointments(
+  const query = useClientAppointmentTimeline(
+    customerId,
     {
-      customerId,
       status: status === 'all' ? null : status,
-      page,
-      pageSize,
-      sortBy: 'scheduledAt',
-      sortDirection: 'desc',
+      pageSize: TIMELINE_PAGE_SIZE,
     },
     enabled,
   )
 
-  const data = query.data
-  const rows = data?.appointments ?? []
-  const services = new Map<string, ServiceDashboardItem>(
-    (data?.services ?? []).map((service) => [service.id, service]),
+  const services = useOwnerServices(enabled)
+  const serviceMap = new Map<string, ServiceDashboardItem>(
+    (services.data ?? []).map(
+      (service: ServiceCatalogItem) => [service.id, service] as const,
+    ),
   )
+
+  const rows = query.data?.pages.flatMap((page: AppointmentDashboard) => page.appointments) ?? []
+  const total = query.data?.pages[0]?.meta.totalCount ?? 0
 
   if (!enabled) {
     return (
@@ -151,10 +112,7 @@ export function ClientAppointmentsTab({
       >
         <Chip
           pressed={status === 'all'}
-          onPressedChange={() => {
-            setStatus('all')
-            setPage(1)
-          }}
+          onPressedChange={() => setStatus('all')}
           className="shrink-0"
         >
           All
@@ -163,10 +121,7 @@ export function ClientAppointmentsTab({
           <Chip
             key={value}
             pressed={status === value}
-            onPressedChange={() => {
-              setStatus(value)
-              setPage(1)
-            }}
+            onPressedChange={() => setStatus(value)}
             className="shrink-0"
           >
             {appointmentStatusLabel(value)}
@@ -189,39 +144,21 @@ export function ClientAppointmentsTab({
           }
         />
       ) : (
-        <ul className="m-0 flex list-none flex-col gap-[0.7rem] p-0">
-          {rows.map((appointment) => (
-            <li key={appointment.id}>
-              <AppointmentCard
-                appointment={toAppointmentCard(appointment, services)}
-                onOpen={
-                  onOpenAppointment
-                    ? () => onOpenAppointment(appointment.id)
-                    : undefined
-                }
-              />
-              <ClientAppointmentPayment
-                appointmentId={appointment.id}
-                enabled={paymentsEnabled}
-              />
-            </li>
-          ))}
-        </ul>
+        <>
+          <p className="text-caption text-muted tabular">
+            {rows.length} of {total} appointment{total === 1 ? '' : 's'} · newest first
+          </p>
+          <ClientAppointmentTimeline
+            rows={rows}
+            services={serviceMap}
+            onOpenAppointment={onOpenAppointment}
+            paymentsEnabled={paymentsEnabled}
+            hasMore={query.hasNextPage}
+            loadingMore={query.isFetchingNextPage}
+            onLoadMore={() => void query.fetchNextPage()}
+          />
+        </>
       )}
-
-      {data && data.meta.totalPages > 1 ? (
-        <PaginationBar
-          page={data.meta.page}
-          pageCount={data.meta.totalPages}
-          onPageChange={setPage}
-          pageSize={pageSize}
-          pageSizeOptions={[10, 25, 50]}
-          onPageSizeChange={(size) => {
-            setPageSize(size)
-            setPage(1)
-          }}
-        />
-      ) : null}
     </div>
   )
 }
