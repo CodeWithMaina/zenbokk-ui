@@ -395,7 +395,11 @@ function ServicesPage() {
           onClearAll={clearDraft}
           appliedCount={appliedRefinements}
           draftCount={draftCount}
-          applyLabel={draftPending ? 'Apply filters' : `Show ${pluralize(totalCount, 'service')}`}
+          applyLabel={
+            draftPending || !services.data
+              ? 'Apply filters'
+              : `Show ${pluralize(totalCount, 'service')}`
+          }
         >
           <ServiceFilters filters={draft} onFiltersChange={setDraft} priceBounds={priceBounds} />
         </ServiceFilterDrawer>

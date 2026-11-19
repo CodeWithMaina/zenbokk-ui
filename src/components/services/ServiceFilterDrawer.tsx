@@ -97,23 +97,28 @@ export function ServiceFilterDrawer({
   )
 
   const footer = (
-    <>
-      <LinkButton
-        onClick={clearAll}
-        disabled={!clearAll || (draftCount !== undefined && draftCount === 0)}
-        className="px-[0.2rem] disabled:cursor-not-allowed disabled:opacity-35"
-      >
-        Clear all
-      </LinkButton>
-      <div className="flex shrink-0 items-center gap-[0.5rem]">
-        <Button variant="ghost" onClick={onClose}>
+    <div className="flex w-full flex-col gap-[0.55rem]">
+      <div className="flex items-center justify-between gap-3">
+        <LinkButton
+          onClick={clearAll}
+          disabled={!clearAll || (draftCount !== undefined && draftCount === 0)}
+          className="px-[0.2rem] disabled:cursor-not-allowed disabled:opacity-35"
+        >
+          Clear all
+        </LinkButton>
+        <span className="text-caption text-subtle">
+          {draftCount ? `${draftCount} selected` : null}
+        </span>
+      </div>
+      <div className="flex items-center gap-[0.5rem]">
+        <Button variant="ghost" className="flex-1 whitespace-nowrap" onClick={onClose}>
           Cancel
         </Button>
-        <Button variant="primary" onClick={apply}>
+        <Button variant="primary" className="flex-[1.4] whitespace-nowrap" onClick={apply}>
           {applyLabel}
         </Button>
       </div>
-    </>
+    </div>
   )
 
   if (!isDesktop) {
@@ -125,7 +130,7 @@ export function ServiceFilterDrawer({
         description={description}
         className={className}
         closeLabel="Close filters"
-        footer={<div className="flex w-full items-center justify-between gap-3">{footer}</div>}
+        footer={footer}
       >
         {children}
       </Drawer>
@@ -151,9 +156,7 @@ export function ServiceFilterDrawer({
           {children}
         </div>
 
-        <div className="flex items-center justify-between gap-3 border-t border-line px-[1.1rem] py-[0.9rem]">
-          {footer}
-        </div>
+        <div className="border-t border-line px-[1.1rem] py-[0.9rem]">{footer}</div>
       </div>
     </aside>
   )

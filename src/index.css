@@ -5624,7 +5624,7 @@ html {
   top: 0;
   bottom: 0;
   border-radius: var(--radius-pill);
-  background: var(--fg);
+  background: var(--accent);
 }
 .price-range-input {
   position: absolute;
