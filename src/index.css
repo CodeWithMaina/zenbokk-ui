@@ -5542,64 +5542,142 @@ html {
 
 
 
-/* ---------- theme toggle (sun / moon) --------------------------------- */
-.theme-toggle {
+/* ---------- theme switch (light / dark) ------------------------------- */
+.theme-switch {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.15rem;
+  padding: 0.2rem;
+  min-height: 2.6rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface-sunken);
+}
+.theme-switch-thumb {
+  position: absolute;
+  top: 0.2rem;
+  bottom: 0.2rem;
+  left: 0.2rem;
+  width: calc((100% - 0.55rem) / 2);
+  border: 1px solid var(--line);
+  border-radius: calc(var(--radius-md) - 0.2rem);
+  background: var(--surface);
+  transition: transform 0.24s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.theme-switch-thumb[data-theme-state='dark'] {
+  transform: translateX(calc(100% + 0.15rem));
+}
+.theme-switch-option {
+  position: relative;
+  z-index: 1;
   display: inline-flex;
+  min-height: 2.2rem;
   align-items: center;
   justify-content: center;
+  gap: 0.35rem;
   border: 0;
+  border-radius: calc(var(--radius-md) - 0.2rem);
   background: none;
-  padding: 0;
+  color: var(--fg-muted);
+  font-size: var(--text-label);
+  font-weight: 500;
   cursor: pointer;
-  border-radius: 999px;
+  transition: color 0.18s ease;
 }
-.theme-toggle-track {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 2.7rem;
-  height: 1.5rem;
-  padding: 0 0.28rem;
-  border-radius: 999px;
-  border: 1px solid var(--line);
-  background: var(--sunken);
-  color: var(--fg-subtle);
-}
-.theme-toggle-hint {
-  width: 0.8rem;
-  height: 0.8rem;
-  opacity: 0.45;
-}
-.theme-toggle-thumb {
-  position: absolute;
-  top: 50%;
-  left: 0.14rem;
-  display: grid;
-  place-items: center;
-  width: 1.18rem;
-  height: 1.18rem;
-  border-radius: 50%;
-  background: var(--surface);
+.theme-switch-option:hover {
   color: var(--fg);
-  box-shadow: 0 1px 3px rgb(0 0 0 / 0.2);
-  transform: translateY(-50%);
-  transition: left 0.32s cubic-bezier(0.2, 0.7, 0.2, 1), background-color 0.32s, color 0.32s;
 }
-.theme-toggle-thumb.is-dark {
-  left: calc(100% - 1.18rem - 0.14rem);
-  background: var(--fg);
-  color: var(--surface);
+.theme-switch-option:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
 }
-.theme-toggle-thumb svg {
-  transition: transform 0.32s cubic-bezier(0.2, 0.7, 0.2, 1);
-}
-.theme-toggle-thumb.is-dark svg {
-  transform: rotate(-25deg);
+.theme-switch-option.is-active {
+  color: var(--fg);
+  font-weight: 600;
 }
 @media (prefers-reduced-motion: reduce) {
-  .theme-toggle-thumb,
-  .theme-toggle-thumb svg {
+  .theme-switch-thumb,
+  .theme-switch-option {
     transition: none;
   }
+}
+
+/* ---------- price range (two handles) ---------------------------------- */
+.price-range {
+  position: relative;
+  height: 2.4rem;
+  display: flex;
+  align-items: center;
+}
+.price-range-track {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 0.35rem;
+  border-radius: var(--radius-pill);
+  background: var(--surface-sunken);
+  border: 1px solid var(--line);
+}
+.price-range-fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-radius: var(--radius-pill);
+  background: var(--fg);
+}
+.price-range-input {
+  position: absolute;
+  left: 0;
+  right: 0;
+  width: 100%;
+  height: 2.4rem;
+  margin: 0;
+  background: none;
+  -webkit-appearance: none;
+  appearance: none;
+  pointer-events: none;
+}
+.price-range-input:focus-visible {
+  outline: none;
+}
+.price-range-input::-webkit-slider-runnable-track {
+  height: 2.4rem;
+  background: transparent;
+}
+.price-range-input::-moz-range-track {
+  height: 2.4rem;
+  background: transparent;
+}
+.price-range-input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  pointer-events: auto;
+  width: 1.15rem;
+  height: 1.15rem;
+  margin-top: calc((2.4rem - 1.15rem) / 2);
+  border-radius: 50%;
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+  cursor: grab;
+}
+.price-range-input::-moz-range-thumb {
+  pointer-events: auto;
+  width: 1.15rem;
+  height: 1.15rem;
+  border-radius: 50%;
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+  cursor: grab;
+}
+.price-range-input:focus-visible::-webkit-slider-thumb {
+  box-shadow: var(--focus-ring);
+}
+.price-range-input:focus-visible::-moz-range-thumb {
+  box-shadow: var(--focus-ring);
+}
+.price-range-input:active::-webkit-slider-thumb {
+  cursor: grabbing;
 }

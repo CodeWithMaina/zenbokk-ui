@@ -7,7 +7,7 @@ import type {
   SetServiceImagesRequest,
   UpdateServiceRequest,
 } from '../api/types'
-import { toServiceQuery, DEFAULT_SERVICE_FILTERS } from './service.utils'
+import { toServiceQuery } from './service.utils'
 import type { ServiceFilters, ServiceQuery, ServiceStatusAction } from './types'
 
 /**
@@ -20,12 +20,15 @@ import type { ServiceFilters, ServiceQuery, ServiceStatusAction } from './types'
 
 const SERVICES_PATH = '/v1/services'
 
-/** Server counts for the header and the status filter rows. */
+/** Server aggregates for the header, the tabs and the price-range slider. */
 export type ServiceCounts = {
   active: number
   paused: number
   archived: number
   total: number
+  /** Real price bounds of this business's catalogue; null when it has no services. */
+  minPrice: number | null
+  maxPrice: number | null
 }
 
 const STATUS_ROUTES: Record<ServiceStatusAction, string> = {
@@ -52,19 +55,26 @@ export const servicesApi = {
   },
 
   /**
+   * Counts per lifecycle state, the total, and the catalogue's real price bounds —
+   * one grouped read (`GET /v1/services/me/facets`).
+   *
+   * This used to be four one-row list requests; the tabs, the header summary and the
+   * range slider all need these numbers at once, so they come from one endpoint that
+   * the database computes. The bounds are the business's own prices, never a
+   * hardcoded ceiling.
+   */
+  facets(): Promise<ServiceCounts> {
+    return apiGet<ServiceCounts>(`${SERVICES_PATH}/me/facets`)
+  },
+
+  /**
    * Counts per lifecycle state plus the total.
    *
-   * Each count is the endpoint's own `totalCount` for a one-row page, so the
-   * header and the filter panel can never disagree with the list they open.
+   * Kept as the module's name for the aggregates; it now reads the facets endpoint,
+   * so the header, the tabs and the filter panel can never disagree with the list.
    */
-  async statusCounts(): Promise<ServiceCounts> {
-    const [active, paused, archived, total] = await Promise.all([
-      servicesApi.count({ ...DEFAULT_SERVICE_FILTERS, statuses: ['active'] }),
-      servicesApi.count({ ...DEFAULT_SERVICE_FILTERS, statuses: ['paused'] }),
-      servicesApi.count({ ...DEFAULT_SERVICE_FILTERS, statuses: ['archived'] }),
-      servicesApi.count({ ...DEFAULT_SERVICE_FILTERS, statuses: [] }),
-    ])
-    return { active, paused, archived, total }
+  statusCounts(): Promise<ServiceCounts> {
+    return servicesApi.facets()
   },
 
   get(serviceId: string): Promise<ServiceCatalogItem> {

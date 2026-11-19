@@ -7,29 +7,48 @@ export type ThemeControlProps = {
 }
 
 /**
- * Sun/moon switch. Dark is the product default; the control flips between the two
- * explicit themes (never "system") and the thumb slides with the active icon.
+ * Sun/moon theme switch: two explicit choices on one track, with a thumb that
+ * slides to whichever theme is active.
+ *
+ * It is a two-button group rather than a single toggle so the current theme is
+ * readable without hovering: the active option is filled, labelled and
+ * `aria-pressed`, and each option states the theme it selects. Both are real
+ * buttons, so Tab reaches them and Space/Enter activates them; the thumb only
+ * moves (no cross-fade, no gradient) and stops entirely under
+ * `prefers-reduced-motion`. Dark stays the product default - the control flips
+ * between the two explicit themes and never introduces a third "system" state.
  */
 export function ThemeControl({ className }: ThemeControlProps) {
   const { resolvedTheme, setPreference } = useTheme()
   const isDark = resolvedTheme === 'dark'
 
   return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={isDark}
-      aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-      onClick={() => setPreference(isDark ? 'light' : 'dark')}
-      className={cn('theme-toggle focus-visible:outline-none focus-visible:shadow-ring', className)}
-    >
-      <span className="theme-toggle-track" aria-hidden="true">
-        <Sun className="theme-toggle-hint theme-toggle-hint-sun" />
-        <Moon className="theme-toggle-hint theme-toggle-hint-moon" />
-        <span className={cn('theme-toggle-thumb', isDark && 'is-dark')}>
-          {isDark ? <Moon className="size-[0.8rem]" /> : <Sun className="size-[0.8rem]" />}
-        </span>
-      </span>
-    </button>
+    <div role="group" aria-label="Theme" className={cn('theme-switch', className)}>
+      <span
+        className="theme-switch-thumb"
+        data-theme-state={isDark ? 'dark' : 'light'}
+        aria-hidden="true"
+      />
+      <button
+        type="button"
+        aria-pressed={!isDark}
+        aria-label="Light theme"
+        onClick={() => setPreference('light')}
+        className={cn('theme-switch-option', !isDark && 'is-active')}
+      >
+        <Sun className="size-[0.95rem] shrink-0" aria-hidden="true" />
+        <span>Light</span>
+      </button>
+      <button
+        type="button"
+        aria-pressed={isDark}
+        aria-label="Dark theme"
+        onClick={() => setPreference('dark')}
+        className={cn('theme-switch-option', isDark && 'is-active')}
+      >
+        <Moon className="size-[0.95rem] shrink-0" aria-hidden="true" />
+        <span>Dark</span>
+      </button>
+    </div>
   )
 }

@@ -26,7 +26,21 @@ import {
 } from '../lib/services'
 import type { ServiceStatusAction } from '../lib/services'
 
+/**
+ * The detail route accepts the list's tab as search state.
+ *
+ * Without a validator TanStack treats a route's search as empty, so the tab the
+ * owner came from would be dropped by the time the back link is rendered. Declaring
+ * it here keeps the parameter end to end: list → detail → back to the same tab.
+ */
+function validateDetailSearch(search: Record<string, unknown>): { status?: 'active' | 'paused' | 'archived' } {
+  const status = String(search.status ?? '')
+  const known = (['active', 'paused', 'archived'] as const).find((value) => value === status)
+  return known ? { status: known } : {}
+}
+
 export const Route = createFileRoute('/dashboard/services/$serviceId/')({
+  validateSearch: validateDetailSearch,
   component: ServiceDetailsPage,
 })
 
@@ -51,6 +65,17 @@ function ServiceDetailsPage() {
   const navigate = useNavigate()
   const { hasPermission, hasModule, business } = useDashboardContext()
   const canManage = hasPermission('serviceCatalog.manage')
+
+  // The list passes its Active/Paused/Archived tab along, so leaving a service
+  // returns the owner to the list they were browsing. The value is read from the
+  // address bar rather than from this route's search: the detail route is reached
+  // with the list's parameter, and the URL is the authority on it.
+  const [listStatus] = useState(() => {
+    if (typeof window === 'undefined') return undefined
+    const status = new URLSearchParams(window.location.search).get('status')
+    return status === 'active' || status === 'paused' || status === 'archived' ? status : undefined
+  })
+  const backSearch = listStatus ? { status: listStatus } : undefined
 
   const [bookingOpen, setBookingOpen] = useState(false)
   const [pendingDelete, setPendingDelete] = useState(false)
@@ -92,7 +117,12 @@ function ServiceDetailsPage() {
             Try again
           </Button>
         </Alert>
-        <Button className="mt-[0.8rem]" onClick={() => void navigate({ to: '/dashboard/services' })}>
+        <Button
+          className="mt-[0.8rem]"
+          onClick={() =>
+            void navigate({ to: '/dashboard/services', search: backSearch as never })
+          }
+        >
           Back to services
         </Button>
       </div>
@@ -103,6 +133,7 @@ function ServiceDetailsPage() {
   const backLink = (
     <Link
       to="/dashboard/services"
+      search={backSearch as never}
       className="mb-[0.4rem] inline-flex min-h-[2.4rem] items-center gap-[0.3rem] font-medium text-muted no-underline transition-colors hover:text-fg"
     >
       Services
@@ -207,7 +238,7 @@ function ServiceDetailsPage() {
             onSuccess: () => {
               setPendingDelete(false)
               toast.success(`${row.name} deleted`)
-              void navigate({ to: '/dashboard/services' })
+              void navigate({ to: '/dashboard/services', search: backSearch as never })
             },
             onError: (error) => toast.error(errorMessage(error)),
           })

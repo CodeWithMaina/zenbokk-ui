@@ -64,12 +64,18 @@ export function Badge({ tone = 'neutral', children, className }: BadgeProps) {
 export type CountBadgeProps = {
   children: ReactNode
   className?: string
+  /**
+   * Accessible description for contexts where the number alone is ambiguous,
+   * such as a navigation item (`"3 awaiting verification"`).
+   */
+  label?: string
 }
 
 /** Small inverse count used in tab labels and selection controls. */
-export function CountBadge({ children, className }: CountBadgeProps) {
+export function CountBadge({ children, className, label }: CountBadgeProps) {
   return (
     <span
+      aria-label={label}
       className={cn(
         'inline-flex h-[1.3rem] min-w-[1.3rem] items-center justify-center rounded-pill bg-inverse px-[0.35rem] text-caption font-semibold text-on-inverse',
         className,

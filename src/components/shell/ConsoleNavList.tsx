@@ -2,7 +2,9 @@ import { Link, useRouterState } from '@tanstack/react-router'
 import { ChevronRight } from 'lucide-react'
 import { useState } from 'react'
 import { cn } from '../../lib/cn'
+import { useVerificationBadgeCount } from '../../lib/finances/use-verification-badge'
 import type { NavEntry, NavSection } from '../../lib/navigation'
+import { CountBadge } from '../ui/badge'
 
 /**
  * Sidebar / drawer navigation for every console.
@@ -40,11 +42,14 @@ function NavLink({
   active,
   nested = false,
   onNavigate,
+  badge,
 }: {
   entry: NavEntry
   active: boolean
   nested?: boolean
   onNavigate?: () => void
+  /** Outstanding count for this entry, already resolved by the shell. */
+  badge?: number
 }) {
   const Icon = entry.icon
 
@@ -64,6 +69,11 @@ function NavLink({
         aria-hidden="true"
       />
       <span className="min-w-0 truncate">{entry.label}</span>
+      {badge !== undefined && badge > 0 ? (
+        <CountBadge className="ml-auto shrink-0" label={`${badge} awaiting verification`}>
+          {badge}
+        </CountBadge>
+      ) : null}
     </Link>
   )
 }
@@ -79,26 +89,30 @@ function NavRow({
   entry,
   pathname,
   onNavigate,
+  badges,
 }: {
   entry: NavEntry
   pathname: string
   onNavigate?: () => void
+  /** Outstanding counts by nav key (only entries that carry one). */
+  badges?: Record<string, number | undefined>
 }) {
   const [expanded, setExpanded] = useState(false)
   const children = entry.children ?? []
   const childActive = children.some((child) => isEntryActive(pathname, child))
   const showChildren = expanded || childActive
   const active = isEntryActive(pathname, entry)
+  const badge = badges?.[entry.key]
 
   if (children.length === 0) {
-    return <NavLink entry={entry} active={active} onNavigate={onNavigate} />
+    return <NavLink entry={entry} active={active} onNavigate={onNavigate} badge={badge} />
   }
 
   return (
     <div>
       <div className="flex items-center gap-[0.1rem]">
         {entry.to ? (
-          <NavLink entry={entry} active={active} onNavigate={onNavigate} />
+          <NavLink entry={entry} active={active} onNavigate={onNavigate} badge={badge} />
         ) : (
           // A pure group: it exists only to hold its children, so it renders as
           // a label rather than a link to nowhere.
@@ -130,6 +144,7 @@ function NavRow({
                 active={isEntryActive(pathname, child)}
                 nested
                 onNavigate={onNavigate}
+                badge={badges?.[child.key]}
               />
             </li>
           ))}
@@ -142,6 +157,16 @@ function NavRow({
 export function ConsoleNavList({ sections, onNavigate, className }: ConsoleNavListProps) {
   const pathname = useRouterState({ select: (state) => state.location.pathname })
 
+  // Only a console that actually shows Finance asks for the count, so the staff and
+  // platform consoles never issue a payments request they have no use for.
+  const hasFinance = sections.some((section) =>
+    section.items.some((item) => item.key === 'finances' || item.key === 'finances-payments'),
+  )
+  const verification = useVerificationBadgeCount(hasFinance)
+  const badges = hasFinance
+    ? { finances: verification.count, 'finances-payments': verification.count }
+    : undefined
+
   return (
     <nav className={cn('flex flex-col gap-[0.9rem]', className)} aria-label="Console">
       {sections.map((section) => (
@@ -150,7 +175,7 @@ export function ConsoleNavList({ sections, onNavigate, className }: ConsoleNavLi
             {section.label}
           </p>
           {section.items.map((item) => (
-            <NavRow key={item.key} entry={item} pathname={pathname} onNavigate={onNavigate} />
+            <NavRow key={item.key} entry={item} pathname={pathname} onNavigate={onNavigate} badges={badges} />
           ))}
         </div>
       ))}

@@ -74,12 +74,37 @@ export type PricePreset = {
   max: number | null
 }
 
-/** Quick price ranges, matching the design's presets in KES. */
+/**
+ * The Services list's three lifecycle tabs, in the order they are shown.
+ *
+ * A tab *is* a status filter: selecting one narrows the same server-side query the
+ * filters use, so a tab can never disagree with the API's status vocabulary.
+ */
+export const SERVICE_STATUS_TABS: readonly { value: ServiceStatus; label: string }[] = [
+  { value: 'active', label: 'Active' },
+  { value: 'paused', label: 'Paused' },
+  { value: 'archived', label: 'Archived' },
+]
+
+/** Quick price ranges, matching the design's presets in KES (storefront panel). */
 export const PRICE_PRESETS: readonly PricePreset[] = [
   { id: 'under-2500', label: 'Under 2,500', min: null, max: 2500 },
   { id: '2500-5000', label: '2,500 – 5,000', min: 2500, max: 5000 },
   { id: 'over-5000', label: '5,000 and over', min: 5000, max: null },
 ]
+
+/**
+ * The slider's step, derived from the catalogue rather than assumed.
+ *
+ * Prices are whole shillings here, so 100 KES granularity is right for an atelier's
+ * range; a very narrow catalogue (or one whose prices are not multiples of 100)
+ * falls back to 1 so both handles can still reach every real price.
+ */
+export function priceStep(min: number, max: number): number {
+  const span = Math.max(0, max - min)
+  if (span <= 500) return 1
+  return 100
+}
 
 export type SortOption = { id: ServiceSort; label: string }
 
@@ -159,15 +184,9 @@ export type AppliedServiceFilter = { id: string; label: string }
 /** The chips shown above the grid — one per active refinement. */
 export function appliedServiceFilters(filters: ServiceFilters): AppliedServiceFilter[] {
   const chips: AppliedServiceFilter[] = []
-  const statuses = filters.statuses ?? []
 
-  if (statuses.length > 0) {
-    chips.push({
-      id: 'status',
-      label: `Status: ${statuses.map(serviceStatusLabel).join(', ')}`,
-    })
-  }
-
+  // Status is the tab strip, not a chip: showing both would report the same
+  // refinement twice and make "Clear all" ambiguous about what it clears.
   const min = filters.minPrice ?? null
   const max = filters.maxPrice ?? null
   if (min !== null || max !== null) {

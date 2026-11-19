@@ -22,6 +22,7 @@ import { usePayments, usePaymentsDashboard, type Payment } from '../../lib/payme
 import { useDashboardContext } from '../../lib/dashboard/dashboard-context'
 import { MODULE } from '../../lib/entitlements'
 import { useClaimDecisions, useBulkVerifyClaims } from '../../lib/finances/api'
+import { useVerificationBadgeCount } from '../../lib/finances/use-verification-badge'
 import { FinanceClaimDialogs } from './claim-dialogs'
 import { errorMessage } from '../../lib/api/client'
 import { money, displayPhone, financeDateTime } from '../../lib/format'
@@ -96,6 +97,8 @@ export function PaymentsPage() {
   const [bulkBusy, setBulkBusy] = useState(false)
 
   const dashboard = usePaymentsDashboard(enabled)
+  // The badge's own source: same query, same number as the navigation shows.
+  const verificationBadge = useVerificationBadgeCount(enabled)
   const payments = usePayments(
     {
       status: statusFilter === 'all' ? undefined : statusFilter,
@@ -119,7 +122,7 @@ export function PaymentsPage() {
   const isLoading = payments.isPending
   const isError = payments.isError
   const error = payments.error
-  const claimsAwaiting = dashboard.data?.awaitingVerificationCount ?? 0
+  const claimsAwaiting = verificationBadge.count
 
   // Filtering happens on the server: search is part of the query, so nothing here narrows the page again.
   const claimsRows = tab === 'claims' ? rows.filter((r) => paymentStatusDisplay(r.status).group === 'claims') : rows

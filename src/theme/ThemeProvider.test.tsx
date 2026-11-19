@@ -35,15 +35,17 @@ describe('ThemeControl', () => {
     // Dark is the product default — a new visitor starts in it, not on "system".
     expect(screen.getByText(/preference dark · resolved dark/i)).toBeInTheDocument()
 
-    // The sun/moon switch is a single toggle: it moves from dark to light…
-    await user.click(screen.getByRole('switch', { name: /switch to light mode/i }))
+    // The switcher states each theme explicitly; the active one is pressed.
+    expect(screen.getByRole('button', { name: /^dark theme$/i })).toHaveAttribute('aria-pressed', 'true')
+    await user.click(screen.getByRole('button', { name: /^light theme$/i }))
 
     expect(await screen.findByText(/preference light · resolved light/i)).toBeInTheDocument()
     expect(document.documentElement.dataset.theme).toBe('light')
     expect(window.localStorage.getItem(THEME_STORAGE_KEY)).toBe('light')
+    expect(screen.getByRole('button', { name: /^light theme$/i })).toHaveAttribute('aria-pressed', 'true')
 
     // …and back again.
-    await user.click(screen.getByRole('switch', { name: /switch to dark mode/i }))
+    await user.click(screen.getByRole('button', { name: /^dark theme$/i }))
 
     expect(await screen.findByText(/preference dark · resolved dark/i)).toBeInTheDocument()
     expect(document.documentElement.dataset.theme).toBe('dark')
