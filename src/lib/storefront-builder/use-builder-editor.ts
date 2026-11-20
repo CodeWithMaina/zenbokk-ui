@@ -55,6 +55,10 @@ export function useBuilderEditor(initial: StorefrontConfig): BuilderEditor {
   const history = useRef<StorefrontConfig[]>([])
   const future = useRef<StorefrontConfig[]>([])
   const [version, setVersion] = useState(0)
+  // The refs above hold the actual undo/redo stacks (they must not trigger
+  // renders on every push). Their depth is mirrored in state so `canUndo` /
+  // `canRedo` can be read during render without touching a ref.
+  const [historyDepth, setHistoryDepth] = useState({ undo: 0, redo: 0 })
 
   // A new server state (first load, or after publish) re-seeds the editor.
   const seed = useRef(JSON.stringify(initial))
@@ -66,6 +70,7 @@ export function useBuilderEditor(initial: StorefrontConfig): BuilderEditor {
     setSavedSnapshot(next)
     history.current = []
     future.current = []
+    setHistoryDepth({ undo: 0, redo: 0 })
     setSelectedSectionId(null)
     setVersion((v) => v + 1)
   }, [initial])
@@ -78,6 +83,9 @@ export function useBuilderEditor(initial: StorefrontConfig): BuilderEditor {
       future.current = []
       return next
     })
+    // Mirrors exactly what the updater above does to the stacks: one entry
+    // pushed, redo cleared, capped at HISTORY_LIMIT.
+    setHistoryDepth((depth) => ({ undo: Math.min(depth.undo + 1, HISTORY_LIMIT), redo: 0 }))
     setVersion((v) => v + 1)
   }, [])
 
@@ -93,6 +101,10 @@ export function useBuilderEditor(initial: StorefrontConfig): BuilderEditor {
       future.current.push(current)
       return previous
     })
+    setHistoryDepth((depth) => ({
+      undo: Math.max(0, depth.undo - 1),
+      redo: Math.min(depth.redo + 1, HISTORY_LIMIT),
+    }))
     setVersion((v) => v + 1)
   }, [])
 
@@ -103,6 +115,10 @@ export function useBuilderEditor(initial: StorefrontConfig): BuilderEditor {
       history.current.push(current)
       return next
     })
+    setHistoryDepth((depth) => ({
+      undo: Math.min(depth.undo + 1, HISTORY_LIMIT),
+      redo: Math.max(0, depth.redo - 1),
+    }))
     setVersion((v) => v + 1)
   }, [])
 
@@ -112,6 +128,7 @@ export function useBuilderEditor(initial: StorefrontConfig): BuilderEditor {
     setSavedSnapshot(JSON.stringify(next))
     history.current = []
     future.current = []
+    setHistoryDepth({ undo: 0, redo: 0 })
     setVersion((v) => v + 1)
   }, [])
 
@@ -235,8 +252,8 @@ export function useBuilderEditor(initial: StorefrontConfig): BuilderEditor {
     selectedSectionId: hasSelected ? selectedSectionId : null,
     // A section that has since been deleted falls back to the Structure tab.
     panel: panel === 'section' && !hasSelected ? 'structure' : panel,
-    canUndo: history.current.length > 0,
-    canRedo: future.current.length > 0,
+    canUndo: historyDepth.undo > 0,
+    canRedo: historyDepth.redo > 0,
     update,
     replace,
     select: (id) => {

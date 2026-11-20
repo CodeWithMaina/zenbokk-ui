@@ -3,8 +3,13 @@ import type { UserProfile } from '../api/types'
 /**
  * Single owner of the persisted session.
  *
- * The API also sets an HttpOnly refresh cookie, so the token pair here is a
- * convenience (instant hydration + cross-tab sync), never the only copy.
+ * Only the short-lived access token, the profile and the tenant are written to
+ * `localStorage`. The refresh token is deliberately kept **in memory only**: the
+ * API already issues it as an HttpOnly session cookie scoped to the registrable
+ * domain, so every refresh this app performs can — and does — omit the token
+ * from the request body and let the cookie authenticate it. Persisting it would
+ * hand any XSS payload a long-lived credential it can exfiltrate, for no benefit.
+ *
  * Components must read the session through `useAuth()`, not from storage.
  */
 
@@ -14,13 +19,17 @@ const EXPIRY_SKEW_MS = 30_000
 
 export type Session = {
   accessToken: string
-  refreshToken: string
+  /** In-memory only; never written to storage. */
+  refreshToken: string | null
   /** Epoch millis at which `accessToken` stops being usable. */
   expiresAt: number
   user: UserProfile
   /** Tenant the session was established against (sent on every request). */
   tenantSlug: string | null
 }
+
+/** The shape that is written to `localStorage` — everything except the refresh token. */
+type StoredSession = Omit<Session, 'refreshToken'>
 
 type Listener = () => void
 
@@ -35,23 +44,27 @@ let current: Session | null = null
 let pendingTokens: { accessToken: string; refreshToken: string; expiresAt: number } | null = null
 
 
-function isSession(value: unknown): value is Session {
-  if (!value || typeof value !== 'object') return false
-  const candidate = value as Partial<Session>
-  return (
-    typeof candidate.accessToken === 'string' &&
-    typeof candidate.refreshToken === 'string' &&
-    typeof candidate.expiresAt === 'number' &&
-    !!candidate.user &&
-    typeof candidate.user.id === 'string'
-  )
-}
-
 function parse(raw: string | null): Session | null {
   if (!raw) return null
   try {
     const parsed: unknown = JSON.parse(raw)
-    return isSession(parsed) ? parsed : null
+    if (!parsed || typeof parsed !== 'object') return null
+
+    const candidate = parsed as Partial<StoredSession> & { refreshToken?: unknown }
+    if (typeof candidate.accessToken !== 'string' || typeof candidate.expiresAt !== 'number') {
+      return null
+    }
+    if (!candidate.user || typeof candidate.user.id !== 'string') return null
+
+    return {
+      accessToken: candidate.accessToken,
+      // A legacy entry may still carry a refresh token: it is dropped on read,
+      // and the next write persists the token-free shape.
+      refreshToken: null,
+      expiresAt: candidate.expiresAt,
+      user: candidate.user,
+      tenantSlug: candidate.tenantSlug ?? null,
+    }
   } catch {
     return null
   }
@@ -60,6 +73,17 @@ function parse(raw: string | null): Session | null {
 function readFromStorage(): Session | null {
   if (typeof window === 'undefined') return null
   return parse(window.localStorage.getItem(STORAGE_KEY))
+}
+
+function writeToStorage(session: Session): void {
+  if (typeof window === 'undefined') return
+  const stored: StoredSession = {
+    accessToken: session.accessToken,
+    expiresAt: session.expiresAt,
+    user: session.user,
+    tenantSlug: session.tenantSlug,
+  }
+  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(stored))
 }
 
 function notify() {
@@ -104,9 +128,7 @@ export function clearPendingTokens(): void {
 export function setSession(session: Session): void {
   pendingTokens = null
   current = session
-  if (typeof window !== 'undefined') {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(session))
-  }
+  writeToStorage(session)
   notify()
 }
 

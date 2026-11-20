@@ -243,7 +243,7 @@ function ChannelsTab({ businessId }: { businessId: string }) {
   const query = useBusinessNotificationChannels(businessId)
   const update = useUpdateBusinessNotificationChannels(businessId)
 
-  const channels = query.data ?? []
+  const channels = useMemo(() => query.data ?? [], [query.data])
   const [form, setForm] = useState<{
     displayName: string
     replyTo: string

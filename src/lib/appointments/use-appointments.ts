@@ -1,6 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMemo } from 'react'
 import type { CreateAppointmentOnBehalfRequest, RescheduleAppointmentRequest } from '../api/types'
 import { queryKeys } from '../api/query-client'
+import { useMinuteClock } from '../hooks/use-minute-clock'
 import { appointmentsApi, toAppointmentQuery } from './api'
 import type { AppointmentRangeQuery } from './api'
 import type { AppointmentFilters } from './types'
@@ -27,7 +29,14 @@ export function useAppointmentPage(
    */
   timeZone?: string,
 ) {
-  const query = toAppointmentQuery(filters, page, pageSize, new Date(), timeZone)
+  // The window is resolved from "now", so the clock is read through a hook: the
+  // query key then only changes when the resolved window does, not on every
+  // render of every caller.
+  const now = useMinuteClock()
+  const query = useMemo(
+    () => toAppointmentQuery(filters, page, pageSize, now, timeZone),
+    [filters, page, pageSize, now, timeZone],
+  )
   return useQuery({
     queryKey: queryKeys.ownerAppointments(query),
     queryFn: ({ signal }) => appointmentsApi.list(query, signal),

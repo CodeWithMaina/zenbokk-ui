@@ -65,7 +65,7 @@ export function LoyaltyProgramCustomers({
     enabled,
   )
 
-  const rows = query.data?.items ?? []
+  const rows = useMemo(() => query.data?.items ?? [], [query.data])
   const total = query.data?.totalCount ?? 0
   const pageCount = query.data?.totalPages ?? 1
   const searching = search.trim().length > 0

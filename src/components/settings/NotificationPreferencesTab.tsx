@@ -26,7 +26,7 @@ export function NotificationPreferencesTab({ businessId }: { businessId: string 
   const query = useBusinessNotificationPreferences(businessId)
   const update = useUpdateBusinessNotificationPreferences(businessId)
 
-  const preferences = query.data ?? []
+  const preferences = useMemo(() => query.data ?? [], [query.data])
 
   const snapshot = useMemo(() => {
     const matrix: Matrix = {}

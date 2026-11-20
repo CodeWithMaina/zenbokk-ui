@@ -40,7 +40,7 @@ function AdminNotificationTemplates() {
   const [channel, setChannel] = useState('')
   const [selected, setSelected] = useState<AdminNotificationTemplate | null>(null)
 
-  const templates = query.data ?? []
+  const templates = useMemo(() => query.data ?? [], [query.data])
 
   const categories = useMemo(
     () => [...new Set(templates.map((template) => template.category))].sort(),

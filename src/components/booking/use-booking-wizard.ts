@@ -119,9 +119,16 @@ export function useBookingWizard({
 
   // Opening the flow (and reopening it for another booking) starts clean. Keyed
   // on `open` alone: `reset` changes identity when the business's payment
-  // configuration arrives, and re-running it then would discard typed work.
+  // configuration arrives, and re-running it then would discard typed work. The
+  // ref keeps the effect honest — it always calls the current `reset` — without
+  // making `reset` a trigger.
+  const resetRef = useRef(reset)
   useEffect(() => {
-    if (open) reset()
+    resetRef.current = reset
+  }, [reset])
+
+  useEffect(() => {
+    if (open) resetRef.current()
   }, [open])
 
   // The business's configured booking percentage usually arrives after the flow
@@ -151,7 +158,7 @@ export function useBookingWizard({
   )
 
   /** The day's real slots, straight from the server's answer. */
-  const slots = availability.data ?? []
+  const slots = useMemo(() => availability.data ?? [], [availability.data])
 
   // ── Step navigation ─────────────────────────────────────────────
 

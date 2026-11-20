@@ -1,5 +1,6 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useMinuteClock } from '../lib/hooks/use-minute-clock'
 import { toast } from 'sonner'
 import {
   AppointmentBookingForm,
@@ -96,6 +97,10 @@ function clockTime(date: Date): string {
  */
 function AppointmentsPage() {
   const { business, hasModule, hasPermission } = useDashboardContext()
+  // "Today" is read through the shared minute clock so the derived windows and
+  // counters are stable across renders instead of being recomputed from a fresh
+  // `new Date()` on every one.
+  const clock = useMinuteClock()
   const enabled = hasModule(MODULE.appointments)
 
   /**
@@ -217,7 +222,7 @@ function AppointmentsPage() {
    * groups by date with the days collapsed until asked for.
    */
   const timelineScope: TimelineScope = useMemo(() => {
-    const active = resolveDateWindow(filters, new Date(), businessTimeZone)
+    const active = resolveDateWindow(filters, clock, businessTimeZone)
     if (!active.from || !active.to) return 'month'
     const days = Math.max(
       1,
@@ -226,7 +231,7 @@ function AppointmentsPage() {
     if (days <= 1) return 'day'
     if (days <= 8) return 'week'
     return 'month'
-  }, [filters, businessTimeZone])
+  }, [filters, businessTimeZone, clock])
 
   const rangeQuery = useAppointmentRange(
     {
@@ -276,10 +281,10 @@ function AppointmentsPage() {
   }, [rows])
 
   const todayCount = useMemo(() => {
-    const now = Date.now()
+    const now = clock.getTime()
     return rows.filter((row) => isSameDay(new Date(row.scheduledAt), now) && row.status !== 'cancelled')
       .length
-  }, [rows])
+  }, [rows, clock])
 
   const reference = dashboard ?? null
   const mutations = useAppointmentMutations()
@@ -531,10 +536,10 @@ function AppointmentsPage() {
   const period = useMemo<Period | null>(() => {
     if (view === 'calendar') return calendarPeriod(mode, anchor)
     const unit = presetPeriodUnit(filters.preset)
-    const active = resolveDateWindow(filters, new Date(), businessTimeZone)
+    const active = resolveDateWindow(filters, clock, businessTimeZone)
     if (!unit || !active.from || !active.to) return null
     return { unit, from: new Date(active.from), to: new Date(active.to) }
-  }, [view, mode, anchor, filters, businessTimeZone])
+  }, [view, mode, anchor, filters, businessTimeZone, clock])
 
   const periodText = period ? periodLabel(period) : ALL_DATES_LABEL
 
@@ -548,7 +553,7 @@ function AppointmentsPage() {
       // Only a period that really IS today may carry the `today` preset: the drawer
       // renders the preset's own wording and highlights it as pressed, so labelling a
       // stepped day "Today" would tell the user the wrong date.
-      const isToday = next.unit === 'day' && isSameDay(next.from, new Date())
+      const isToday = next.unit === 'day' && isSameDay(next.from, clock)
       setFilterState((current) => ({
         ...current,
         preset: isToday ? 'today' : 'custom',
@@ -557,7 +562,7 @@ function AppointmentsPage() {
       }))
       resetPaging()
     },
-    [resetPaging],
+    [resetPaging, clock],
   )
 
   /** Previous / next period, by one day, week, month or range length. */

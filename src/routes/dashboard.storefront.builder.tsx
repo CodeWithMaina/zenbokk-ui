@@ -90,6 +90,15 @@ export function StorefrontBuilderPage() {
   const { can } = useEditorCapabilities(hasModule, business)
   const previewProfile = useMemo(() => toPreviewProfile(business, can), [business, can])
 
+  // `markSaved` is called from the autosave timeout below but must not be a
+  // dependency of that effect: the editor hook returns a fresh object every
+  // render, so depending on it (or on `editor`) would restart the debounce on
+  // every keystroke and never let the save fire.
+  const markSavedRef = useRef(editor.markSaved)
+  useEffect(() => {
+    markSavedRef.current = editor.markSaved
+  }, [editor.markSaved])
+
   // Autosave on config changes with debounce (3 seconds)
   useEffect(() => {
     if (!editor.dirty) {
@@ -114,7 +123,7 @@ export function StorefrontBuilderPage() {
           expectedVersion: draftVersionRef.current,
         })
         if (next?.draft) {
-          editor.markSaved(mergeConfig(next.draft))
+          markSavedRef.current(mergeConfig(next.draft))
           draftVersionRef.current = next.draftVersion
           lastSavedConfigRef.current = JSON.stringify(next.draft)
           setAutosaveStatus('idle')

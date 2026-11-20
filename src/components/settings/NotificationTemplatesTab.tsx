@@ -34,7 +34,7 @@ export function NotificationTemplatesTab({ businessId }: { businessId: string })
     channel: channel || null,
   })
 
-  const templates = query.data ?? []
+  const templates = useMemo(() => query.data ?? [], [query.data])
   const categories = useMemo(
     () => [...new Set(templates.map((entry) => entry.category))].sort(),
     [templates],

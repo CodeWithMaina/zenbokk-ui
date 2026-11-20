@@ -22,7 +22,9 @@ self.addEventListener('push', (event) => {
   let payload = {}
   try {
     payload = event.data ? event.data.json() : {}
-  } catch (error) {
+  } catch {
+    // A push whose payload is not JSON is still valid: fall back to the raw text
+    // (and an empty body when the push carried no data at all).
     payload = { title: 'Punched', body: event.data ? event.data.text() : '' }
   }
 
