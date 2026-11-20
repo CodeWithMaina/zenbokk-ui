@@ -9,8 +9,7 @@ import { Button } from '../components/ui/button'
 import { Field, Input } from '../components/ui/field'
 import { ApiError } from '../lib/api/client'
 import { useAuth } from '../lib/auth'
-import { destinationForRole, requireAnonymous, requirePlatformSurface } from '../lib/auth/guards'
-import { resolveSurface } from '../lib/tenant'
+import { postSignInDestination, requireAnonymous, requirePlatformSurface } from '../lib/auth/guards'
 
 /** Only same-origin paths are accepted as a post-sign-in destination. */
 function validateSearch(search: Record<string, unknown>): { redirect?: string } {
@@ -74,12 +73,12 @@ function ConsoleSignInPage() {
         return
       }
 
-      if (redirect) {
-        router.history.push(redirect)
+      const landing = postSignInDestination(role, redirect)
+      if (landing.kind === 'deep-link') {
+        // The visitor asked for this address (a console deep link) — push it.
+        router.history.push(landing.href)
         return
       }
-
-      const landing = destinationForRole(role, resolveSurface().kind === 'tenant')
       if (landing.kind === 'external') {
         window.location.assign(landing.href)
         return

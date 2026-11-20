@@ -18,17 +18,17 @@ import type { Session } from './session'
  */
 
 /** Console each role belongs to after signing in. */
-export type HomePath = '/' | '/dashboard' | '/staff' | '/admin' | '/account'
+export type HomePath = '/' | '/dashboard' | '/staff' | '/admin'
 
 /**
  * Where a signed-in user of each role belongs by default.
  *
  * Platform administration is a separate surface (`admin.zenbokk.com`); the
  * caller must still reach it through its own host, which
- * `destinationForRole` handles. A customer lands on the storefront account
- * when a tenant is active, and on the marketing site otherwise.
+ * `destinationForRole` handles. A customer's home is the storefront, which is
+ * the same address (`/`) on a business host and on the marketing site.
  */
-export function homePathForRole(role: UserRole, tenantActive = false): HomePath {
+export function homePathForRole(role: UserRole): HomePath {
   switch (role) {
     case 'Admin':
       return '/admin'
@@ -37,7 +37,7 @@ export function homePathForRole(role: UserRole, tenantActive = false): HomePath 
     case 'Staff':
       return '/staff'
     case 'Customer':
-      return tenantActive ? '/account' : '/'
+      return '/'
   }
 }
 
@@ -49,9 +49,52 @@ export type Landing =
  * Post-authentication destination, including the host a role must be on.
  * Used by every sign-in entry point so there is one redirect strategy.
  */
-export function destinationForRole(role: UserRole, tenantActive = false): Landing {
+export function destinationForRole(role: UserRole): Landing {
   if (role === 'Admin') return { kind: 'external', href: adminUrl('/admin') }
-  return { kind: 'internal', to: homePathForRole(role, tenantActive) }
+  return { kind: 'internal', to: homePathForRole(role) }
+}
+
+/**
+ * A post-sign-in destination: a role's own console, another host, or a deep
+ * link the visitor asked for (a booking draft, a console screen).
+ */
+export type SignInLanding = Landing | { kind: 'deep-link'; href: string }
+
+/** The console each role owns; only its own screens are worth returning to. */
+const CONSOLE_PATH: Record<Exclude<UserRole, 'Customer'>, HomePath> = {
+  Business: '/dashboard',
+  Staff: '/staff',
+  Admin: '/admin',
+}
+
+/**
+ * Whether a sign-in should return to `href` for this role.
+ *
+ * A customer is always returned to what they asked for — the booking draft they
+ * were composing, or the shop they signed in from. A console role (owner,
+ * staff, admin) is only returned to a screen inside its own console: a
+ * storefront address belongs to the customer side, and following it would leave
+ * an owner on a shop page instead of their dashboard.
+ */
+function shouldReturnTo(role: UserRole, href: string): boolean {
+  if (role === 'Customer') return true
+
+  const path = href.split(/[?#]/)[0] ?? ''
+  const consolePath = CONSOLE_PATH[role]
+  return path === consolePath || path.startsWith(`${consolePath}/`)
+}
+
+/**
+ * Where a sign-in entry point should send the visitor once the session exists.
+ *
+ * One strategy for every door: honour a deep link the visitor can actually
+ * use, otherwise send them to the home their role owns.
+ */
+export function postSignInDestination(role: UserRole, redirect?: string): SignInLanding {
+  if (redirect && shouldReturnTo(role, redirect)) {
+    return { kind: 'deep-link', href: redirect }
+  }
+  return destinationForRole(role)
 }
 
 function signInPathFor(roles: readonly UserRole[]): '/login' | '/auth/sign-in' {
@@ -76,7 +119,7 @@ export async function requireSession(
     throw redirect({ to: signInPathFor(roles), search: { redirect: href } })
   }
   if (roles.length > 0 && !roles.includes(session.user.role)) {
-    throw redirect({ to: homePathForRole(session.user.role, resolveSurface().kind === 'tenant') })
+    throw redirect({ to: homePathForRole(session.user.role) })
   }
   return session
 }
@@ -87,15 +130,15 @@ export async function requireAnonymous(): Promise<void> {
   const session = getSession()
   if (!session) return
 
-  const landing = destinationForRole(session.user.role, resolveSurface().kind === 'tenant')
+  const landing = destinationForRole(session.user.role)
   throw landing.kind === 'external'
     ? redirect({ href: landing.href })
     : redirect({ to: landing.to })
 }
 
 /**
- * Routes that only exist inside a business storefront (`/`, `/book`,
- * `/account` on a business host).
+ * Routes that only exist inside a business storefront (`/`, `/book` on a
+ * business host).
  */
 export function requireTenantSurface(): string {
   const surface = resolveSurface()

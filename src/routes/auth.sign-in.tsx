@@ -8,7 +8,7 @@ import { Button } from '../components/ui/button'
 import { Field, Input } from '../components/ui/field'
 import { ApiError } from '../lib/api/client'
 import { useAuth } from '../lib/auth'
-import { homePathForRole, requireAnonymous } from '../lib/auth/guards'
+import { postSignInDestination, requireAnonymous } from '../lib/auth/guards'
 
 /** Only same-origin paths are accepted as a post-sign-in destination. */
 function validateSearch(search: Record<string, unknown>): { redirect?: string } {
@@ -53,12 +53,17 @@ function SignInPage() {
     setFailure(null)
     try {
       const response = await signIn(values)
-      if (redirect) {
+      const landing = postSignInDestination(response.user.role, redirect)
+      if (landing.kind === 'deep-link') {
         // Arbitrary deep link (e.g. a booking draft) — push it verbatim.
-        router.history.push(redirect)
+        router.history.push(landing.href)
         return
       }
-      await navigate({ to: homePathForRole(response.user.role), replace: true })
+      if (landing.kind === 'external') {
+        window.location.assign(landing.href)
+        return
+      }
+      await navigate({ to: landing.to, replace: true })
     } catch (error) {
       if (error instanceof ApiError) {
         if (error.code === 'EMAIL_NOT_VERIFIED' || error.code === 'EMAIL_NOT_CONFIRMED') {

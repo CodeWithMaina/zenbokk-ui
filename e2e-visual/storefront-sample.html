@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Storefront sample — visual harness</title>
+    <style>
+      :root {
+        color-scheme: light;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: #f7f4ee;
+        color: #1c1f23;
+        font-family: "Manrope", system-ui, sans-serif;
+      }
+      header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 22px 56px;
+        border-bottom: 1px solid #e5e0d6;
+      }
+      header b {
+        font-family: Georgia, serif;
+        font-size: 22px;
+        font-weight: 400;
+      }
+      nav {
+        display: flex;
+        gap: 26px;
+        font-size: 13px;
+        color: #5b616b;
+      }
+      .hero {
+        display: grid;
+        grid-template-columns: 1.1fr 1fr;
+        gap: 40px;
+        align-items: center;
+        padding: 56px;
+      }
+      .hero h1 {
+        margin: 0;
+        font-family: Georgia, serif;
+        font-size: 52px;
+        font-weight: 400;
+        line-height: 1.05;
+        letter-spacing: -0.02em;
+      }
+      .hero p {
+        margin: 18px 0 26px;
+        max-width: 34ch;
+        color: #5b616b;
+        line-height: 1.6;
+        font-size: 15px;
+      }
+      .hero a {
+        display: inline-flex;
+        padding: 12px 22px;
+        border-radius: 999px;
+        background: #2f6b4f;
+        color: #fff;
+        text-decoration: none;
+        font-size: 13px;
+        font-weight: 600;
+      }
+      .hero figure {
+        height: 320px;
+        margin: 0;
+        border-radius: 20px;
+        background: linear-gradient(135deg, #d9cbb0, #b9a887);
+      }
+      .cards {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 22px;
+        padding: 0 56px 64px;
+      }
+      .card {
+        border: 1px solid #e5e0d6;
+        border-radius: 16px;
+        background: #fff;
+        padding: 20px;
+      }
+      .card b {
+        display: block;
+        font-family: Georgia, serif;
+        font-size: 19px;
+        font-weight: 400;
+      }
+      .card span {
+        display: block;
+        margin-top: 8px;
+        color: #5b616b;
+        font-size: 13px;
+        line-height: 1.5;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <b>Maisha Salon &amp; Spa</b>
+      <nav><span>Services</span><span>Team</span><span>Gallery</span><span>Book</span></nav>
+    </header>
+    <section class="hero">
+      <div>
+        <h1>Hair, skin and calm — in the heart of Kilimani.</h1>
+        <p>
+          A quiet studio for considered cuts, colour and treatments. Book online in under a
+          minute and keep your stamps on one card.
+        </p>
+        <a href="#">Book an appointment</a>
+      </div>
+      <figure></figure>
+    </section>
+    <section class="cards">
+      <article class="card"><b>Signature cut</b><span>Consultation, wash and finish — 60 min</span></article>
+      <article class="card"><b>Bridal styling</b><span>Trial and day-of styling for the full party</span></article>
+      <article class="card"><b>Deep tissue</b><span>Sixty minutes of focused recovery</span></article>
+    </section>
+  </body>
+</html>

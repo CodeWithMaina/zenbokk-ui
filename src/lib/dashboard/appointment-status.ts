@@ -50,11 +50,9 @@ export function appointmentStatusTone(status: string): Tone {
   return tones[status] ?? 'neutral'
 }
 
-/** Terminal statuses can't transition any further. */
-export function isAppointmentFinal(status: string): boolean {
-  return status === 'completed' || status === 'cancelled' || status === 'no_show'
-}
-/** Statuses an owner can still act on. Mirrors `GetAllowedFromStatus` server-side. */
+/**
+ * Statuses an owner can still act on. Mirrors `GetAllowedFromStatus` server-side.
+ */
 export function appointmentActions(status: string): Array<'confirm' | 'complete' | 'no_show' | 'cancel'> {
   // A booking awaiting its fee is confirmed by verifying the payment, not by a bare
   // confirm tap — so the only action offered here is to call it off. Verifying the
@@ -63,15 +61,6 @@ export function appointmentActions(status: string): Array<'confirm' | 'complete'
   if (status === 'booked') return ['confirm', 'cancel']
   if (status === 'confirmed') return ['complete', 'no_show']
   return []
-}
-
-/**
- * Cancellation is legal from `booked` and from `pending_payment` server-side; a
- * confirmed visit must go through the business. Customers see the same rule in
- * their account page.
- */
-export function isAppointmentCancellable(status: string): boolean {
-  return status === 'booked' || status === 'pending_payment'
 }
 
 /**

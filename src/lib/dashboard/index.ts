@@ -4,8 +4,6 @@ export {
   appointmentStatusLabel,
   appointmentStatusTone,
   APPOINTMENT_STATUSES,
-  isAppointmentCancellable,
-  isAppointmentFinal,
 } from './appointment-status'
 export { DashboardProvider } from './DashboardProvider'
 export { DashboardContext, useDashboardContext } from './dashboard-context'

@@ -8,7 +8,7 @@ import { Button } from '../components/ui/button'
 import { Field, Input } from '../components/ui/field'
 import { ApiError, errorMessage } from '../lib/api/client'
 import { authApi, useAuth } from '../lib/auth'
-import { homePathForRole, requireAnonymous } from '../lib/auth/guards'
+import { postSignInDestination, requireAnonymous } from '../lib/auth/guards'
 
 type VerifySearch = { email?: string; redirect?: string }
 
@@ -76,12 +76,17 @@ function VerifyEmailPage() {
         code: values.code.trim(),
       })
 
-      if (search.redirect) {
+      const landing = postSignInDestination(session.user.role, search.redirect)
+      if (landing.kind === 'deep-link') {
         // A booking draft or other deep link — push it verbatim after verifying.
-        router.history.push(search.redirect)
+        router.history.push(landing.href)
         return
       }
-      await navigate({ to: homePathForRole(session.user.role), replace: true })
+      if (landing.kind === 'external') {
+        window.location.assign(landing.href)
+        return
+      }
+      await navigate({ to: landing.to, replace: true })
     } catch (error) {
       if (error instanceof ApiError && error.code === 'CODE_EXPIRED') {
         setFailure('That code has expired. Request a fresh one below.')

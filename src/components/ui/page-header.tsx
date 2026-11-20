@@ -6,6 +6,8 @@ export type PageHeaderProps = {
   description?: ReactNode
   actions?: ReactNode
   className?: string
+  /** Typeface override for the title (the dashboard prints it in the display face). */
+  titleClassName?: string
   children?: ReactNode
 }
 
@@ -15,6 +17,7 @@ export function PageHeader({
   description,
   actions,
   className,
+  titleClassName,
   children,
 }: PageHeaderProps) {
   return (
@@ -25,7 +28,7 @@ export function PageHeader({
       )}
     >
       <div className="min-w-0">
-        <h1 className="text-title font-bold tracking-tight">{title}</h1>
+        <h1 className={cn('text-title font-bold tracking-tight', titleClassName)}>{title}</h1>
         {description ? (
           <p className="mt-[0.2rem] text-meta text-muted">{description}</p>
         ) : null}

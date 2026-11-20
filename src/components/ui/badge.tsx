@@ -3,12 +3,28 @@ import { cn } from '../../lib/cn'
 
 export type Tone = 'success' | 'warning' | 'danger' | 'info' | 'neutral'
 
-const toneClass: Record<Tone, string> = {
+/**
+ * Soft background + matching ink for a semantic tone.
+ *
+ * Shared by the pills below and by any other quiet surface that needs to carry a
+ * tone (an icon badge in a section heading, a tinted tile), so the five pairs are
+ * defined once rather than re-derived per component.
+ */
+export const toneSoftClass: Record<Tone, string> = {
   success: 'bg-success-soft text-success-ink',
   warning: 'bg-warning-soft text-warning-ink',
   danger: 'bg-danger-soft text-danger-ink',
   info: 'bg-info-soft text-info-ink',
   neutral: 'bg-neutral-soft text-neutral-ink',
+}
+
+/** Ink only — for an icon that carries a tone without a filled background. */
+export const toneInkClass: Record<Tone, string> = {
+  success: 'text-success-ink',
+  warning: 'text-warning-ink',
+  danger: 'text-danger-ink',
+  info: 'text-info-ink',
+  neutral: 'text-muted',
 }
 
 export type StatusPillProps = {
@@ -32,7 +48,7 @@ export function StatusPill({
 }: StatusPillProps) {
   return (
     <span
-      className={cn('status-pill', tone && toneClass[tone], className)}
+      className={cn('status-pill', tone && toneSoftClass[tone], className)}
       data-status={tone ? undefined : status}
     >
       {children ?? status}
@@ -52,7 +68,7 @@ export function Badge({ tone = 'neutral', children, className }: BadgeProps) {
     <span
       className={cn(
         'inline-flex items-center rounded-pill px-[0.6rem] py-[0.2rem] text-pill font-medium whitespace-nowrap',
-        toneClass[tone],
+        toneSoftClass[tone],
         className,
       )}
     >

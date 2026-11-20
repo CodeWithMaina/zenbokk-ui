@@ -6016,3 +6016,736 @@ html {
     }
   }
 }
+
+/* ========================================================================
+   Dashboard — the operational overview
+   ------------------------------------------------------------------------
+   Only what Tailwind cannot express cleanly lives here: the deep-accent statement
+   hero, the schedule's rail, the calendar grid and the scaled website frame.
+   Everything is `dash-` prefixed and reads theme tokens, so no other screen is
+   touched and both themes are handled by the token layer.
+   ======================================================================== */
+@layer components {
+  /* ---- hero ---------------------------------------------------------- */
+  /* A solid, deep-forest statement panel in both themes: the pressed accent in
+     light, the deep accent surface in dark. Text is always the token pair designed
+     for that background (`--on-accent` / `--accent-ink`), so contrast holds without
+     a bespoke palette and neither theme falls back to a plain white card. */
+  .dash-hero {
+    --dash-hero-bg: var(--accent-active);
+    --dash-hero-ink: var(--on-accent);
+    display: grid;
+    overflow: hidden;
+    border: 1px solid color-mix(in srgb, var(--dash-hero-ink) 10%, transparent);
+    border-radius: var(--radius-panel);
+    background: var(--dash-hero-bg);
+    color: var(--dash-hero-ink);
+  }
+  [data-theme='dark'] .dash-hero {
+    --dash-hero-bg: var(--accent-soft);
+    --dash-hero-ink: var(--accent-ink);
+  }
+  .dash-hero-main {
+    padding: clamp(1rem, 1.1vw + 0.7rem, 1.5rem);
+  }
+  .dash-hero-kicker {
+    font-size: 0.74rem;
+    font-weight: 600;
+    letter-spacing: var(--tracking-caps);
+    text-transform: uppercase;
+    color: color-mix(in srgb, var(--dash-hero-ink) 64%, transparent);
+  }
+  .dash-hero-amount {
+    font-family: var(--font-display);
+    font-size: clamp(2.4rem, 1.5rem + 3.2vw, 3.7rem);
+    font-weight: 300;
+    line-height: 0.95;
+    letter-spacing: -0.03em;
+    font-variant-numeric: tabular-nums;
+  }
+  .dash-hero-amount small {
+    margin-right: 0.4rem;
+    font-family: var(--font-sans);
+    font-size: 0.82rem;
+    font-weight: 600;
+    letter-spacing: 0;
+    color: color-mix(in srgb, var(--dash-hero-ink) 66%, transparent);
+  }
+  .dash-hero-delta {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.14rem 0.5rem;
+    border: 1px solid color-mix(in srgb, var(--dash-hero-ink) 20%, transparent);
+    border-radius: 99px;
+    font-size: 0.72rem;
+    color: color-mix(in srgb, var(--dash-hero-ink) 74%, transparent);
+  }
+  .dash-hero-delta b {
+    color: var(--dash-hero-ink);
+    font-weight: 700;
+  }
+  .dash-hero-meter-label {
+    font-size: 0.74rem;
+    color: color-mix(in srgb, var(--dash-hero-ink) 66%, transparent);
+  }
+  .dash-hero-meter-value {
+    font-size: 0.8rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+  .dash-hero-meter {
+    height: 0.3rem;
+    margin-top: 0.45rem;
+    overflow: hidden;
+    border-radius: 99px;
+    background: color-mix(in srgb, var(--dash-hero-ink) 18%, transparent);
+  }
+  .dash-hero-meter > i {
+    display: block;
+    height: 100%;
+    border-radius: 99px;
+    background: var(--dash-hero-ink);
+    transform-origin: left;
+    animation: dash-meter-grow 1s 0.15s both;
+  }
+  .dash-hero-meter-foot {
+    margin-top: 0.45rem;
+    font-size: 0.72rem;
+    color: color-mix(in srgb, var(--dash-hero-ink) 58%, transparent);
+  }
+  .dash-hero-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: color-mix(in srgb, var(--dash-hero-ink) 80%, transparent);
+  }
+  .dash-hero-link:hover {
+    color: var(--dash-hero-ink);
+    text-decoration: underline;
+  }
+  .dash-hero-link > i {
+    width: 0.42rem;
+    height: 0.42rem;
+    border-radius: 50%;
+    background: currentColor;
+    animation: dash-pulse 2.4s infinite;
+  }
+  .dash-hero-stats {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1px;
+    border-top: 1px solid color-mix(in srgb, var(--dash-hero-ink) 14%, transparent);
+    background: color-mix(in srgb, var(--dash-hero-ink) 14%, transparent);
+  }
+  .dash-hero-stats > div {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 0.1rem;
+    padding: 0.75rem clamp(0.95rem, 1.1vw + 0.7rem, 1.5rem);
+    background: var(--dash-hero-bg);
+  }
+  .dash-hero-stats dt {
+    font-size: 0.68rem;
+    color: color-mix(in srgb, var(--dash-hero-ink) 62%, transparent);
+  }
+  .dash-hero-stats dd {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: clamp(1.05rem, 0.75rem + 0.9vw, 1.42rem);
+    font-weight: 400;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+  }
+  @media (min-width: 40rem) {
+    .dash-hero-stats {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+  }
+  @keyframes dash-meter-grow {
+    from {
+      transform: scaleX(0);
+    }
+  }
+  @keyframes dash-pulse {
+    0% {
+      box-shadow: 0 0 0 0 color-mix(in srgb, var(--dash-hero-ink) 40%, transparent);
+    }
+    70%,
+    100% {
+      box-shadow: 0 0 0 0.42rem transparent;
+    }
+  }
+
+  /* ---- attention rows ------------------------------------------------ */
+  .dash-attention-row {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    width: 100%;
+    padding: 0.5rem 0.55rem;
+    border-radius: 0.7rem;
+    text-align: left;
+    transition: background 0.2s;
+  }
+  .dash-attention-row:hover {
+    background: var(--hover);
+  }
+  .dash-attention-row:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+  }
+
+  /* ---- statistics ---------------------------------------------------- */
+  .dash-stats {
+    padding: clamp(0.9rem, 1vw + 0.6rem, 1.25rem);
+  }
+  .dash-stats-primary {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.9rem;
+    margin-top: 1rem;
+  }
+  .dash-stats-primary-cell {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 0.12rem;
+  }
+  .dash-stats-primary-cell + .dash-stats-primary-cell {
+    padding-left: clamp(0.8rem, 1.4vw, 1.35rem);
+    border-left: 1px solid var(--line);
+  }
+  .dash-stats-primary-cell:hover .dash-stats-value {
+    text-decoration: underline;
+  }
+  .dash-stats-primary-cell:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+    border-radius: var(--radius-sm);
+  }
+  .dash-stats-label {
+    color: var(--fg-muted);
+    font-size: 0.72rem;
+    font-weight: 600;
+  }
+  .dash-stats-value {
+    font-family: var(--font-display);
+    font-size: clamp(1.75rem, 1.15rem + 1.6vw, 2.5rem);
+    font-weight: 400;
+    line-height: 1.05;
+    letter-spacing: -0.025em;
+    font-variant-numeric: tabular-nums;
+  }
+  .dash-stats-note {
+    color: var(--fg-subtle);
+    font-size: 0.72rem;
+    line-height: 1.25;
+  }
+  .dash-stats-groups {
+    display: grid;
+    gap: 0.9rem;
+    margin-top: 1rem;
+    padding-top: 0.9rem;
+    border-top: 1px solid var(--line);
+  }
+  .dash-stats-group + .dash-stats-group {
+    padding-top: 0.9rem;
+    border-top: 1px solid var(--line);
+  }
+  @media (min-width: 40rem) {
+    .dash-stats-groups {
+      grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
+      gap: 0;
+    }
+    .dash-stats-group {
+      padding: 0 clamp(0.8rem, 1.2vw, 1.15rem);
+    }
+    .dash-stats-group:first-child {
+      padding-left: 0;
+    }
+    .dash-stats-group:last-child {
+      padding-right: 0;
+    }
+    .dash-stats-group + .dash-stats-group {
+      padding-top: 0;
+      border-top: 0;
+      border-left: 1px solid var(--line);
+    }
+  }
+
+  /* ---- website preview ----------------------------------------------- */
+  .dash-preview {
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    background: var(--surface-sunken);
+    overflow: hidden;
+  }
+  .dash-preview-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.35rem 0.45rem;
+    border-bottom: 1px solid var(--line);
+    background: var(--surface);
+  }
+  .dash-preview-dots {
+    display: inline-flex;
+    gap: 0.22rem;
+    padding-left: 0.15rem;
+  }
+  .dash-preview-dots > i {
+    width: 0.4rem;
+    height: 0.4rem;
+    border-radius: 50%;
+    background: var(--line-strong);
+  }
+  .dash-preview-url {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    padding: 0.1rem 0.45rem;
+    border-radius: 99px;
+    background: var(--surface-sunken);
+    color: var(--fg-muted);
+    font-size: 0.65rem;
+  }
+  .dash-preview-reload {
+    display: grid;
+    place-items: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: var(--radius-sm);
+    color: var(--fg-muted);
+    transition:
+      background 0.2s,
+      color 0.2s;
+  }
+  .dash-preview-reload:hover {
+    background: var(--hover);
+    color: var(--fg);
+  }
+  .dash-preview-reload:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+  }
+  .dash-preview-viewport {
+    position: relative;
+    aspect-ratio: 16 / 10;
+    overflow: hidden;
+    background: var(--bg);
+  }
+  /* The real storefront at a desktop viewport, scaled to the frame — so the owner
+     sees the layout customers see, not a phone reflow. The scale itself is measured
+     by the component (a CSS container unit cannot produce the unitless ratio
+     `scale()` needs). */
+  .dash-preview-frame {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 1280px;
+    height: 800px;
+    border: 0;
+    transform-origin: top left;
+    pointer-events: none;
+  }
+  .dash-preview-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    background: var(--surface-sunken);
+    color: var(--fg-muted);
+    font-size: 0.75rem;
+  }
+}
+
+
+/* ========================================================================
+   Dashboard — the day's schedule
+   ======================================================================== */
+@layer components {
+  .dash-status-bar {
+    display: flex;
+    gap: 2px;
+    height: 0.28rem;
+    margin-top: 0.2rem;
+    overflow: hidden;
+    border-radius: 99px;
+  }
+  .dash-status-bar > i {
+    display: block;
+  }
+
+  .dash-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.2rem 0.8rem;
+    margin: 0.35rem 0 0.5rem;
+    color: var(--fg-muted);
+    font-size: 0.72rem;
+  }
+  .dash-legend > span {
+    display: inline-flex;
+    align-items: center;
+  }
+  .dash-legend b {
+    display: inline-block;
+    width: 0.45rem;
+    height: 0.45rem;
+    margin-right: 0.3rem;
+    border-radius: 50%;
+  }
+
+  .dash-week {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 0.25rem;
+    margin-bottom: 0.6rem;
+  }
+  .dash-week-day {
+    display: grid;
+    padding: 0.35rem 0;
+    border: 1px solid var(--line);
+    border-radius: 0.55rem;
+    background: var(--surface);
+    font-size: 0.8rem;
+    line-height: 1.2;
+    text-align: center;
+    transition:
+      background 0.15s,
+      border-color 0.15s,
+      color 0.15s;
+  }
+  .dash-week-day small {
+    color: var(--fg-muted);
+    font-size: 0.65rem;
+  }
+  .dash-week-day:hover {
+    background: var(--hover);
+    border-color: var(--line-strong);
+  }
+  .dash-week-day.is-today {
+    border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
+    color: var(--accent-ink);
+  }
+  .dash-week-day.is-today small {
+    color: inherit;
+  }
+  .dash-week-day.is-on {
+    border-color: transparent;
+    background: var(--accent-soft);
+    color: var(--accent-ink);
+  }
+  .dash-week-day.is-on small {
+    color: inherit;
+  }
+
+  .dash-tl {
+    max-height: clamp(20rem, 70vh, 46rem);
+    overflow: auto;
+    margin: 0;
+    padding: 0 0.2rem 0 0;
+    list-style: none;
+  }
+
+  .dash-ti {
+    display: grid;
+    grid-template-columns: 3.2rem 0.8rem minmax(0, 1fr) auto;
+    gap: 0.5rem;
+    border-radius: 0.6rem;
+  }
+  .dash-ti.is-next {
+    background: color-mix(in srgb, var(--accent) 7%, transparent);
+  }
+
+  .dash-ti-time {
+    padding: 0.5rem 0;
+    font-size: 0.82rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+  .dash-ti-time small {
+    display: block;
+    color: var(--fg-subtle);
+    font-size: 0.65rem;
+    font-weight: 400;
+    white-space: nowrap;
+  }
+
+  .dash-ti-rail {
+    position: relative;
+    display: flex;
+    justify-content: center;
+  }
+  .dash-ti-rail::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: var(--line);
+  }
+  .dash-ti-rail > i {
+    position: relative;
+    width: 0.5rem;
+    height: 0.5rem;
+    margin-top: 0.7rem;
+    border-radius: 50%;
+    background: var(--st-solid, var(--fg-muted));
+    box-shadow: 0 0 0 0.2rem var(--surface);
+  }
+
+  .dash-ti-body {
+    min-width: 0;
+    padding: 0.45rem 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .dash-ti-name {
+    font-size: 0.85rem;
+  }
+  .dash-ti-name:hover {
+    text-decoration: underline;
+  }
+  .dash-ti-next {
+    margin-left: 0.4rem;
+    color: var(--accent);
+    font-size: 0.65rem;
+    font-style: normal;
+    font-weight: 700;
+  }
+
+  .dash-ti-side {
+    display: grid;
+    align-content: start;
+    justify-items: end;
+    gap: 0.1rem;
+    padding: 0.45rem 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .dash-ti-side small {
+    color: var(--fg-muted);
+    font-size: 0.72rem;
+    white-space: nowrap;
+  }
+
+  .dash-ti-now {
+    grid-template-columns: 3.2rem 0.8rem 1fr;
+  }
+  .dash-ti-now .dash-ti-time {
+    padding: 0.2rem 0;
+    color: var(--danger-ink);
+  }
+  .dash-ti-now .dash-ti-rail > i {
+    margin-top: 0.4rem;
+    background: var(--danger-solid);
+  }
+  .dash-ti-now-row {
+    padding: 0.15rem 0;
+    border-bottom: 1px dashed var(--danger-solid);
+    color: var(--danger-ink);
+    font-size: 0.72rem;
+    font-weight: 700;
+  }
+}
+
+
+/* ========================================================================
+   Dashboard — calendar, team, feed, ranking
+   ======================================================================== */
+@layer components {
+  .dash-cal {
+    --dash-hour: 2.9rem;
+    --dash-gutter: 2.4rem;
+    overflow: auto;
+    max-height: clamp(20rem, 70vh, 46rem);
+    border: 1px solid var(--line);
+    border-radius: 0.7rem;
+  }
+  .dash-cal-inner {
+    min-width: 32rem;
+  }
+
+  /* The staff header stays put while the hours scroll: a column of times with no
+     name above it is unreadable halfway down a busy day. */
+  .dash-cal-head {
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    display: grid;
+    background: var(--surface);
+  }
+  .dash-cal-head > span {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.3rem;
+    overflow: hidden;
+    padding: 0.4rem 0.1rem;
+    border-bottom: 1px solid var(--line);
+    font-size: 0.75rem;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .dash-cal-head > span small {
+    display: inline-grid;
+    place-items: center;
+    min-width: 1.1rem;
+    height: 1.1rem;
+    padding: 0 0.25rem;
+    border-radius: 99px;
+    background: var(--surface-sunken);
+    color: var(--fg-muted);
+    font-size: 0.6rem;
+    font-weight: 700;
+  }
+
+  .dash-cal-body {
+    position: relative;
+    display: grid;
+  }
+  .dash-cal-hours {
+    display: flex;
+    flex-direction: column;
+  }
+  .dash-cal-hours > span {
+    display: block;
+    height: var(--dash-hour);
+    padding: 0.15rem 0.3rem 0;
+    color: var(--fg-subtle);
+    font-size: 0.65rem;
+    text-align: right;
+  }
+  .dash-cal-col {
+    position: relative;
+    border-left: 1px solid var(--line);
+    background-image: repeating-linear-gradient(
+      to bottom,
+      var(--line) 0 1px,
+      transparent 1px var(--dash-hour)
+    );
+  }
+
+  .dash-cal-event {
+    position: absolute;
+    right: 2px;
+    left: 2px;
+    display: flex;
+    min-height: 1.6rem;
+    flex-direction: column;
+    gap: 0.05rem;
+    overflow: hidden;
+    padding: 0.22rem 0.4rem;
+    border-left: 3px solid var(--st-solid, var(--accent));
+    border-radius: 0.35rem;
+    background: var(--st-soft, var(--accent-soft));
+    color: var(--fg);
+    font-size: 0.72rem;
+    line-height: 1.2;
+    transition: filter 0.15s;
+  }
+  .dash-cal-event:hover {
+    filter: brightness(0.96);
+  }
+  .dash-cal-event:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+  }
+  .dash-cal-event b {
+    display: block;
+    overflow: hidden;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .dash-cal-event span {
+    overflow: hidden;
+    color: var(--fg-muted);
+    font-size: 0.65rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* The current time, drawn across every column, with its clock in the gutter. */
+  .dash-cal-now {
+    position: absolute;
+    right: 0;
+    left: var(--dash-gutter, 2.4rem);
+    z-index: 2;
+    border-top: 2px solid var(--danger-solid);
+    pointer-events: none;
+  }
+  .dash-cal-now-label {
+    position: absolute;
+    right: calc(100% + 0.25rem);
+    top: -0.55rem;
+    padding: 0 0.1rem;
+    background: var(--surface);
+    color: var(--danger-ink);
+    font-size: 0.6rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+  }
+
+  .dash-team {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .dash-team > li {
+    display: grid;
+    grid-template-columns: 2.2rem minmax(0, 1fr) 3.4rem;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.45rem 0;
+    border-top: 1px solid var(--line);
+  }
+  .dash-team > li:first-child {
+    border-top: 0;
+  }
+  .dash-team-stat {
+    color: var(--fg-muted);
+    font-size: 0.72rem;
+    text-align: right;
+  }
+  .dash-team-stat > span {
+    display: block;
+  }
+
+  .dash-feed {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .dash-feed > li {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.45rem 0;
+    border-top: 1px solid var(--line);
+  }
+  .dash-feed > li:first-child {
+    border-top: 0;
+  }
+  .dash-feed small {
+    display: block;
+  }
+
+  .dash-rank {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 0.2rem 0.6rem;
+  }
+}
+

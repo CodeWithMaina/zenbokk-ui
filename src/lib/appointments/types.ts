@@ -9,7 +9,6 @@ import {
   APPOINTMENT_STATUSES,
   appointmentStatusLabel,
   appointmentStatusTone,
-  isAppointmentFinal,
 } from '../dashboard/appointment-status'
 import type { AppointmentStatus } from '../dashboard/appointment-status'
 import {
@@ -37,7 +36,7 @@ import {
  *    `AppointmentReservations.ReservingStatuses`.
  */
 
-export { APPOINTMENT_STATUSES, appointmentStatusLabel, appointmentStatusTone, isAppointmentFinal }
+export { APPOINTMENT_STATUSES, appointmentStatusLabel, appointmentStatusTone }
 export type { AppointmentStatus }
 
 /**
@@ -699,8 +698,10 @@ const PAYMENT_STATUS_LABELS: Record<string, string> = {
   partially_paid: 'Partially paid',
   paid: 'Paid',
   pending: 'Pending',
+  awaiting_verification: 'Awaiting verification',
   failed: 'Failed',
   cancelled: 'Cancelled',
+  refunded: 'Refunded',
   reversed: 'Reversed',
 }
 

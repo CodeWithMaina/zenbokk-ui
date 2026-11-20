@@ -348,7 +348,7 @@ Security properties, each asserted by a test:
 | File | Change |
 | --- | --- |
 | `src/lib/api/types.ts` | `GuestBooking*` types |
-| `src/lib/storefront/api.ts` | `guestBookingApi.start/verify`; `bookingApi.*` accept an optional guest token |
+| `src/lib/storefront/api.ts` | `guestBookingApi.start/verify`; the public booking calls accept an optional guest token |
 | `src/lib/storefront/guest-session.ts` | new — the guest token in `sessionStorage`, per business, **not** in the app session |
 | `src/components/storefront/booking/GuestVerifyPanel.tsx` | new — details → code, with every server refusal surfaced as its own message |
 | `src/routes/$slug.book.tsx` | the payment step's "sign in to confirm" alert is replaced by verification for guests; the booking mutation sends the guest token when there is no session; a 401 mid-flow clears the token and returns the visitor to verification |

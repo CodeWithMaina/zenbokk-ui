@@ -11,8 +11,16 @@
  *   calendar-month | table | filters
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import {
+  RouterProvider,
+  createMemoryHistory,
+  createRootRoute,
+  createRoute,
+  createRouter,
+} from '@tanstack/react-router'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
+import { DashboardSurface } from './DashboardSurface'
 import {
   AppointmentCalendar,
   AppointmentFilters,
@@ -302,11 +310,53 @@ function Surface({ surface }: { surface: string }) {
 const params = new URLSearchParams(window.location.search)
 const surface = params.get('surface') ?? 'timeline-day'
 
+// The harness can render either theme; the app's tokens do the rest.
+const theme = params.get('theme')
+if (theme === 'dark' || theme === 'light') {
+  document.documentElement.dataset.theme = theme
+}
+
+/**
+ * The dashboard lives behind `<Link>`s, so its preview needs a router. This tree is
+ * deliberately tiny: it only registers the paths the preview links to, which is all
+ * `Link` needs to resolve a destination. Nothing is ever navigated to here.
+ */
+const previewRoot = createRootRoute()
+
+const previewRouter = createRouter({
+  routeTree: previewRoot.addChildren([
+    createRoute({
+      getParentRoute: () => previewRoot,
+      path: '/',
+      component: () => <DashboardSurface calendar={surface !== 'dashboard-list'} />,
+    }),
+    createRoute({ getParentRoute: () => previewRoot, path: '/dashboard/appointments' }),
+    createRoute({
+      getParentRoute: () => previewRoot,
+      path: '/dashboard/appointments/$appointmentId',
+    }),
+    createRoute({ getParentRoute: () => previewRoot, path: '/dashboard/analytics' }),
+    createRoute({ getParentRoute: () => previewRoot, path: '/dashboard/customers' }),
+    createRoute({ getParentRoute: () => previewRoot, path: '/dashboard/finances/analytics' }),
+    createRoute({ getParentRoute: () => previewRoot, path: '/dashboard/finances/cashbook' }),
+    createRoute({ getParentRoute: () => previewRoot, path: '/dashboard/finances/payments' }),
+    createRoute({ getParentRoute: () => previewRoot, path: '/dashboard/loyalty' }),
+    createRoute({ getParentRoute: () => previewRoot, path: '/dashboard/rewards' }),
+    createRoute({ getParentRoute: () => previewRoot, path: '/dashboard/settings' }),
+    createRoute({ getParentRoute: () => previewRoot, path: '/dashboard/staff' }),
+    createRoute({ getParentRoute: () => previewRoot, path: '/dashboard/storefront/builder' }),
+    createRoute({ getParentRoute: () => previewRoot, path: '/$slug' }),
+  ]),
+  history: createMemoryHistory({ initialEntries: ['/'] }),
+})
+
+const isDashboard = surface.startsWith('dashboard')
+
 createRoot(document.getElementById('harness-root')!).render(
   <StrictMode>
     <QueryClientProvider client={new QueryClient()}>
       <div data-surface={surface} className="min-h-dvh bg-bg p-[1rem] text-fg">
-        <Surface surface={surface} />
+        {isDashboard ? <RouterProvider router={previewRouter} /> : <Surface surface={surface} />}
       </div>
     </QueryClientProvider>
   </StrictMode>,

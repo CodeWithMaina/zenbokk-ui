@@ -12,7 +12,6 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SlugRouteImport } from './routes/$slug'
 import { Route as AboutRouteImport } from './routes/about'
-import { Route as AccountRouteImport } from './routes/account'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as BookRouteImport } from './routes/book'
@@ -30,7 +29,6 @@ import { Route as StaffRouteImport } from './routes/staff'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as SlugIndexRouteImport } from './routes/$slug.index'
 import { Route as SlugAboutRouteImport } from './routes/$slug.about'
-import { Route as SlugAccountRouteImport } from './routes/$slug.account'
 import { Route as SlugBookRouteImport } from './routes/$slug.book'
 import { Route as SlugContactRouteImport } from './routes/$slug.contact'
 import { Route as SlugGalleryRouteImport } from './routes/$slug.gallery'
@@ -135,11 +133,6 @@ const AboutRoute = AboutRouteImport.update({
   path: '/about',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AccountRoute = AccountRouteImport.update({
-  id: '/account',
-  path: '/account',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const AdminRoute = AdminRouteImport.update({
   id: '/admin',
   path: '/admin',
@@ -223,11 +216,6 @@ const SlugIndexRoute = SlugIndexRouteImport.update({
 const SlugAboutRoute = SlugAboutRouteImport.update({
   id: '/about',
   path: '/about',
-  getParentRoute: () => SlugRoute,
-} as any)
-const SlugAccountRoute = SlugAccountRouteImport.update({
-  id: '/account',
-  path: '/account',
   getParentRoute: () => SlugRoute,
 } as any)
 const SlugBookRoute = SlugBookRouteImport.update({
@@ -704,7 +692,6 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/$slug': typeof SlugRouteWithChildren
   '/about': typeof AboutRoute
-  '/account': typeof AccountRoute
   '/admin': typeof AdminRouteWithChildren
   '/auth': typeof AuthRouteWithChildren
   '/book': typeof BookRoute
@@ -721,7 +708,6 @@ export interface FileRoutesByFullPath {
   '/staff': typeof StaffRouteWithChildren
   '/terms': typeof TermsRoute
   '/$slug/about': typeof SlugAboutRoute
-  '/$slug/account': typeof SlugAccountRoute
   '/$slug/book': typeof SlugBookRoute
   '/$slug/contact': typeof SlugContactRoute
   '/$slug/gallery': typeof SlugGalleryRoute
@@ -815,7 +801,6 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
-  '/account': typeof AccountRoute
   '/auth': typeof AuthRouteWithChildren
   '/book': typeof BookRoute
   '/contact': typeof ContactRoute
@@ -829,7 +814,6 @@ export interface FileRoutesByTo {
   '/search': typeof SearchRoute
   '/terms': typeof TermsRoute
   '/$slug/about': typeof SlugAboutRoute
-  '/$slug/account': typeof SlugAccountRoute
   '/$slug/book': typeof SlugBookRoute
   '/$slug/contact': typeof SlugContactRoute
   '/$slug/gallery': typeof SlugGalleryRoute
@@ -915,7 +899,6 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/$slug': typeof SlugRouteWithChildren
   '/about': typeof AboutRoute
-  '/account': typeof AccountRoute
   '/admin': typeof AdminRouteWithChildren
   '/auth': typeof AuthRouteWithChildren
   '/book': typeof BookRoute
@@ -932,7 +915,6 @@ export interface FileRoutesById {
   '/staff': typeof StaffRouteWithChildren
   '/terms': typeof TermsRoute
   '/$slug/about': typeof SlugAboutRoute
-  '/$slug/account': typeof SlugAccountRoute
   '/$slug/book': typeof SlugBookRoute
   '/$slug/contact': typeof SlugContactRoute
   '/$slug/gallery': typeof SlugGalleryRoute
@@ -1029,7 +1011,6 @@ export interface FileRouteTypes {
     | '/'
     | '/$slug'
     | '/about'
-    | '/account'
     | '/admin'
     | '/auth'
     | '/book'
@@ -1046,7 +1027,6 @@ export interface FileRouteTypes {
     | '/staff'
     | '/terms'
     | '/$slug/about'
-    | '/$slug/account'
     | '/$slug/book'
     | '/$slug/contact'
     | '/$slug/gallery'
@@ -1140,7 +1120,6 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/about'
-    | '/account'
     | '/auth'
     | '/book'
     | '/contact'
@@ -1154,7 +1133,6 @@ export interface FileRouteTypes {
     | '/search'
     | '/terms'
     | '/$slug/about'
-    | '/$slug/account'
     | '/$slug/book'
     | '/$slug/contact'
     | '/$slug/gallery'
@@ -1239,7 +1217,6 @@ export interface FileRouteTypes {
     | '/'
     | '/$slug'
     | '/about'
-    | '/account'
     | '/admin'
     | '/auth'
     | '/book'
@@ -1256,7 +1233,6 @@ export interface FileRouteTypes {
     | '/staff'
     | '/terms'
     | '/$slug/about'
-    | '/$slug/account'
     | '/$slug/book'
     | '/$slug/contact'
     | '/$slug/gallery'
@@ -1352,7 +1328,6 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   SlugRoute: typeof SlugRouteWithChildren
   AboutRoute: typeof AboutRoute
-  AccountRoute: typeof AccountRoute
   AdminRoute: typeof AdminRouteWithChildren
   AuthRoute: typeof AuthRouteWithChildren
   BookRoute: typeof BookRoute
@@ -1396,13 +1371,6 @@ declare module '@tanstack/react-router' {
       path: '/about'
       fullPath: '/about'
       preLoaderRoute: typeof AboutRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/account': {
-      id: '/account'
-      path: '/account'
-      fullPath: '/account'
-      preLoaderRoute: typeof AccountRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin': {
@@ -1522,13 +1490,6 @@ declare module '@tanstack/react-router' {
       path: '/about'
       fullPath: '/$slug/about'
       preLoaderRoute: typeof SlugAboutRouteImport
-      parentRoute: typeof SlugRoute
-    }
-    '/$slug/account': {
-      id: '/$slug/account'
-      path: '/account'
-      fullPath: '/$slug/account'
-      preLoaderRoute: typeof SlugAccountRouteImport
       parentRoute: typeof SlugRoute
     }
     '/$slug/book': {
@@ -2152,7 +2113,6 @@ declare module '@tanstack/react-router' {
 
 interface SlugRouteChildren {
   SlugAboutRoute: typeof SlugAboutRoute
-  SlugAccountRoute: typeof SlugAccountRoute
   SlugBookRoute: typeof SlugBookRoute
   SlugContactRoute: typeof SlugContactRoute
   SlugGalleryRoute: typeof SlugGalleryRoute
@@ -2167,7 +2127,6 @@ interface SlugRouteChildren {
 
 const SlugRouteChildren: SlugRouteChildren = {
   SlugAboutRoute: SlugAboutRoute,
-  SlugAccountRoute: SlugAccountRoute,
   SlugBookRoute: SlugBookRoute,
   SlugContactRoute: SlugContactRoute,
   SlugGalleryRoute: SlugGalleryRoute,
@@ -2539,7 +2498,6 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   SlugRoute: SlugRouteWithChildren,
   AboutRoute: AboutRoute,
-  AccountRoute: AccountRoute,
   AdminRoute: AdminRouteWithChildren,
   AuthRoute: AuthRouteWithChildren,
   BookRoute: BookRoute,

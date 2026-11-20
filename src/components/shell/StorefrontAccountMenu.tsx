@@ -15,24 +15,23 @@ import type { MenuItem } from '../ui/menu'
 /**
  * Signed-in account menu for a business's storefront header.
  *
- * Authenticated users see:
- * - My Dashboard (navigation to their dashboard)
- * - Log Out (complete logout)
+ * Console roles (owner, staff, admin) get a shortcut into their own dashboard
+ * and a logout. A customer gets the logout: customers have no account page, and
+ * their bookings live in the booking flow.
  *
- * Anonymous visitors see a sign-in link.
+ * Anonymous visitors see a sign-in link that brings them back to this shop's
+ * booking page.
  */
 export function StorefrontAccountMenu() {
   const { user, role, isAuthenticated, signOut } = useAuth()
   const { canonicalSlug } = useStorefront()
   const navigate = useNavigate()
 
-  const accountHref = storefrontHref(canonicalSlug, '/account')
-
   if (!isAuthenticated) {
     return (
       <Link
         to="/auth/sign-in"
-        search={{ redirect: accountHref }}
+        search={{ redirect: storefrontHref(canonicalSlug, '/book') }}
         className="btn btn-ghost no-underline max-sm:btn-icon"
         aria-label="Log in"
       >
@@ -49,9 +48,9 @@ export function StorefrontAccountMenu() {
 
   const items: MenuItem[] = []
 
-  // Show "My Dashboard" for business owners, staff, and admins
+  // Console roles jump to the console they own; a customer has no dashboard.
   if (role === 'Business' || role === 'Staff' || role === 'Admin') {
-    const landing = destinationForRole(role, true)
+    const landing = destinationForRole(role)
     items.push({
       label: 'My Dashboard',
       icon: <LayoutDashboard className="size-4" />,
@@ -61,15 +60,6 @@ export function StorefrontAccountMenu() {
           return
         }
         void navigate({ to: landing.to })
-      },
-    })
-  } else if (role === 'Customer') {
-    // Customers see "My Dashboard" which links to their account/bookings
-    items.push({
-      label: 'My Dashboard',
-      icon: <LayoutDashboard className="size-4" />,
-      onSelect: () => {
-        window.location.assign(accountHref)
       },
     })
   }

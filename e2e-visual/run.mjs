@@ -21,8 +21,10 @@ const outDir = join(here, 'out')
 const PORT = 5199
 const BASE = `http://localhost:${PORT}/e2e-visual/harness.html`
 const HEIGHT = 900
-const WIDTHS = [375, 390, 430, 768, 820, 1024, 1280, 1440]
-const SURFACES = [
+const WIDTHS = process.env.HARNESS_WIDTHS
+  ? process.env.HARNESS_WIDTHS.split(',').map(Number)
+  : [375, 390, 430, 768, 820, 1024, 1280, 1440]
+const SURFACES = process.env.HARNESS_SURFACES ? process.env.HARNESS_SURFACES.split(',') : [
   'appointments-header',
   'slot-picker',
   'booking-progress',
@@ -34,7 +36,12 @@ const SURFACES = [
   'calendar-month',
   'table',
   'filters',
+  'dashboard',
+  'dashboard-list',
 ]
+
+/** `HARNESS_THEME=dark` renders the same surfaces against the dark token set. */
+const THEME = process.env.HARNESS_THEME === 'dark' ? 'dark' : 'light'
 
 mkdirSync(outDir, { recursive: true })
 
@@ -138,16 +145,17 @@ try {
       page.on('pageerror', (error) => consoleErrors.push(String(error).slice(0, 160)))
 
       await page.setViewportSize({ width, height: HEIGHT })
-      await page.goto(`${BASE}?surface=${surface}`, { waitUntil: 'load' })
+      await page.goto(`${BASE}?surface=${surface}&theme=${THEME}`, { waitUntil: 'load' })
       await page.waitForSelector(`[data-surface="${surface}"]`)
       await page.waitForTimeout(150)
 
       const metrics = await page.evaluate(MEASURE)
-      const screenshot = join(outDir, `${surface}-${width}.png`)
+      const suffix = THEME === 'dark' ? `-dark` : ''
+      const screenshot = join(outDir, `${surface}${suffix}-${width}.png`)
       await page.screenshot({ path: screenshot, fullPage: true })
 
-      report.results.push({ surface, width, ...metrics, consoleErrors, screenshot })
-      if (consoleErrors.length > 0) report.errors.push({ surface, width, consoleErrors })
+      report.results.push({ surface, theme: THEME, width, ...metrics, consoleErrors, screenshot })
+      if (consoleErrors.length > 0) report.errors.push({ surface, theme: THEME, width, consoleErrors })
       await page.close()
     }
   }

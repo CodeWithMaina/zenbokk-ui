@@ -186,9 +186,6 @@ export const queryKeys = {
   loyaltyProgramActivity: (programId: string, filters: Record<string, unknown>) =>
     ['loyalty', 'programs', programId, 'activity', filters] as const,
 
-  myAppointments: (filters: Record<string, unknown>) =>
-    ['appointments', 'customer', filters] as const,
-
   adminDashboard: () => ['admin', 'dashboard'] as const,
   adminGrowth: (period: string) => ['admin', 'growth', period] as const,
   adminUsers: (filters: Record<string, unknown>) => ['admin', 'users', filters] as const,

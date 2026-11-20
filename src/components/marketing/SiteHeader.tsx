@@ -7,7 +7,6 @@ import { cn } from '../../lib/cn'
 import { useAuth } from '../../lib/auth'
 import { homePathForRole } from '../../lib/auth/guards'
 import { getInitials } from '../../lib/format'
-import { resolveSurface } from '../../lib/tenant'
 import { Button } from '../ui/button'
 import { PunchedWordmark } from './PunchedMark'
 
@@ -273,7 +272,7 @@ export function HeaderActions() {
   if (isAuthenticated && user) {
     const name = user.fullName?.trim() || user.email?.trim() || ''
     const firstName = name.split(/\s+/)[0] ?? ''
-    const to = role ? homePathForRole(role, resolveSurface().kind === 'tenant') : '/'
+    const to = role ? homePathForRole(role) : '/'
 
     return (
       <Link

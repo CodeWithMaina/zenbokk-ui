@@ -31,6 +31,8 @@ export function StorefrontNav() {
   const pathname = useLocation({ select: (location) => location.pathname })
   const { count } = useBookingTray(businessId)
   const { isAuthenticated, signOut, role } = useAuth()
+  /** Only the console roles have a dashboard to open; a customer only signs out. */
+  const canOpenConsole = role === 'Business' || role === 'Staff' || role === 'Admin'
   const navigate = useNavigate()
   const [menuOpen, setMenuOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
@@ -110,7 +112,7 @@ export function StorefrontNav() {
 
   const handleDashboardClick = async () => {
     if (!isAuthenticated || !role) return
-    const landing = destinationForRole(role, true)
+    const landing = destinationForRole(role)
     if (landing.kind === 'external') {
       window.location.assign(landing.href)
       return
@@ -286,15 +288,17 @@ export function StorefrontNav() {
           {/* Authenticated user actions */}
           {isAuthenticated && (
             <div className="sf-menu-actions">
-              <button
-                type="button"
-                onClick={handleDashboardClick}
-                className="sf-menu-action-btn"
-                title="Go to your dashboard"
-              >
-                <LayoutDashboard className="size-[1.1rem]" aria-hidden="true" />
-                <span>My Dashboard</span>
-              </button>
+              {canOpenConsole ? (
+                <button
+                  type="button"
+                  onClick={handleDashboardClick}
+                  className="sf-menu-action-btn"
+                  title="Go to your dashboard"
+                >
+                  <LayoutDashboard className="size-[1.1rem]" aria-hidden="true" />
+                  <span>My Dashboard</span>
+                </button>
+              ) : null}
               <button
                 type="button"
                 onClick={() => void handleSignOut()}

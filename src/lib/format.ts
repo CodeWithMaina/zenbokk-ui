@@ -49,6 +49,12 @@ const dateFormatter = new Intl.DateTimeFormat('en-GB', {
   year: 'numeric',
 })
 
+const longDayFormatter = new Intl.DateTimeFormat('en-GB', {
+  weekday: 'long',
+  day: 'numeric',
+  month: 'long',
+})
+
 const numberFormatter = new Intl.NumberFormat('en-KE')
 
 /** `2026-05-12T09:30:00Z` → `09:30` in the viewer's timezone. */
@@ -64,6 +70,16 @@ export function formatDay(iso: string | Date): string {
 /** `2026-05-12T…` → `12 May 2026`. */
 export function formatDate(iso: string | Date): string {
   return dateFormatter.format(typeof iso === 'string' ? new Date(iso) : iso)
+}
+
+/**
+ * `2026-11-08T…` → `Sunday 8 November`.
+ *
+ * The long form the dashboard prints under its greeting; `formatDay` stays the
+ * compact one the lists use, so neither has to bend for the other.
+ */
+export function formatLongDay(iso: string | Date): string {
+  return longDayFormatter.format(typeof iso === 'string' ? new Date(iso) : iso)
 }
 
 /** `2026-05-12T09:30:00Z` → `12 May 2026, 09:30` in the viewer's timezone. */

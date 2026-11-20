@@ -5,8 +5,6 @@ import type {
   Appointment,
   AppointmentPaymentSummary,
   AvailabilityCalendar,
-  CancelAppointmentRequest,
-  CreateAppointmentRequest,
   EligibleStaff,
   PublicBookingRequest,
   SubmitPublicPaymentProofRequest,
@@ -15,7 +13,6 @@ import type {
   PublicLandingPage,
   PublicOpeningHours,
   PublicReview,
-  RescheduleAppointmentRequest,
   ReviewSummary,
   ServiceCatalogItem,
   StorefrontBootstrap,
@@ -160,51 +157,6 @@ export const storefrontApi = {
       type: params.type ?? null,
       page: params.page ?? null,
       pageSize: params.pageSize ?? null,
-    })
-  },
-}
-
-/**
- * Booking as a signed-in customer. `POST /v1/appointments` requires an authenticated
- * Customer session; the account-free storefront path is `publicBookingApi` below, which
- * asks for no token at all and takes the customer's details in the body.
- */
-export const bookingApi = {
-  create(body: CreateAppointmentRequest): Promise<Appointment> {
-    return apiRequest<Appointment>('/v1/appointments', {
-      method: 'POST',
-      body,
-    })
-  },
-
-  mine(
-    params: {
-      page?: number
-      pageSize?: number
-      businessId?: string
-      status?: string | null
-      from?: string
-      to?: string
-      sortBy?: 'newest' | 'oldest' | 'upcoming'
-    } = {},
-  ): Promise<PaginatedResponse<Appointment>> {
-    return apiGet<PaginatedResponse<Appointment>>('/v1/appointments', params)
-  },
-
-  /** The API binds the cancellation reason as `note` (nullable). */
-  cancel(id: string, note?: string | null): Promise<Appointment> {
-    const body: CancelAppointmentRequest = { note: note ?? null }
-    return apiRequest<Appointment>(`/v1/appointments/${id}/cancel`, {
-      method: 'POST',
-      body,
-    })
-  },
-
-  /** Customer self-service reschedule; omitted fields keep the current booking. */
-  reschedule(id: string, body: RescheduleAppointmentRequest): Promise<Appointment> {
-    return apiRequest<Appointment>(`/v1/appointments/${id}/reschedule`, {
-      method: 'POST',
-      body,
     })
   },
 }

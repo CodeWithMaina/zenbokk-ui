@@ -56,7 +56,21 @@ import { MODULE } from '../lib/entitlements'
 import { useDebouncedValue } from '../lib/hooks/use-debounced-value'
 import { formatNumber, pluralize } from '../lib/format'
 
+/** The appointments page's search: `?new=1` opens the booking wizard immediately. */
+type AppointmentsSearch = { new?: number }
+
+/**
+ * `?new=1` opens the booking wizard straight away — the dashboard's primary
+ * action lands on the flow, not on a list the operator then has to act on again.
+ * Every other value (or none) leaves the page as it was.
+ */
+function validateAppointmentsSearch(search: Record<string, unknown>): AppointmentsSearch {
+  const flag = search.new
+  return { new: flag === '1' || flag === 1 || flag === true ? 1 : undefined }
+}
+
 export const Route = createFileRoute('/dashboard/appointments/')({
+  validateSearch: validateAppointmentsSearch,
   component: AppointmentsPage,
 })
 
@@ -94,6 +108,7 @@ function AppointmentsPage() {
   const paymentsEnabled = hasModule(MODULE.payments)
 
   const navigate = useNavigate({ from: Route.fullPath })
+  const searchParams = Route.useSearch()
 
   /**
    * How this owner likes to see their day. Remembered per business across sessions —
@@ -128,9 +143,26 @@ function AppointmentsPage() {
     prefill?: BookingPrefill
   } | null>(null)
   /** The new-booking flow. An empty object opens it with nothing pre-filled. */
-  const [newBooking, setNewBooking] = useState<WizardPrefill | null>(null)
+  const [newBooking, setNewBooking] = useState<WizardPrefill | null>(() =>
+    searchParams.new ? {} : null,
+  )
   const [pendingCancel, setPendingCancel] = useState<AppointmentRow | null>(null)
   const [bulkCancelOpen, setBulkCancelOpen] = useState(false)
+
+  /**
+   * Close the wizard and drop the `?new=1` that opened it, so a reload or a shared
+   * link cannot reopen a flow somebody has already finished.
+   */
+  const closeNewBooking = useCallback(() => {
+    setNewBooking(null)
+    if (searchParams.new) {
+      void navigate({
+        to: '/dashboard/appointments',
+        search: { new: undefined },
+        replace: true,
+      })
+    }
+  }, [navigate, searchParams.new])
 
   const search = useDebouncedValue(filters.search, 300)
   // While the Staff module is off no staff filter is ever sent, even if a stale value
@@ -826,7 +858,7 @@ function AppointmentsPage() {
       {newBooking ? (
         <BookingWizard
           open
-          onClose={() => setNewBooking(null)}
+          onClose={closeNewBooking}
           businessId={business.id}
           businessName={business.name}
           businessLogoUrl={business.logoUrl}
