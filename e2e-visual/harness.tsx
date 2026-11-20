@@ -18,7 +18,12 @@ import {
   AppointmentFilters,
   AppointmentTable,
   AppointmentTimeline,
+  AppointmentsHeader,
+  AppointmentsToolbar,
 } from '../src/components/appointments'
+import { BookingProgress } from '../src/components/storefront/booking/BookingProgress'
+import { SlotPicker } from '../src/components/storefront/booking/SlotPicker'
+import type { AvailabilitySlot } from '../src/lib/api/types'
 import type { AppointmentRow } from '../src/lib/appointments'
 import { DEFAULT_APPOINTMENT_FILTERS } from '../src/lib/appointments'
 import type {
@@ -112,9 +117,103 @@ const ROWS: AppointmentRow[] = [
   at('2026-05-17', '11', 0, 60, 9),
 ]
 
+/** A day on the one-hour grid: some free starts, one booked, one off duty. */
+function availabilitySlot(localTime, status) {
+  const [hours, minutes] = localTime.split(':').map(Number)
+  const endMinutes = hours * 60 + minutes + 60
+  const end = `${String(Math.floor(endMinutes / 60)).padStart(2, '0')}:${String(endMinutes % 60).padStart(2, '0')}`
+  return {
+    startAtUtc: `2026-05-12T${localTime}:00Z`,
+    endAtUtc: `2026-05-12T${end}:00Z`,
+    staffUserId: null,
+    staffName: '',
+    serviceIds: [],
+    status,
+    isAvailable: status === 'available',
+    localDate: '2026-05-12',
+    localTime,
+    dayPart: hours < 12 ? 'morning' : hours < 17 ? 'afternoon' : 'evening',
+    alternativeStaff: [],
+  }
+}
+
+const SLOTS = [
+  availabilitySlot('09:00', 'available'),
+  availabilitySlot('09:30', 'available'),
+  availabilitySlot('10:00', 'booked'),
+  availabilitySlot('10:30', 'booked'),
+  availabilitySlot('11:00', 'off_duty'),
+  availabilitySlot('12:00', 'available'),
+  availabilitySlot('12:30', 'available'),
+  availabilitySlot('13:00', 'available'),
+  availabilitySlot('15:00', 'available'),
+  availabilitySlot('16:00', 'past'),
+]
 const noop = () => undefined
 
 function Surface({ surface }: { surface: string }) {
+  if (surface === 'appointments-header') {
+    return (
+      <>
+        <AppointmentsHeader
+          view="calendar"
+          onViewChange={noop}
+          todayCount={4}
+          onNewBooking={noop}
+          canBook
+          navigation={{
+            label: 'Mon 11 – Sun 17 May',
+            onPrevious: noop,
+            onNext: noop,
+            onToday: noop,
+            onPickDate: noop,
+            dateValue: DAY,
+          }}
+        />
+        <AppointmentsToolbar
+          search=""
+          onSearchChange={noop}
+          filterCount={2}
+          onOpenFilters={noop}
+          summary="7 appointments · Mon 11 – Sun 17 May"
+          statusCounts={[
+            { status: 'booked', label: 'Booked', count: 4 },
+            { status: 'confirmed', label: 'Confirmed', count: 2 },
+            { status: 'completed', label: 'Completed', count: 1 },
+          ]}
+        />
+      </>
+    )
+  }
+  if (surface === 'slot-picker') {
+    return (
+      <SlotPicker
+        slots={SLOTS}
+        selectedStartUtc={SLOTS[0].startAtUtc}
+        onSelect={noop}
+        totalMinutes={180}
+        timeZoneId="Africa/Nairobi"
+      />
+    )
+  }
+  if (surface === 'booking-progress') {
+    return (
+      <div className="grid gap-[1rem]">
+        <BookingProgress state="submitting" paysUpfront />
+        <BookingProgress
+          state="confirmed"
+          paysUpfront
+          paymentState="pending_verification"
+        />
+        <BookingProgress
+          state="conflict"
+          paysUpfront
+          message="That time is no longer available because it overlaps with another booking. Please choose another time."
+          onDismiss={noop}
+        />
+      </div>
+    )
+  }
   if (surface === 'timeline-week' || surface === 'timeline-month') {
     return (
       <AppointmentTimeline

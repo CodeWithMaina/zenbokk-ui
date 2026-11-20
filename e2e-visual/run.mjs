@@ -23,6 +23,9 @@ const BASE = `http://localhost:${PORT}/e2e-visual/harness.html`
 const HEIGHT = 900
 const WIDTHS = [375, 390, 430, 768, 820, 1024, 1280, 1440]
 const SURFACES = [
+  'appointments-header',
+  'slot-picker',
+  'booking-progress',
   'timeline-day',
   'timeline-week',
   'timeline-month',
