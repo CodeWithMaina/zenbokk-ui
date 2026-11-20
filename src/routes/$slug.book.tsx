@@ -13,6 +13,9 @@ import {
 } from '../components/storefront/booking/StorefrontBookingSummary'
 import { MpesaInstructions } from '../components/storefront/booking/MpesaInstructions'
 import { MpesaConfirmationField } from '../components/storefront/booking/MpesaConfirmationField'
+import { BookingProgress } from '../components/storefront/booking/BookingProgress'
+import { SlotPicker } from '../components/storefront/booking/SlotPicker'
+import { emptyDayReason } from '../lib/booking/slots'
 import {
   StepOption,
   StorefrontBookingStepper,
@@ -147,6 +150,12 @@ export function BookingWizardPage() {
    */
   const [mpesaMessage, setMpesaMessage] = useState('')
   const [idempotencyKey] = useState(() => crypto.randomUUID())
+  /**
+   * The conflict reported by the server when the slot was taken between choosing it and
+   * submitting. Kept separately from `failure` so the progress panel can say what actually
+   * happened (availability changed) without pretending the booking failed for another reason.
+   */
+  const [conflict, setConflict] = useState<string | null>(null)
 
   const appointmentsEnabled = can(CAPABILITY.appointments)
   const paymentsEnabled = can(CAPABILITY.payments)
@@ -372,15 +381,15 @@ export function BookingWizardPage() {
       void queryClient.invalidateQueries({ queryKey: ['appointments'] })
     },
     onError: (error) => {
-      if (error instanceof ApiError && error.status === 409) {
-        setFailure('That time was taken while you were booking. Pick another time.')
-        update({ step: 'time', startsAt: null })
-        void availabilityQuery.refetch()
-        return
-      }
-      if (error instanceof ApiError && error.code === 'OVERBOOKING') {
-        setFailure('That time was taken while you were booking. Pick another time.')
-        update({ step: 'time', startsAt: null })
+      if (error instanceof ApiError && (error.status === 409 || error.code === 'OVERBOOKING' || error.code === 'SLOT_UNAVAILABLE')) {
+        // Availability changed under the customer. Keep every valid choice (services,
+        // specialist, details) and send them back to the time step with the truth.
+        const message =
+          error.message ||
+          'That time is no longer available because it overlaps with another booking. Please choose another time.'
+        setConflict(message)
+        setFailure(null)
+        update({ step: 'time' })
         void availabilityQuery.refetch()
         return
       }
@@ -492,6 +501,7 @@ export function BookingWizardPage() {
 
   function chooseSlot(slot: AvailabilitySlot) {
     setSelectedDate(slot.localDate)
+    setConflict(null)
     update({
       startsAt: slot.startAtUtc,
       staffId: hasEligibleStaff ? slot.staffUserId ?? staffId : null,
@@ -667,6 +677,17 @@ export function BookingWizardPage() {
             </Alert>
           ) : null}
 
+          {createBooking.isPending || conflict ? (
+            <div className="mt-[1rem]">
+              <BookingProgress
+                state={conflict ? 'conflict' : 'submitting'}
+                paysUpfront={paysNow && manualMpesa}
+                message={conflict}
+                onDismiss={conflict ? () => setConflict(null) : undefined}
+              />
+            </div>
+          ) : null}
+
           {failure ? (
             <Alert tone="danger" className="mt-[1rem]" onDismiss={() => setFailure(null)}>
               {failure}
@@ -806,37 +827,18 @@ export function BookingWizardPage() {
 
                   {activeDay ? (
                     <>
-                      {DAY_PARTS.map((part) => {
-                        const slots = activeDay.slots.filter(
-                          (slot) =>
-                            slot.dayPart === part && slot.isAvailable && slot.status === 'available',
-                        )
-                        if (slots.length === 0) return null
-                        return (
-                          <div key={part}>
-                            <h2 className="mt-[1.1rem] text-label font-semibold capitalize">
-                              {part}
-                            </h2>
-                            <div className="sf-slots mt-[0.5rem]">
-                              {slots.map((slot) => (
-                                <button
-                                  key={`${slot.startAtUtc}-${slot.staffUserId ?? 'any'}`}
-                                  type="button"
-                                  className="sf-slot"
-                                  aria-pressed={draft.startsAt === slot.startAtUtc}
-                                  onClick={() => chooseSlot(slot)}
-                                >
-                                  {timeLabel(slot.localTime)}
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                        )
-                      })}
+                      <SlotPicker
+                        slots={activeDay.slots}
+                        selectedStartUtc={draft.startsAt}
+                        totalMinutes={totalDuration}
+                        timeZoneId={calendar?.timeZoneId ?? null}
+                        busy={availabilityQuery.isFetching}
+                        onSelect={chooseSlot}
+                      />
 
                       {activeDay.availableSlots === 0 ? (
                         <p className="mt-[1rem] text-center text-meta text-muted">
-                          No open times on {dateLabel(activeDay.date)}. Pick another day.
+                          {emptyDayReason(activeDay.slots, totalDuration)}
                         </p>
                       ) : null}
                     </>
@@ -1084,9 +1086,6 @@ export function BookingWizardPage() {
   )
 }
 
-
-/** The parts of a day the slot grid is grouped into, in display order. */
-const DAY_PARTS = ['morning', 'afternoon', 'evening'] as const
 
 /** Step copy, kept together so the five steps read as one voice. */
 const STEP_TITLES: Record<StepKey, { title: string; description: string }> = {

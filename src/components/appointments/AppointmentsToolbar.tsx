@@ -1,10 +1,9 @@
-import { ChevronLeft, ChevronRight, ListFilter, Search } from 'lucide-react'
+import { ListFilter, Search } from 'lucide-react'
 import { useEffect, useRef } from 'react'
 import type { ReactNode } from 'react'
 import { cn } from '../../lib/cn'
 import { CountBadge, StatusPill } from '../ui/badge'
 import { Button } from '../ui/button'
-import { Input } from '../ui/field'
 import { Toolbar, ToolbarSpacer } from '../ui/toolbar'
 
 export type AppointmentStatusCount = {
@@ -18,23 +17,6 @@ export type AppointmentsToolbarProps = {
   onSearchChange: (value: string) => void
   filterCount: number
   onOpenFilters: () => void
-  /** Period navigation. Shown in every view, so the dates move the same way in all of them. */
-  navigation?: {
-    label: string
-    onPrevious: () => void
-    onNext: () => void
-    onToday: () => void
-    /**
-     * Jump straight to a date (`yyyy-MM-dd`), the third way to move the period after
-     * the step arrows and Today. The caller decides whether that lands on a day, the
-     * week containing it or the month containing it.
-     */
-    onPickDate?: (value: string) => void
-    /** The date shown in the picker — the first day of the period on screen. */
-    dateValue?: string
-    /** An unbounded period ("all dates") has nothing to step to. */
-    disabled?: boolean
-  }
   /** The line above the status pills: how many rows, and what is being shown. */
   summary: ReactNode
   statusCounts: readonly AppointmentStatusCount[]
@@ -42,18 +24,18 @@ export type AppointmentsToolbarProps = {
 }
 
 /**
- * Search, filters and the view-specific navigation.
+ * The secondary controls: search, filters and the status counts.
  *
- * The status pills are counts of the rows the server returned for the current
- * query — the same rows the list is rendering — so they always add up to the
- * summary beside them.
+ * Date navigation moved up into the header's period bar, so this row is only about
+ * narrowing what is on screen — which is what keeps the top of the page calm. The
+ * status pills are counts of the rows the server returned for the current query,
+ * so they always add up to the summary beside them.
  */
 export function AppointmentsToolbar({
   search,
   onSearchChange,
   filterCount,
   onOpenFilters,
-  navigation,
   summary,
   statusCounts,
   busy = false,
@@ -95,64 +77,19 @@ export function AppointmentsToolbar({
           )}
         </label>
 
-        <Button onClick={onOpenFilters} className="gap-[0.45rem]">
+        <Button onClick={onOpenFilters} className="gap-[0.45rem]" aria-busy={busy || undefined}>
           <ListFilter className="size-4" aria-hidden="true" />
           Filters
           {filterCount > 0 ? <CountBadge>{filterCount}</CountBadge> : null}
         </Button>
 
         <ToolbarSpacer />
-
-        {navigation ? (
-          <div className="flex flex-wrap items-center gap-[0.4rem]">
-            <Button
-              size="icon"
-              aria-label="Previous period"
-              onClick={navigation.onPrevious}
-              disabled={busy || navigation.disabled}
-            >
-              <ChevronLeft className="size-4" aria-hidden="true" />
-            </Button>
-            <Button
-              size="icon"
-              aria-label="Next period"
-              onClick={navigation.onNext}
-              disabled={busy || navigation.disabled}
-            >
-              <ChevronRight className="size-4" aria-hidden="true" />
-            </Button>
-            <Button onClick={navigation.onToday} disabled={busy}>
-              Today
-            </Button>
-            {navigation.onPickDate ? (
-              <label className="sr-only" htmlFor="appointments-jump-date">
-                Jump to date
-              </label>
-            ) : null}
-            {navigation.onPickDate ? (
-              <Input
-                id="appointments-jump-date"
-                type="date"
-                className="w-[9.4rem] py-[0.35rem]"
-                value={navigation.dateValue ?? ''}
-                onChange={(event) => {
-                  if (event.target.value) navigation.onPickDate?.(event.target.value)
-                }}
-              />
-            ) : null}
-            <p className="ml-[0.3rem] text-label font-semibold tabular">{navigation.label}</p>
-          </div>
-        ) : null}
       </Toolbar>
 
       <div className="mt-[0.7rem] flex flex-wrap items-center gap-x-[0.7rem] gap-y-[0.4rem]">
         <span className="text-meta text-muted tabular">{summary}</span>
         {statusCounts.map((entry) => (
-          <StatusPill
-            key={entry.status}
-            status={entry.status}
-            className={cn('tabular')}
-          >
+          <StatusPill key={entry.status} status={entry.status} className={cn('tabular')}>
             {entry.count} {entry.label.toLowerCase()}
           </StatusPill>
         ))}

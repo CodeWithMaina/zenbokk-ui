@@ -5681,3 +5681,338 @@ html {
 .price-range-input:active::-webkit-slider-thumb {
   cursor: grabbing;
 }
+
+/* ========================================================================
+   Booking time picker — one-hour bands
+   ------------------------------------------------------------------------
+   The booking day is presented as hours (09:00-10:00) with the starting times
+   the server actually offers inside each one. Unavailable times stay visible
+   and labelled, because "10:00 is taken" is useful information; a row that
+   disappears is not. No gradients, no heavy borders: a quiet rule per hour.
+   ======================================================================== */
+@layer components {
+  .sf-bands-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.35rem 1rem;
+    margin-bottom: 0.55rem;
+  }
+
+  .sf-bands {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    border-top: 1px solid var(--line);
+  }
+
+  .sf-band {
+    display: grid;
+    grid-template-columns: 6.6rem minmax(0, 1fr);
+    align-items: start;
+    gap: 0.6rem;
+    padding: 0.55rem 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .sf-band-hour {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding-top: 0.35rem;
+    color: var(--fg-muted);
+    font-size: var(--text-caption);
+  }
+
+  .sf-band.is-full .sf-band-hour {
+    color: var(--fg-subtle);
+  }
+
+  .sf-band-slots {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    min-width: 0;
+  }
+
+  /* The base .sf-slot recipe lives in the storefront layer; these add state. */
+  .sf-band-slots .sf-slot {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.05rem;
+    min-width: 4.1rem;
+    padding: 0.3rem 0.55rem;
+    line-height: 1.15;
+  }
+
+  .sf-band-slots .sf-slot.is-booked,
+  .sf-band-slots .sf-slot.is-off_duty,
+  .sf-band-slots .sf-slot.is-past {
+    border-style: dashed;
+    border-color: var(--line);
+    background: var(--hover);
+    color: var(--fg-subtle);
+    opacity: 1;
+    text-decoration: none;
+    cursor: not-allowed;
+  }
+
+  .sf-slot-time {
+    font-size: var(--text-meta);
+  }
+
+  .sf-slot-state {
+    font-size: 0.68rem;
+    letter-spacing: 0.01em;
+    color: var(--fg-subtle);
+  }
+
+  .sf-bands.is-busy,
+  .sf-bands-head + .sf-bands.is-busy {
+    opacity: 0.75;
+    transition: opacity 0.2s var(--ease-standard);
+  }
+
+  @media (max-width: 40rem) {
+    .sf-band {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 0.35rem;
+    }
+
+    .sf-band-hour {
+      padding-top: 0;
+    }
+
+    .sf-band-slots {
+      gap: 0.35rem;
+    }
+
+    .sf-band-slots .sf-slot {
+      min-width: 3.8rem;
+    }
+  }
+}
+
+/* ========================================================================
+   Booking progress — real stages only
+   ------------------------------------------------------------------------
+   The panel reports what the server is doing and what it has returned. It is
+   not a timer and it never claims a booking or a payment succeeded on its own.
+   ======================================================================== */
+@layer components {
+  .sf-progress {
+    border: 1px solid var(--line);
+    border-radius: var(--radius-panel);
+    background: var(--surface);
+    padding: 0.95rem 1.05rem;
+  }
+
+  .sf-progress.is-warning {
+    border-color: color-mix(in srgb, var(--danger, #b4453a) 35%, var(--line));
+  }
+
+  .sf-progress-head {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.65rem;
+  }
+
+  .sf-progress-mark {
+    display: grid;
+    place-items: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    flex: none;
+    border-radius: 50%;
+    border: 1px solid var(--line);
+    color: var(--fg-muted);
+    background: var(--bg);
+  }
+
+  .sf-progress-mark.is-warning {
+    color: var(--danger, #b4453a);
+    border-color: color-mix(in srgb, var(--danger, #b4453a) 35%, var(--line));
+  }
+
+  .sf-progress-copy b {
+    display: block;
+    font-size: var(--text-meta);
+  }
+
+  .sf-progress-copy p {
+    margin-top: 0.1rem;
+  }
+
+  .sf-progress-dismiss {
+    margin-left: auto;
+    flex: none;
+    font-size: var(--text-caption);
+    color: var(--fg-muted);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  .sf-progress-dismiss:hover {
+    color: var(--fg);
+  }
+
+  .sf-progress-rows {
+    list-style: none;
+    margin: 0.8rem 0 0;
+    padding: 0;
+    display: grid;
+    gap: 0.5rem;
+  }
+
+  .sf-progress-row {
+    display: grid;
+    grid-template-columns: 1.1rem minmax(0, 1fr);
+    align-items: start;
+    gap: 0.55rem;
+  }
+
+  .sf-progress-dot {
+    display: grid;
+    place-items: center;
+    width: 1.1rem;
+    height: 1.1rem;
+    margin-top: 0.1rem;
+    border-radius: 50%;
+    border: 1px solid var(--line);
+    color: var(--fg-subtle);
+  }
+
+  .sf-progress-row.is-done .sf-progress-dot {
+    border-color: var(--accent);
+    background: var(--accent);
+    color: var(--on-accent);
+    animation: sf-pop 0.45s var(--ease-standard);
+  }
+
+  .sf-progress-row.is-active .sf-progress-dot {
+    border-color: var(--fg);
+    color: var(--fg);
+  }
+
+  .sf-progress-row.is-warning .sf-progress-dot {
+    border-color: color-mix(in srgb, var(--danger, #b4453a) 45%, var(--line));
+    color: var(--danger, #b4453a);
+  }
+
+  .sf-progress-body {
+    display: grid;
+    gap: 0.05rem;
+  }
+
+  .sf-progress-body b {
+    font-size: var(--text-meta);
+    font-weight: 600;
+  }
+
+  .sf-progress-row.is-pending .sf-progress-body b {
+    color: var(--fg-muted);
+    font-weight: 500;
+  }
+
+  .sf-progress-body span {
+    font-size: var(--text-caption);
+    color: var(--fg-muted);
+  }
+
+  .sf-spin {
+    animation: sf-spin 1.1s linear infinite;
+  }
+
+  @keyframes sf-spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .sf-spin,
+    .sf-progress-row.is-done .sf-progress-dot {
+      animation: none;
+    }
+  }
+}
+
+/* ========================================================================
+   Appointments — period bar
+   ------------------------------------------------------------------------
+   The page opens with one prominent question: which dates am I looking at?
+   The bar answers it with large step targets, the period name and the two
+   jumps (today, a date). Filters stay below it so the header never becomes a
+   crowded toolbar again.
+   ======================================================================== */
+@layer components {
+  .period-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.55rem 0.9rem;
+    padding: 0.5rem 0.6rem;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-panel);
+    background: var(--surface);
+  }
+
+  .period-bar-buttons {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+  }
+
+  .period-bar-label {
+    flex: 1 1 12rem;
+    min-width: 0;
+    font-size: var(--text-label);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .period-bar-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    margin-left: auto;
+  }
+
+  .period-bar-date {
+    width: 9.6rem;
+    padding-block: 0.32rem;
+  }
+
+  .period-bar-actions button.is-current {
+    border-color: var(--fg);
+    color: var(--fg);
+  }
+
+  @media (max-width: 40rem) {
+    .period-bar {
+      gap: 0.45rem;
+    }
+
+    .period-bar-label {
+      flex: 1 1 100%;
+      order: -1;
+      font-size: var(--text-meta);
+    }
+
+    .period-bar-actions {
+      margin-left: 0;
+      flex: 1 1 auto;
+      justify-content: flex-end;
+    }
+
+    .period-bar-date {
+      width: 8.4rem;
+    }
+  }
+}

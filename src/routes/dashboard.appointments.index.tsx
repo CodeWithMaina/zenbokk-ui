@@ -658,13 +658,6 @@ function AppointmentsPage() {
         onNewBooking={() => setNewBooking({})}
         canBook={canBook}
         busy={mutateBusy}
-      />
-
-      <AppointmentsToolbar
-        search={filters.search}
-        onSearchChange={(value) => onFiltersChange({ ...filters, search: value })}
-        filterCount={activeFilterCount(filters)}
-        onOpenFilters={() => setFiltersOpen(true)}
         navigation={{
           label: periodText,
           onPrevious: () => stepPeriod(-1),
@@ -678,6 +671,13 @@ function AppointmentsPage() {
           // pretending to move somewhere.
           disabled: period === null,
         }}
+      />
+
+      <AppointmentsToolbar
+        search={filters.search}
+        onSearchChange={(value) => onFiltersChange({ ...filters, search: value })}
+        filterCount={activeFilterCount(filters)}
+        onOpenFilters={() => setFiltersOpen(true)}
         summary={`${
           view === 'calendar'
             ? pluralize(orderedRows.length, 'appointment')
