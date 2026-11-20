@@ -53,6 +53,12 @@ export type Payment = {
   ledgerReference?: string | null
   /** Who recorded the income in the books, when the server could resolve it. */
   ledgerRecordedByName?: string | null
+  /**
+   * How the books stand for this payment: `recorded` (verified income exists), `processing`
+   * (settled, the ledger row is still being written and will appear automatically), `attention`
+   * (settled, but recording needs a human), or null when the payment is not settled.
+   */
+  ledgerProcessingStatus?: 'recorded' | 'processing' | 'attention' | null
   attempts: {
     attemptNumber: number
     provider: string

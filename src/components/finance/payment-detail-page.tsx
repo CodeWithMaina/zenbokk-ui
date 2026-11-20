@@ -284,6 +284,39 @@ export function PaymentDetailPage({ paymentId }: { paymentId: string }) {
                   Open cashbook
                 </Button>
               </>
+            ) : payment.ledgerProcessingStatus === 'processing' ? (
+              // Settlement and bookkeeping are separate states. The money is received; the books are
+              // still catching up (the outbox retries automatically), and we never pretend otherwise.
+              <div className="mt-3 rounded-lg border border-warning-line bg-warning-soft p-[0.8rem_0.9rem] text-meta text-warning-ink">
+                <p className="font-semibold">Payment received — recording it in your books is still processing.</p>
+                <p className="mt-1">
+                  It will appear in the cashbook automatically. You do not need to record it by hand.
+                </p>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="mt-2 text-warning-ink hover:bg-warning-line/20"
+                  onClick={() => void paymentQuery.refetch()}
+                >
+                  Refresh status
+                </Button>
+              </div>
+            ) : payment.ledgerProcessingStatus === 'attention' ? (
+              <div className="mt-3 rounded-lg border border-danger-line bg-danger-soft p-[0.8rem_0.9rem] text-meta text-danger-ink">
+                <p className="font-semibold">Payment received — recording it needs attention.</p>
+                <p className="mt-1">
+                  The payment is settled, but it could not be written to the cashbook automatically. Please contact
+                  support so we can check it with you.
+                </p>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="mt-2 text-danger-ink hover:bg-danger-line/20"
+                  onClick={() => void paymentQuery.refetch()}
+                >
+                  Refresh status
+                </Button>
+              </div>
             ) : (
               <p className="mt-2 text-meta text-muted">
                 {awaiting
