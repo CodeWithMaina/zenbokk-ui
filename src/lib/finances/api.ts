@@ -97,6 +97,10 @@ export type FinancialTransactionList = {
   currentMonthExpenseTotal: number
   /** Total pages for the FILTERED result set. */
   totalPages: number
+  /** Expenses in the filtered result that still count (voided excluded). Expense register only. */
+  expenseCount: number
+  /** Filtered, non-voided expenses grouped by category (expense register only). */
+  categoryBreakdown: FinancialBreakdownItem[]
 }
 
 /** One labelled slice of a breakdown. */
@@ -183,6 +187,16 @@ export type Cashbook = {
   /** Total pages for the FILTERED result set. */
   totalPages: number
   currency: string
+  /** Movements in the window (voided excluded), independent of the list filters. */
+  entryCount: number
+  /** Verified income across the whole window, filters ignored. */
+  windowInflows: number
+  /** Expenses + refunds across the whole window, filters ignored. */
+  windowOutflows: number
+  /** Window inflows − window outflows. Not a bank balance. */
+  windowNetCashMovement: number
+  /** Verified income in the window, grouped by method. Only income arrives "by method". */
+  paymentMethodBreakdown: FinancialBreakdownItem[]
 }
 
 /** One point on a trend series. */
@@ -329,6 +343,8 @@ export type RecordIncomeInput = {
   paymentMethod: FinancialPaymentMethod
   transactionReference?: string | null
   customerId?: string | null
+  /** Payer's name when they are not a registered customer (walk-in, product sale). */
+  customerName?: string | null
   description?: string | null
   transactionDate?: string | null
   currency?: string
@@ -347,6 +363,8 @@ export type ExpenseInput = {
   category: string
   paymentMethod: FinancialPaymentMethod
   description: string
+  /** Who was paid, when the business wants the supplier on the row. */
+  payee?: string | null
   transactionReference?: string | null
   transactionDate?: string | null
   currency?: string
@@ -473,6 +491,16 @@ export const financesApi = {
 
   voidExpense: (id: string, reason: string) =>
     apiRequest<FinancialTransaction>(`/v1/finances/expenses/${id}/void`, { method: 'POST', body: { reason } }),
+
+  /**
+   * Voids a hand-recorded income row. The server refuses income that a payment produced: that
+   * money is reversed through the payment so the two records stay in step.
+   */
+  voidTransaction: (id: string, reason: string) =>
+    apiRequest<FinancialTransaction>(`/v1/finances/transactions/${id}/void`, {
+      method: 'POST',
+      body: { reason },
+    }),
 
   reconciliation: () => apiGet<ReconciliationWorkspace>('/v1/finances/reconciliation'),
 
@@ -713,7 +741,12 @@ export function useExpenseActions() {
     onSuccess: () => refreshFinances(queryClient),
   })
 
-  return { create, update, voidExpense }
+  const voidIncome = useMutation({
+    mutationFn: (input: { id: string; reason: string }) => financesApi.voidTransaction(input.id, input.reason),
+    onSuccess: () => refreshFinances(queryClient),
+  })
+
+  return { create, update, voidExpense, voidIncome }
 }
 
 /** Statement import and manual matching. */

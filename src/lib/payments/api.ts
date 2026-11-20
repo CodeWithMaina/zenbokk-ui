@@ -47,6 +47,12 @@ export type Payment = {
   rejectionReason: string | null
   /** Append-only trail of submissions and decisions, oldest first. */
   verificationEvents: PaymentVerificationEvent[]
+  /** The cashbook row this payment became, once settled; null while it has not. */
+  financialTransactionId?: string | null
+  /** The cashbook reference (FIN-…) of that row. */
+  ledgerReference?: string | null
+  /** Who recorded the income in the books, when the server could resolve it. */
+  ledgerRecordedByName?: string | null
   attempts: {
     attemptNumber: number
     provider: string
@@ -299,6 +305,11 @@ export type PaymentListFilters = {
   to?: string
   /** Free-text matched server-side across reference, phone, M-Pesa code and customer. */
   search?: string
+  /**
+   * Server-side ordering: `date-d` (newest, default) | `date-a` | `amt-d` | `amt-a` | `name-a`.
+   * The server falls back to newest-first for anything it does not recognise.
+   */
+  sort?: string
   page?: number
   pageSize?: number
 }

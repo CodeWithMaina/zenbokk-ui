@@ -23,7 +23,6 @@ import {
 } from '../src/components/appointments'
 import { BookingProgress } from '../src/components/storefront/booking/BookingProgress'
 import { SlotPicker } from '../src/components/storefront/booking/SlotPicker'
-import type { AvailabilitySlot } from '../src/lib/api/types'
 import type { AppointmentRow } from '../src/lib/appointments'
 import { DEFAULT_APPOINTMENT_FILTERS } from '../src/lib/appointments'
 import type {
@@ -118,7 +117,7 @@ const ROWS: AppointmentRow[] = [
 ]
 
 /** A day on the one-hour grid: some free starts, one booked, one off duty. */
-function availabilitySlot(localTime, status) {
+function availabilitySlot(localTime: string, status: string) {
   const [hours, minutes] = localTime.split(':').map(Number)
   const endMinutes = hours * 60 + minutes + 60
   const end = `${String(Math.floor(endMinutes / 60)).padStart(2, '0')}:${String(endMinutes % 60).padStart(2, '0')}`

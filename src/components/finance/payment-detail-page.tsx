@@ -1,18 +1,18 @@
 import { useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
-import { ChevronLeft, ShieldAlert, ShieldCheck, Copy } from 'lucide-react'
+import { ShieldAlert, ShieldCheck } from 'lucide-react'
 import { toast } from 'sonner'
-import { Button } from '../ui/button'
+import { Button, BackLink } from '../ui/button'
 import { EntityHeader } from '../ui/page-header'
 import { Avatar } from '../ui/avatar'
 import { Card } from '../ui/card'
 import { DescriptionList, DescriptionRow } from '../ui/description-list'
 import { ActivityTimeline, type ActivityEntry } from '../ui/activity-timeline'
-import { MetricTile } from '../ui/metric-tile'
 import { EmptyState } from '../ui/empty-state'
 import { Alert } from '../ui/alert'
 import { Skeleton } from '../ui/skeleton'
-import { displayPhone, financeDateTime, money } from '../../lib/format'
+import { FinanceSummaryPanel } from './summary'
+import { displayPhone, financeDate, financeDateTime, financeTime } from '../../lib/finances/format'
 import { paymentStatusDisplay, isAwaitingVerification, paymentTypeLabel, paymentMethodLabel } from '../../lib/finances/status'
 import { PaymentStatusPill, CopyButton } from './pills'
 import { usePaymentStatus, type Payment } from '../../lib/payments/api'
@@ -26,7 +26,13 @@ import { FinanceClaimDialogs } from './claim-dialogs'
 function buildTimeline(payment: Payment): ActivityEntry[] {
   const entries: ActivityEntry[] = [{ id: 'created', title: 'Payment created', time: financeDateTime(payment.createdAt) }]
   if (payment.submittedAt) {
-    entries.push({ id: 'submitted', title: 'Customer submitted M-Pesa message', time: financeDateTime(payment.submittedAt) })
+    entries.push({
+      id: 'submitted',
+      title: 'Customer submitted M-Pesa message',
+      description: `Sent from ${payment.phoneNumber ? displayPhone(payment.phoneNumber) : 'their phone'}`,
+      time: financeDateTime(payment.submittedAt),
+      tone: 'warning',
+    })
   }
   for (const event of payment.verificationEvents ?? []) {
     const title =
@@ -44,7 +50,7 @@ function buildTimeline(payment: Payment): ActivityEntry[] {
     entries.push({
       id: event.id,
       title,
-      description: event.actorName ? `By ${event.actorName}` : undefined,
+      description: event.actorName ? `By ${event.actorName}` : event.reason || undefined,
       time: financeDateTime(event.createdAt),
       tone: event.kind === 'rejected' ? 'danger' : event.kind === 'verified' ? 'success' : 'warning',
     })
@@ -55,7 +61,7 @@ function buildTimeline(payment: Payment): ActivityEntry[] {
   return entries
 }
 
-/** One payment, in full. Verify/Reject appear only while the claim is awaiting verification. */
+/** One payment, in full. The Verify/Reject pair appears only while the claim is undecided. */
 export function PaymentDetailPage({ paymentId }: { paymentId: string }) {
   const navigate = useNavigate()
   const { hasModule, hasPermission } = useDashboardContext()
@@ -74,7 +80,7 @@ export function PaymentDetailPage({ paymentId }: { paymentId: string }) {
   const handleVerify = async (id: string, note: string | null, receivedAmount?: number | null) => {
     try {
       await verify.mutateAsync({ paymentId: id, note, receivedAmount })
-      toast.success('Claim verified \u00b7 added to cashbook')
+      toast.success('Claim verified · added to cashbook')
       setVerifyOpen(false)
     } catch (err) {
       toast.error(errorMessage(err, 'Verification failed. Please try again.'))
@@ -93,108 +99,143 @@ export function PaymentDetailPage({ paymentId }: { paymentId: string }) {
     }
   }
 
-  const payment = paymentQuery.data
-
   if (!enabled) {
     return (
       <div>
-        <Button variant="ghost" size="sm" className="mb-2 -ml-[0.6rem]" onClick={backToPayments}><ChevronLeft className="size-4" aria-hidden="true" />Payments</Button>
-        <EmptyState title="Finance is not available" description="This business\u2019s plan does not include the financials module." />
+        <BackLink onClick={backToPayments} className="cursor-pointer">
+          Payments
+        </BackLink>
+        <EmptyState
+          title="Finance is not available"
+          description="This business's plan does not include the financials module, or your role cannot view finances."
+        />
       </div>
     )
   }
 
   if (paymentQuery.isPending) {
     return (
-      <div>
-        <Button variant="ghost" size="sm" className="mb-2 -ml-[0.6rem]" onClick={backToPayments}><ChevronLeft className="size-4" aria-hidden="true" />Payments</Button>
-        <div className="mt-4 grid gap-[0.6rem]">
-          <Skeleton className="h-[4rem]" />
-          <Skeleton className="h-[10rem]" />
-          <Skeleton className="h-[8rem]" />
+      <div aria-busy="true" aria-label="Loading payment">
+        <BackLink onClick={backToPayments} className="cursor-pointer">
+          Payments
+        </BackLink>
+        <div className="grid gap-[1rem] min-[56rem]:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
+          <Skeleton className="h-[9rem] rounded-panel" />
+          <Skeleton className="h-[9rem] rounded-card" />
         </div>
       </div>
     )
   }
 
-  if (paymentQuery.isError || !payment) {
-    const err = paymentQuery.error
-    const forbidden = typeof err === 'object' && err !== null && 'status' in err && (err as { status?: number }).status === 403
-    const notFound = typeof err === 'object' && err !== null && 'status' in err && (err as { status?: number }).status === 404
+  if (paymentQuery.isError || !paymentQuery.data) {
     return (
       <div>
-        <Button variant="ghost" size="sm" className="mb-2 -ml-[0.6rem]" onClick={backToPayments}><ChevronLeft className="size-4" aria-hidden="true" />Payments</Button>
-        <Alert tone={forbidden ? 'warning' : 'danger'} title={forbidden ? 'You do not have access' : notFound ? 'Payment not found' : 'Payment could not be loaded'} className="mt-2">
-          <p>{forbidden ? 'Your role cannot view this payment. Ask the owner for access.' : notFound ? 'This payment may have been removed, or the link is wrong.' : errorMessage(err, 'Something went wrong. Please try again.')}</p>
-          {!forbidden && !notFound ? <Button size="sm" className="mt-2" onClick={() => paymentQuery.refetch()}>Try again</Button> : null}
+        <BackLink onClick={backToPayments} className="cursor-pointer">
+          Payments
+        </BackLink>
+        <Alert tone="danger" title="Payment could not be loaded">
+          <p>{errorMessage(paymentQuery.error, 'This payment may no longer exist.')}</p>
+          <Button size="sm" className="mt-2" onClick={() => void paymentQuery.refetch()}>
+            Try again
+          </Button>
         </Alert>
       </div>
     )
   }
 
+  const payment = paymentQuery.data
   const statusDisplay = paymentStatusDisplay(payment.status)
   const awaiting = isAwaitingVerification(payment.status)
   const timeline = buildTimeline(payment)
-  const showActions = awaiting && canVerify
+  const attemptWithError = (payment.attempts ?? []).find((attempt) => attempt.errorMessage)
+  const failureMessage = payment.rejectionReason || attemptWithError?.errorMessage || null
+
+
   return (
     <div>
-      <Button variant="ghost" size="sm" className="mb-2 -ml-[0.6rem]" onClick={backToPayments}>
-        <ChevronLeft className="size-4" aria-hidden="true" />
+      <BackLink onClick={backToPayments} className="cursor-pointer">
         Payments
-      </Button>
+      </BackLink>
 
       <EntityHeader
         avatar={<Avatar name={payment.customerName ?? ''} size="lg" decorative />}
         title={payment.customerName || 'Unknown customer'}
-        subtitle={<PaymentStatusPill status={payment.status} />}
-        meta={<span className="font-mono">{payment.reference}</span>}
+        subtitle={<span className="font-mono">{payment.reference}</span>}
+        meta={<PaymentStatusPill status={payment.status} />}
         actions={
-          showActions ? (
+          awaiting ? (
             <>
-              <Button variant="ghost" onClick={() => setRejectOpen(true)}>
-                <ShieldAlert className="size-4" aria-hidden="true" />
-                Reject
-              </Button>
-              <Button variant="primary" onClick={() => setVerifyOpen(true)}>
-                <ShieldCheck className="size-4" aria-hidden="true" />
-                Verify claim
-              </Button>
+              {canVerify ? (
+                <Button variant="danger" onClick={() => setRejectOpen(true)}>
+                  <ShieldAlert className="size-4" aria-hidden="true" />
+                  Reject
+                </Button>
+              ) : null}
+              {canVerify ? (
+                <Button variant="primary" onClick={() => setVerifyOpen(true)}>
+                  <ShieldCheck className="size-4" aria-hidden="true" />
+                  Verify claim
+                </Button>
+              ) : null}
             </>
           ) : (
-            <Button variant="ghost" onClick={() => void navigator.clipboard.writeText(payment.reference)}>
-              <Copy className="size-4" aria-hidden="true" />
-              Copy reference
-            </Button>
+            <span className="inline-flex items-center gap-[0.3rem]">
+              <span className="font-mono text-meta text-muted">{payment.reference}</span>
+              <CopyButton value={payment.reference} label="Copy reference" />
+            </span>
           )
         }
       />
 
-      <div className="grid gap-4 md:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
-        <div className="flex flex-col gap-4">
-          <MetricTile value={money(payment.amount, payment.currency || 'KES')} label={paymentTypeLabel(payment.type)} />
+      <div className="grid items-start gap-[1rem] min-[56rem]:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
+        <div className="flex flex-col gap-[1rem]">
+          <FinanceSummaryPanel
+            label={paymentTypeLabel(payment.type)}
+            amount={payment.amount}
+            currency={payment.currency || 'KES'}
+            badge={statusDisplay.label}
+            legend={[
+              { key: 'method', label: 'Method', value: paymentMethodLabel(payment.method) },
+              {
+                key: 'when',
+                label: 'Recorded',
+                value: `${financeDate(payment.createdAt)}, ${financeTime(payment.createdAt)}`,
+              },
+            ]}
+          />
 
           {payment.submittedMessage ? (
             <Card className="p-[1.1rem]">
               <h2 className="text-heading font-bold tracking-snug">Message the customer submitted</h2>
-              <p className="mt-3 rounded-md bg-warning-soft p-[0.8rem] text-meta text-warning-ink whitespace-pre-wrap [overflow-wrap:anywhere]">{payment.submittedMessage}</p>
-              <p className="mt-3 text-meta text-muted">Check the code and amount against your M-Pesa statement, then verify. Verifying records the money in your cashbook.</p>
+              <div className="mt-[0.6rem] rounded-lg border border-warning-line bg-warning-soft p-[0.8rem_0.9rem] text-label text-warning-ink [overflow-wrap:anywhere]">
+                “{payment.submittedMessage}”
+              </div>
+              <p className="mt-[0.7rem] text-meta text-muted">
+                Check the code and amount against your M-Pesa statement, then verify. Verifying records the money in
+                your cashbook — once.
+              </p>
             </Card>
           ) : null}
 
-          {payment.rejectionReason ? (
+          {failureMessage ? (
             <Card className="p-[1.1rem]">
-              <h2 className="text-heading font-bold tracking-snug">Claim rejected</h2>
-              <p className="mt-3 rounded-md bg-danger-soft p-[0.8rem] text-meta text-danger-ink whitespace-pre-wrap [overflow-wrap:anywhere]">{payment.rejectionReason}</p>
+              <h2 className="text-heading font-bold tracking-snug">
+                {payment.rejectionReason ? 'Why the claim was rejected' : 'What went wrong'}
+              </h2>
+              <div className="mt-[0.6rem] rounded-lg border border-danger-line bg-danger-soft p-[0.8rem_0.9rem] text-label text-danger-ink [overflow-wrap:anywhere]">
+                {failureMessage}
+              </div>
             </Card>
           ) : null}
 
           <Card className="p-[1.1rem]">
             <h2 className="text-heading font-bold tracking-snug">Timeline</h2>
-            <ActivityTimeline className="mt-4" entries={timeline} emptyLabel="No activity recorded." />
+            <ActivityTimeline className="mt-[0.9rem]" entries={timeline} emptyLabel="No activity recorded." />
           </Card>
         </div>
 
-        <div className="flex flex-col gap-4">
+
+        <div className="flex flex-col gap-[1rem]">
           <Card className="p-[1.1rem]">
             <h2 className="text-heading font-bold tracking-snug">Details</h2>
             <DescriptionList className="mt-3">
@@ -207,34 +248,48 @@ export function PaymentDetailPage({ paymentId }: { paymentId: string }) {
                       payment.parsedTransactionCode ? (
                         <span className="inline-flex items-center gap-1">
                           <span className="font-mono">{payment.parsedTransactionCode}</span>
-                          <CopyButton value={payment.parsedTransactionCode} />
+                          <CopyButton value={payment.parsedTransactionCode} label="Copy M-Pesa code" />
                         </span>
                       ) : (
                         <span className="text-subtle">Not received</span>
                       )
                     }
                   />
-                  <DescriptionRow label="Sent from" value={payment.phoneNumber ? displayPhone(payment.phoneNumber) : '\u2014'} />
+                  <DescriptionRow label="Sent from" value={payment.phoneNumber ? displayPhone(payment.phoneNumber) : '—'} />
                 </>
               ) : null}
               <DescriptionRow label="Reference" value={<span className="font-mono">{payment.reference}</span>} />
               <DescriptionRow label="Type" value={paymentTypeLabel(payment.type)} />
               <DescriptionRow label="Status" value={statusDisplay.label} />
               <DescriptionRow label="Created" value={financeDateTime(payment.createdAt)} />
-              <DescriptionRow label="Completed" value={payment.completedAt ? financeDateTime(payment.completedAt) : '\u2014'} />
-              {payment.appointmentId ? <DescriptionRow label="Appointment" value={<span className="font-mono">{payment.appointmentId.slice(0, 8)}\u2026</span>} /> : null}
+              <DescriptionRow label="Completed" value={payment.completedAt ? financeDateTime(payment.completedAt) : '—'} />
+              {payment.appointmentId ? (
+                <DescriptionRow
+                  label="Appointment"
+                  value={<span className="font-mono">{payment.appointmentId.slice(0, 8)}…</span>}
+                />
+              ) : null}
             </DescriptionList>
           </Card>
 
           <Card className="p-[1.1rem]">
             <h2 className="text-heading font-bold tracking-snug">Cashbook</h2>
-            {statusDisplay.group === 'paid' ? (
+            {payment.ledgerReference ? (
               <>
-                <DescriptionList className="mt-3"><DescriptionRow label="Recorded" value="Yes \u00b7 verified income" /></DescriptionList>
-                <Button size="sm" className="mt-3" onClick={() => navigate({ to: '/dashboard/finances/cashbook' })}>Open cashbook</Button>
+                <DescriptionList className="mt-3">
+                  <DescriptionRow label="Entry" value={<span className="font-mono">{payment.ledgerReference}</span>} />
+                  <DescriptionRow label="Recorded by" value={payment.ledgerRecordedByName || '—'} />
+                </DescriptionList>
+                <Button size="sm" className="mt-3" onClick={() => navigate({ to: '/dashboard/finances/cashbook' })}>
+                  Open cashbook
+                </Button>
               </>
             ) : (
-              <p className="mt-2 text-meta text-muted">{awaiting ? 'Not in your cashbook yet. Verifying adds it as income.' : 'No cashbook entry for this payment.'}</p>
+              <p className="mt-2 text-meta text-muted">
+                {awaiting
+                  ? 'Not in your cashbook yet. Verifying adds it as verified income.'
+                  : 'No cashbook entry for this payment — only settled money becomes income.'}
+              </p>
             )}
           </Card>
         </div>
@@ -251,8 +306,16 @@ export function PaymentDetailPage({ paymentId }: { paymentId: string }) {
         onReject={handleReject}
         rejectionReason={rejectionReason}
         onRejectionReasonChange={setRejectionReason}
-        claim={{ id: payment.id, customerName: payment.customerName, amount: payment.amount, reference: payment.reference, parsedTransactionCode: payment.parsedTransactionCode }}
+        claim={{
+          id: payment.id,
+          customerName: payment.customerName,
+          amount: payment.amount,
+          reference: payment.reference,
+          parsedTransactionCode: payment.parsedTransactionCode,
+          submittedMessage: payment.submittedMessage,
+        }}
       />
     </div>
   )
 }
+
