@@ -1,0 +1,32 @@
+# Docker context ignore — Punched UI (React + Vite)
+
+node_modules/
+dist/
+.tanstack/
+coverage/
+TestResults/
+
+# Local env files: VITE_* are build args now (docker-compose.yml), and a stray
+# .env must never silently override them inside the image.
+.env
+.env.*
+!.env.example
+
+# Dev/CI noise that must not enter the build context.
+# NOTE: src/test/ and e2e-visual/ are intentionally NOT excluded — `npm run build`
+# runs `tsc -b`, and tsconfig.app.json typechecks both directories, so omitting
+# them would fail the type check inside the image rather than skip a build step.
+# (node_modules/ is excluded: npm ci installs a fresh, lockfile-exact tree.)
+docs/
+html-designs/
+vite-dev.log
+*.log
+
+
+# VCS / IDE
+.git/
+.gitignore
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

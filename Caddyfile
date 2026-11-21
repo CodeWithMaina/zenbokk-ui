@@ -1,0 +1,55 @@
+# ═════════════════════════════════════════════════════════════════════════════
+#  Punched UI container — static SPA server (no public port; Caddy fronts it)
+#
+#  Responsibilities are deliberately narrow:
+#    • serve the Vite production build from /srv
+#    • hash-busted assets under /assets/* → 1 year, immutable
+#    • index.html and every SPA deep link → always revalidated (no stale shell)
+#    • SPA fallback so a refresh on /dashboard/appointments returns the shell
+#      instead of a 404, while a missing hashed asset still 404s
+#    • compress on the fly (Cloudflare re-compresses with Brotli at the edge)
+#
+#  No application logic, no secrets, no filesystem writes: the container runs
+#  with a read-only root filesystem.
+# ═════════════════════════════════════════════════════════════════════════════
+{
+	# No admin API: this container only serves files, so there is nothing to
+	# administer and nothing to expose.
+	admin off
+	auto_https off
+	persist_config off
+}
+
+:8080 {
+	root * /srv
+	encode zstd gzip
+
+	header {
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Referrer-Policy strict-origin-when-cross-origin
+		-Server
+	}
+
+	# Container health probe (used by compose and by Caddy's upstream checks).
+	handle /healthz {
+		respond "ok" 200
+	}
+
+	# Fingerprinted bundles: safe to cache for a year, never revalidate.
+	# try_files with no fallback 404s on a miss instead of returning the HTML
+	# shell for a JavaScript URL — a stale bundle reference must fail loudly.
+	handle /assets/* {
+		header Cache-Control "public, max-age=31536000, immutable"
+		try_files {path}
+		file_server
+	}
+
+	# SPA entry point and every deep link. The shell is never cached: otherwise
+	# a deployment keeps serving an index.html that references deleted bundles.
+	handle {
+		header Cache-Control "no-cache, must-revalidate"
+		try_files {path} /index.html
+		file_server
+	}
+}
